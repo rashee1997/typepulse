@@ -194,6 +194,36 @@ export default function Home() {
     }
   };
 
+  // Synchronization refs for test configuration to avoid race conditions and stale state
+  const contentCategoryRef = useRef(contentCategory);
+  const wordCountRef = useRef(wordCount);
+  const includePunctuationRef = useRef(includePunctuation);
+  const includeNumbersRef = useRef(includeNumbers);
+  const timeLimitRef = useRef(timeLimit);
+  const activeLessonRef = useRef<Lesson | null>(activeLesson);
+  const activeMissionRef = useRef<AIMission | null>(activeMission);
+  const gameModeRef = useRef<GameMode>(gameMode);
+
+  useEffect(() => {
+    contentCategoryRef.current = contentCategory;
+    wordCountRef.current = wordCount;
+    includePunctuationRef.current = includePunctuation;
+    includeNumbersRef.current = includeNumbers;
+    timeLimitRef.current = timeLimit;
+    activeLessonRef.current = activeLesson;
+    activeMissionRef.current = activeMission;
+    gameModeRef.current = gameMode;
+  }, [
+    contentCategory,
+    wordCount,
+    includePunctuation,
+    includeNumbers,
+    timeLimit,
+    activeLesson,
+    activeMission,
+    gameMode,
+  ]);
+
   // Generate or configure text based on selected mode
   const setupNewTest = useCallback(
     (
@@ -204,26 +234,30 @@ export default function Home() {
       missionObj?: AIMission,
       overrideCategory?: 'words' | 'quotes' | 'code'
     ) => {
-      const activeCat = overrideCategory || contentCategory;
+      const activeCat = overrideCategory || contentCategoryRef.current;
       let targetText = '';
 
       if (customText) {
         targetText = customText;
       } else if (lessonObj) {
         targetText = lessonObj.content;
-      } else if (mode === 'lesson' && activeLesson) {
+      } else if (mode === 'lesson' && (lessonObj || activeLessonRef.current)) {
         // PRESERVE exact lesson letters for re-practice! Never bleed random words into lessons
-        targetText = activeLesson.content;
+        targetText = (lessonObj || activeLessonRef.current)!.content;
       } else if (missionObj) {
         targetText = missionObj.content;
-      } else if (mode === 'ai-mission' && activeMission) {
-        targetText = activeMission.content;
+      } else if (mode === 'ai-mission' && (missionObj || activeMissionRef.current)) {
+        targetText = (missionObj || activeMissionRef.current)!.content;
       } else if (activeCat === 'quotes') {
         targetText = getRandomQuote();
       } else if (activeCat === 'code') {
         targetText = getRandomCodeSnippet();
       } else {
-        targetText = generateRandomWords(wordCount, includePunctuation, includeNumbers);
+        targetText = generateRandomWords(
+          wordCountRef.current,
+          includePunctuationRef.current,
+          includeNumbersRef.current
+        );
       }
 
       engineRef.current.reset(targetText);
@@ -239,8 +273,8 @@ export default function Home() {
       } else if (customTimeLimit !== undefined) {
         setTimeLimit(customTimeLimit);
         setTimeRemaining(customTimeLimit);
-      } else if (timeLimit !== null) {
-        setTimeRemaining(timeLimit);
+      } else if (timeLimitRef.current !== null) {
+        setTimeRemaining(timeLimitRef.current);
       } else {
         setTimeRemaining(null);
       }
@@ -250,19 +284,34 @@ export default function Home() {
         inputRef.current?.focus();
       }, 50);
     },
-    [contentCategory, wordCount, includePunctuation, includeNumbers, timeLimit, activeLesson, activeMission]
+    []
   );
+
+  // Switch back to standard practice mode safely clearing any active lesson/mission
+  const switchToPractice = useCallback(() => {
+    activeLessonRef.current = null;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'practice';
+    setActiveLesson(null);
+    setActiveMission(null);
+    setGameMode('practice');
+    setModeTitle('Free Practice');
+    setCurrentView('typing');
+    setupNewTest('practice');
+  }, [setupNewTest]);
 
   // Reset the active session with the exact same content (e.g. same lesson letters for re-practice)
   const handleResetCurrent = useCallback(() => {
-    if (gameMode === 'lesson' && activeLesson) {
-      setupNewTest('lesson', activeLesson.content, null, activeLesson);
-    } else if (gameMode === 'ai-mission' && activeMission) {
-      setupNewTest('ai-mission', activeMission.content, activeMission.durationSeconds || null, undefined, activeMission);
+    const currentLesson = activeLessonRef.current;
+    const currentMission = activeMissionRef.current;
+    if (gameModeRef.current === 'lesson' && currentLesson) {
+      setupNewTest('lesson', currentLesson.content, null, currentLesson);
+    } else if (gameModeRef.current === 'ai-mission' && currentMission) {
+      setupNewTest('ai-mission', currentMission.content, currentMission.durationSeconds || null, undefined, currentMission);
     } else {
       setupNewTest('practice');
     }
-  }, [gameMode, activeLesson, activeMission, setupNewTest]);
+  }, [setupNewTest]);
 
   // Complete session & calculate progress
   const finalizeSession = useCallback(() => {
@@ -293,9 +342,13 @@ export default function Home() {
     setIsResultsOpen(true);
   }, [userProgress, gameMode, modeTitle, activeLesson?.id]);
 
-  // Initial test setup on mount
+  // Initial test setup on mount only - runs strictly once to prevent race condition overwriting lessons
+  const hasInitializedRef = useRef(false);
   useEffect(() => {
-    setupNewTest('practice');
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      setupNewTest('practice');
+    }
   }, [setupNewTest]);
 
   // Update sound config when preferences change
@@ -425,6 +478,9 @@ export default function Home() {
 
   // Launch a Lesson
   const handleSelectLesson = (lesson: Lesson) => {
+    activeLessonRef.current = lesson;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'lesson';
     setActiveLesson(lesson);
     setActiveMission(null);
     setGameMode('lesson');
@@ -435,6 +491,9 @@ export default function Home() {
 
   // Launch an AI Mission
   const handleLaunchMission = (mission: AIMission) => {
+    activeMissionRef.current = mission;
+    activeLessonRef.current = null;
+    gameModeRef.current = 'ai-mission';
     setActiveMission(mission);
     setActiveLesson(null);
     setGameMode('ai-mission');
@@ -446,6 +505,9 @@ export default function Home() {
   // Train specific weak keys
   const handleTrainWeakKeys = (keys: string[]) => {
     const drillText = generateWeakKeyDrill(keys, 25);
+    activeLessonRef.current = null;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'accuracy-challenge';
     setActiveLesson(null);
     setActiveMission(null);
     setGameMode('accuracy-challenge');
@@ -484,12 +546,7 @@ export default function Home() {
         <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3 min-w-0">
           {/* Brand & Logo */}
           <button
-            onClick={() => {
-              setCurrentView('typing');
-              setGameMode('practice');
-              setModeTitle('Free Practice');
-              setupNewTest('practice');
-            }}
+            onClick={switchToPractice}
             className="flex items-center gap-1.5 sm:gap-2 hover:opacity-90 transition-opacity shrink-0"
             id="nav-logo"
           >
@@ -506,11 +563,8 @@ export default function Home() {
           <nav className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-border shrink min-w-0 overflow-x-auto scrollbar-none">
             <button
               onClick={() => {
-                setCurrentView('typing');
-                if (gameMode !== 'practice') {
-                  setGameMode('practice');
-                  setModeTitle('Free Practice');
-                  setupNewTest('practice');
+                if (currentView !== 'typing' || gameMode !== 'practice') {
+                  switchToPractice();
                 }
               }}
               title="Practice"
@@ -663,12 +717,7 @@ export default function Home() {
             completedLessonIds={userProgress.completedLessonIds}
             lessonStars={userProgress.lessonStars}
             onSelectLesson={handleSelectLesson}
-            onBackToPractice={() => {
-              setCurrentView('typing');
-              setGameMode('practice');
-              setModeTitle('Free Practice');
-              setupNewTest('practice');
-            }}
+            onBackToPractice={switchToPractice}
           />
         )}
 
@@ -677,10 +726,7 @@ export default function Home() {
             userProgress={userProgress}
             aiSettings={aiSettings}
             onLaunchMission={handleLaunchMission}
-            onBackToPractice={() => {
-              setCurrentView('typing');
-              setupNewTest('practice');
-            }}
+            onBackToPractice={switchToPractice}
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
@@ -690,10 +736,7 @@ export default function Home() {
             userProgress={userProgress}
             aiSettings={aiSettings}
             onUpdateXp={handleUpdateArcadeXp}
-            onBackToPractice={() => {
-              setCurrentView('typing');
-              setupNewTest('practice');
-            }}
+            onBackToPractice={switchToPractice}
           />
         )}
 
@@ -701,10 +744,7 @@ export default function Home() {
           <AnalyticsView
             userProgress={userProgress}
             onTrainWeakKeys={handleTrainWeakKeys}
-            onBackToPractice={() => {
-              setCurrentView('typing');
-              setupNewTest('practice');
-            }}
+            onBackToPractice={switchToPractice}
           />
         )}
 
@@ -954,12 +994,7 @@ export default function Home() {
                     <span>Curriculum</span>
                   </button>
                   <button
-                    onClick={() => {
-                      setGameMode('practice');
-                      setModeTitle('Free Practice');
-                      setActiveLesson(null);
-                      setupNewTest('practice');
-                    }}
+                    onClick={switchToPractice}
                     className="px-2.5 py-1.5 text-text-muted hover:text-text-primary text-xs rounded-xl transition-colors cursor-pointer"
                     title="Exit to Free Practice"
                   >
@@ -992,12 +1027,7 @@ export default function Home() {
                     <span>Reset</span>
                   </button>
                   <button
-                    onClick={() => {
-                      setGameMode('practice');
-                      setModeTitle('Free Practice');
-                      setActiveMission(null);
-                      setupNewTest('practice');
-                    }}
+                    onClick={switchToPractice}
                     className="px-3 py-1 bg-surface-muted hover:bg-surface-hover text-text-secondary text-xs rounded-xl border border-border transition-colors cursor-pointer"
                   >
                     Exit Mode

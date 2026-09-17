@@ -58,13 +58,13 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
     const iconClass = `w-6 h-6 ${
       isUnlocked
         ? category === 'streak'
-          ? 'text-amber-400'
+          ? 'text-accent'
           : category === 'accuracy'
-          ? 'text-emerald-400'
+          ? 'text-success'
           : category === 'speed'
-          ? 'text-amber-300'
-          : 'text-indigo-400'
-        : 'text-slate-500'
+          ? 'text-accent'
+          : 'text-primary'
+        : 'text-text-subtle'
     }`;
 
     switch (iconName) {
@@ -144,44 +144,44 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
   return (
     <div className="w-full space-y-6" id="achievements-gallery-component">
       {/* Overview Stat Strip */}
-      <div className="p-5 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="p-5 bg-surface border border-border rounded-2xl shadow-card flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-500/10">
+          <div className="w-14 h-14 rounded-2xl bg-accent-subtle border border-accent-border flex items-center justify-center text-accent shadow-glow-accent-sm">
             <Trophy className="w-7 h-7" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-slate-100">Milestones & Medals</h3>
-              <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono text-xs font-bold border border-amber-400/30">
+              <h3 className="text-lg font-bold text-text-primary">Milestones & Medals</h3>
+              <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent font-mono text-xs font-bold border border-accent-border">
                 {percentComplete}% Complete
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-text-muted mt-0.5">
               Unlock badges for consecutive daily streaks, precision accuracy runs, and lightning-fast words per minute.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-6 divide-x divide-slate-800 self-stretch md:self-auto justify-around md:justify-end">
+        <div className="flex items-center gap-6 divide-x divide-border self-stretch md:self-auto justify-around md:justify-end">
           <div className="px-3 text-center">
-            <div className="text-2xl font-bold font-mono text-amber-400">{unlockedCount}/{totalAchievements}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Badges Earned</div>
+            <div className="text-2xl font-bold font-mono text-accent">{unlockedCount}/{totalAchievements}</div>
+            <div className="text-[11px] text-text-subtle font-medium">Badges Earned</div>
           </div>
           <div className="pl-6 text-center">
-            <div className="text-2xl font-bold font-mono text-indigo-400">+{totalXpClaimed}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Bonus XP Claimed</div>
+            <div className="text-2xl font-bold font-mono text-primary">+{totalXpClaimed}</div>
+            <div className="text-[11px] text-text-subtle font-medium">Bonus XP Claimed</div>
           </div>
         </div>
       </div>
 
       {/* Category Filter Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-800/80">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border">
         <button
           onClick={() => setActiveCategory('all')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
             activeCategory === 'all'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              ? 'bg-accent text-accent-foreground shadow-glow-accent-sm'
+              : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
           All Milestones ({INITIAL_ACHIEVEMENTS.length})
@@ -191,11 +191,11 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
           onClick={() => setActiveCategory('streak')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
             activeCategory === 'streak'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              ? 'bg-accent text-accent-foreground shadow-glow-accent-sm'
+              : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
-          <Flame className="w-3.5 h-3.5 text-amber-400" />
+          <Flame className="w-3.5 h-3.5 text-accent" />
           <span>Streak Goals ({INITIAL_ACHIEVEMENTS.filter((a) => a.category === 'streak').length})</span>
         </button>
 
@@ -203,11 +203,11 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
           onClick={() => setActiveCategory('accuracy')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
             activeCategory === 'accuracy'
-              ? 'bg-emerald-500 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              ? 'bg-success text-success-foreground shadow-sm'
+              : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
-          <Target className="w-3.5 h-3.5 text-emerald-400" />
+          <Target className="w-3.5 h-3.5 text-success" />
           <span>Accuracy Badges ({INITIAL_ACHIEVEMENTS.filter((a) => a.category === 'accuracy').length})</span>
         </button>
 
@@ -215,11 +215,11 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
           onClick={() => setActiveCategory('speed')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
             activeCategory === 'speed'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              ? 'bg-accent text-accent-foreground shadow-glow-accent-sm'
+              : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
-          <Zap className="w-3.5 h-3.5 text-amber-400" />
+          <Zap className="w-3.5 h-3.5 text-accent" />
           <span>Velocity Barriers ({INITIAL_ACHIEVEMENTS.filter((a) => a.category === 'speed').length})</span>
         </button>
 
@@ -227,11 +227,11 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
           onClick={() => setActiveCategory('combo')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
             activeCategory === 'combo'
-              ? 'bg-indigo-500 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
-          <Activity className="w-3.5 h-3.5 text-indigo-400" />
+          <Activity className="w-3.5 h-3.5 text-primary" />
           <span>Combos ({INITIAL_ACHIEVEMENTS.filter((a) => a.category === 'combo').length})</span>
         </button>
       </div>
@@ -249,11 +249,11 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
               className={`p-4 rounded-2xl border transition-all duration-150 relative overflow-hidden flex flex-col justify-between gap-3 ${
                 isUnlocked
                   ? ach.category === 'streak'
-                    ? 'bg-gradient-to-br from-slate-900 via-amber-950/20 to-slate-900 border-amber-500/40 shadow-lg shadow-amber-500/5'
+                    ? 'bg-surface border-accent-border shadow-card'
                     : ach.category === 'accuracy'
-                    ? 'bg-gradient-to-br from-slate-900 via-emerald-950/20 to-slate-900 border-emerald-500/40 shadow-lg shadow-emerald-500/5'
-                    : 'bg-gradient-to-br from-slate-900 via-indigo-950/20 to-slate-900 border-indigo-500/40 shadow-lg shadow-indigo-500/5'
-                  : 'bg-slate-900/40 border-slate-800/80 opacity-75 hover:opacity-100 hover:border-slate-700'
+                    ? 'bg-surface border-success-border shadow-card'
+                    : 'bg-surface border-primary-border shadow-card'
+                  : 'bg-surface-muted/40 border-border opacity-75 hover:opacity-100 hover:border-border-hover'
               }`}
             >
               {/* Top Header: Badge Medallion & Status */}
@@ -263,11 +263,11 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105 shadow-inner ${
                     isUnlocked
                       ? ach.category === 'streak'
-                        ? 'bg-amber-500/20 border-amber-500/50 shadow-amber-500/20'
+                        ? 'bg-accent-subtle border-accent-border text-accent'
                         : ach.category === 'accuracy'
-                        ? 'bg-emerald-500/20 border-emerald-500/50 shadow-emerald-500/20'
-                        : 'bg-indigo-500/20 border-indigo-500/50 shadow-indigo-500/20'
-                      : 'bg-slate-950 border-slate-800 text-slate-600'
+                        ? 'bg-success-subtle border-success-border text-success'
+                        : 'bg-primary-subtle border-primary-border text-primary'
+                      : 'bg-surface-muted border-border text-text-subtle'
                   }`}
                 >
                   {renderAchievementIcon(ach.icon, isUnlocked, ach.category)}
@@ -276,39 +276,39 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
                 {/* Title & Description */}
                 <div className="space-y-1 flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-bold text-slate-100 text-sm truncate">{ach.name}</h4>
+                    <h4 className="font-bold text-text-primary text-sm truncate">{ach.name}</h4>
                     {isUnlocked ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full shrink-0">
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-success bg-success-subtle border border-success-border px-2 py-0.5 rounded-full shrink-0">
                         <CheckCircle2 className="w-3 h-3" />
                         <span>UNLOCKED</span>
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-[10px] font-medium text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-full shrink-0">
+                      <span className="flex items-center gap-1 text-[10px] font-medium text-text-subtle bg-surface-muted px-2 py-0.5 rounded-full shrink-0 border border-border">
                         <Lock className="w-2.5 h-2.5" />
                         <span>LOCKED</span>
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{ach.description}</p>
+                  <p className="text-xs text-text-muted line-clamp-2 leading-relaxed">{ach.description}</p>
                 </div>
               </div>
 
               {/* Bottom Progress Bar & XP Reward */}
-              <div className="pt-2 border-t border-slate-800/60 space-y-1.5">
+              <div className="pt-2 border-t border-border space-y-1.5">
                 {!isUnlocked && (
                   <div>
-                    <div className="flex justify-between text-[11px] text-slate-400 font-mono mb-1">
+                    <div className="flex justify-between text-[11px] text-text-muted font-mono mb-1">
                       <span>Progress:</span>
-                      <span className="text-slate-300 font-semibold">{liveProg.label}</span>
+                      <span className="text-text-secondary font-semibold">{liveProg.label}</span>
                     </div>
-                    <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                    <div className="w-full bg-surface-muted h-1.5 rounded-full overflow-hidden border border-border">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${
                           ach.category === 'streak'
-                            ? 'bg-amber-500'
+                            ? 'bg-accent'
                             : ach.category === 'accuracy'
-                            ? 'bg-emerald-500'
-                            : 'bg-indigo-500'
+                            ? 'bg-success'
+                            : 'bg-primary'
                         }`}
                         style={{ width: `${progressPercent}%` }}
                       />
@@ -317,12 +317,12 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
                 )}
 
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-text-subtle uppercase tracking-wider">
                     {ach.category} milestone
                   </span>
                   <span
                     className={`font-mono font-bold text-xs ${
-                      isUnlocked ? 'text-amber-400' : 'text-slate-400'
+                      isUnlocked ? 'text-accent' : 'text-text-muted'
                     }`}
                   >
                     +{ach.xpReward} XP

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { AISettings, AppPreferences } from '@/types/typing';
 import { AI_PROVIDER_PRESETS, testAiConnection } from '@/lib/ai-service';
-import { Check, Eye, EyeOff, Loader2, RefreshCw, Server, Shield, Sparkles, Volume2, VolumeX, X, AlertCircle } from 'lucide-react';
+import { Check, Eye, EyeOff, Loader2, RefreshCw, Server, Shield, Sparkles, Volume2, VolumeX, X, AlertCircle, Sun, Moon, Monitor } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -75,6 +75,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     });
   };
 
+  const applyThemePreview = (theme: string) => {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.remove('dark');
+    } else if (theme === 'dark' || theme === 'dark-slate') {
+      root.classList.add('dark');
+    } else if (theme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    }
+  };
+
+  const handleCloseAndRevert = () => {
+    applyThemePreview(preferences.theme || 'dark');
+    onClose();
+  };
+
   const handleSaveAndClose = () => {
     onSaveAiSettings(formData);
     onSavePreferences(prefsData);
@@ -86,25 +107,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   ) || AI_PROVIDER_PRESETS.find((p) => p.id === 'custom');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn" id="settings-modal-backdrop">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn" id="settings-modal-backdrop">
       <div 
-        className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden flex flex-col max-h-[90vh]"
         id="settings-modal-dialog"
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/40">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-muted/50">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+            <div className="p-2 rounded-lg bg-accent-subtle border border-accent-border text-accent">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-100">Settings & AI Configuration</h2>
-              <p className="text-xs text-slate-400">Custom OpenAI-compatible endpoints & typing preferences</p>
+              <h2 className="text-lg font-semibold text-text-primary">Settings & AI Configuration</h2>
+              <p className="text-xs text-text-muted">Custom OpenAI-compatible endpoints & typing preferences</p>
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition-colors"
+            onClick={handleCloseAndRevert}
+            className="p-1.5 text-text-muted hover:text-text-primary rounded-lg hover:bg-surface-hover transition-colors"
             id="close-settings-button"
           >
             <X className="w-5 h-5" />
@@ -112,13 +133,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-800 bg-slate-950/20 px-6">
+        <div className="flex border-b border-border bg-surface-muted/30 px-6">
           <button
             onClick={() => setActiveTab('ai')}
             className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'ai'
-                ? 'border-amber-400 text-amber-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
             id="tab-ai-settings"
           >
@@ -129,8 +150,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveTab('preferences')}
             className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'preferences'
-                ? 'border-amber-400 text-amber-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
             id="tab-preferences"
           >
@@ -144,16 +165,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'ai' ? (
             <div className="space-y-5">
               {/* Security Banner */}
-              <div className="flex items-start gap-3 p-3.5 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-xs text-emerald-300">
-                <Shield className="w-4 h-4 mt-0.5 text-emerald-400 shrink-0" />
+              <div className="flex items-start gap-3 p-3.5 bg-success-subtle border border-success-border rounded-xl text-xs text-success">
+                <Shield className="w-4 h-4 mt-0.5 text-success shrink-0" />
                 <p>
-                  <strong className="font-semibold text-emerald-200">Zero-Leak Local Storage:</strong> Your API keys and endpoint settings are stored exclusively inside your browser&apos;s <code className="bg-emerald-900/40 px-1 py-0.5 rounded">localStorage</code>. They are never transmitted to any database or analytics server.
+                  <strong className="font-semibold text-text-primary">Zero-Leak Local Storage:</strong> Your API keys and endpoint settings are stored exclusively inside your browser&apos;s <code className="bg-surface px-1 py-0.5 rounded border border-border">localStorage</code>. They are never transmitted to any database or analytics server.
                 </p>
               </div>
 
               {/* Provider Presets */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
                   Provider Preset
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -170,13 +191,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => handleProviderSelect(preset.id)}
                         className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
                           isSelected
-                            ? 'bg-amber-500/15 border-amber-500/60 text-amber-300 shadow-sm'
-                            : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+                            ? 'bg-accent-subtle border-accent text-accent shadow-sm'
+                            : 'bg-surface-hover/50 border-border text-text-secondary hover:bg-surface-active hover:text-text-primary'
                         }`}
                         id={`preset-btn-${preset.id}`}
                       >
                         <div className="font-semibold truncate">{preset.name}</div>
-                        <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                        <div className="text-[10px] text-text-muted truncate mt-0.5">
                           {preset.id === 'gemini' ? 'Server-managed' : preset.defaultModel || 'Custom URL'}
                         </div>
                       </button>
@@ -188,7 +209,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Endpoint URL */}
               {formData.provider !== 'gemini' && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5" htmlFor="ai-endpoint-input">
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5" htmlFor="ai-endpoint-input">
                     API Base URL (OpenAI-Compatible)
                   </label>
                   <input
@@ -197,9 +218,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={formData.endpoint}
                     onChange={(e) => setFormData((prev) => ({ ...prev, endpoint: e.target.value }))}
                     placeholder="https://api.openai.com/v1 or http://localhost:11434/v1"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono text-xs"
+                    className="w-full px-3.5 py-2.5 bg-surface-muted border border-border rounded-xl text-text-primary placeholder:text-text-subtle focus:outline-none focus:border-accent font-mono text-xs"
                   />
-                  <p className="mt-1 text-[11px] text-slate-400">
+                  <p className="mt-1 text-[11px] text-text-muted">
                     Works with OpenAI, OpenRouter, Groq, DeepSeek, Local Ollama, LM Studio, vLLM, or any custom reverse proxy.
                   </p>
                 </div>
@@ -209,10 +230,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {formData.provider !== 'gemini' && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-medium text-slate-300" htmlFor="ai-api-key-input">
+                    <label className="text-xs font-medium text-text-secondary" htmlFor="ai-api-key-input">
                       API Key
                     </label>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-text-muted">
                       {formData.endpoint.includes('localhost') ? 'Optional for local Ollama / LM Studio' : 'Required'}
                     </span>
                   </div>
@@ -223,12 +244,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={formData.apiKey}
                       onChange={(e) => setFormData((prev) => ({ ...prev, apiKey: e.target.value }))}
                       placeholder="sk-..."
-                      className="w-full pl-3.5 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono text-xs"
+                      className="w-full pl-3.5 pr-10 py-2.5 bg-surface-muted border border-border rounded-xl text-text-primary placeholder:text-text-subtle focus:outline-none focus:border-accent font-mono text-xs"
                     />
                     <button
                       type="button"
                       onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
                     >
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -238,7 +259,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Model Selection */}
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5" htmlFor="ai-model-input">
+                <label className="block text-xs font-medium text-text-secondary mb-1.5" htmlFor="ai-model-input">
                   Model Name
                 </label>
                 <input
@@ -247,11 +268,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   value={formData.model}
                   onChange={(e) => setFormData((prev) => ({ ...prev, model: e.target.value }))}
                   placeholder="e.g. gpt-4o-mini, deepseek-chat, llama-3.3-70b-versatile"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono text-xs"
+                  className="w-full px-3.5 py-2.5 bg-surface-muted border border-border rounded-xl text-text-primary placeholder:text-text-subtle focus:outline-none focus:border-accent font-mono text-xs"
                 />
                 {currentPreset?.models && currentPreset.models.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    <span className="text-[11px] text-slate-400 mr-1 self-center">Presets:</span>
+                    <span className="text-[11px] text-text-muted mr-1 self-center">Presets:</span>
                     {currentPreset.models.map((mod) => (
                       <button
                         key={mod}
@@ -259,8 +280,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setFormData((prev) => ({ ...prev, model: mod }))}
                         className={`text-[11px] font-mono px-2 py-0.5 rounded border transition-colors ${
                           formData.model === mod
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                            ? 'bg-accent-subtle text-accent border-accent'
+                            : 'bg-surface-hover text-text-muted border-border hover:text-text-primary'
                         }`}
                       >
                         {mod}
@@ -272,12 +293,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Server Proxy Toggle */}
               {formData.provider !== 'gemini' && (
-                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
+                <div className="p-3.5 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
                   <div className="pr-4">
-                    <div className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                    <div className="text-xs font-medium text-text-primary flex items-center gap-1.5">
                       <span>Use Server Proxy for Requests</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-text-muted mt-0.5">
                       Bypasses browser CORS errors when connecting to third-party endpoints or APIs that reject direct browser calls.
                     </p>
                   </div>
@@ -289,25 +310,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="sr-only peer"
                       id="server-proxy-toggle"
                     />
-                    <div className="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                   </label>
                 </div>
               )}
 
               {/* Connection Test Section */}
-              <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+              <div className="p-3.5 bg-surface-muted border border-border rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-300">Endpoint Verification</span>
+                  <span className="text-xs font-semibold text-text-secondary">Endpoint Verification</span>
                   <button
                     type="button"
                     onClick={handleTestConnection}
                     disabled={testState.loading}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition-colors"
+                    className="px-3 py-1.5 bg-surface-hover hover:bg-surface-active disabled:opacity-50 text-text-primary rounded-lg text-xs font-medium border border-border flex items-center gap-1.5 transition-colors"
                     id="test-connection-button"
                   >
                     {testState.loading ? (
                       <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
                         <span>Verifying...</span>
                       </>
                     ) : (
@@ -323,14 +344,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div
                     className={`text-xs p-2.5 rounded-lg flex items-start gap-2 border ${
                       testState.success
-                        ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
-                        : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+                        ? 'bg-success-subtle border-success-border text-success'
+                        : 'bg-danger-subtle border-danger-border text-danger'
                     }`}
                   >
                     {testState.success ? (
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
                     )}
                     <div>
                       <p>{testState.message}</p>
@@ -347,11 +368,95 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           ) : (
             /* Preferences Tab */
             <div className="space-y-5">
+              {/* Theme & Appearance */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3" id="settings-theme-section">
+                <div>
+                  <span className="font-medium text-text-primary flex items-center gap-2">
+                    <Sun className="w-4 h-4 text-accent" />
+                    <span>Theme & Appearance</span>
+                  </span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Select your visual theme. Choose between high-contrast Light Mode, deep Obsidian Dark Mode, or sync with System preferences.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPrefs = { ...prefsData, theme: 'light' as const };
+                      setPrefsData(nextPrefs);
+                      applyThemePreview('light');
+                    }}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-center transition-all cursor-pointer ${
+                      prefsData.theme === 'light'
+                        ? 'bg-accent-subtle border-accent text-accent shadow-sm ring-1 ring-accent'
+                        : 'bg-surface hover:bg-surface-hover border-border text-text-secondary hover:text-text-primary'
+                    }`}
+                    id="theme-select-light"
+                  >
+                    <div className={`p-2 rounded-lg ${prefsData.theme === 'light' ? 'bg-accent text-accent-foreground' : 'bg-surface-muted text-text-muted'}`}>
+                      <Sun className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold leading-tight">Light Mode</div>
+                      <div className="text-[10px] text-text-muted mt-0.5">Crisp daytime</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPrefs = { ...prefsData, theme: 'dark' as const };
+                      setPrefsData(nextPrefs);
+                      applyThemePreview('dark');
+                    }}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-center transition-all cursor-pointer ${
+                      prefsData.theme === 'dark' || prefsData.theme === 'dark-slate' || !prefsData.theme
+                        ? 'bg-accent-subtle border-accent text-accent shadow-sm ring-1 ring-accent'
+                        : 'bg-surface hover:bg-surface-hover border-border text-text-secondary hover:text-text-primary'
+                    }`}
+                    id="theme-select-dark"
+                  >
+                    <div className={`p-2 rounded-lg ${prefsData.theme === 'dark' || prefsData.theme === 'dark-slate' || !prefsData.theme ? 'bg-accent text-accent-foreground' : 'bg-surface-muted text-text-muted'}`}>
+                      <Moon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold leading-tight">Dark Mode</div>
+                      <div className="text-[10px] text-text-muted mt-0.5">Obsidian night</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPrefs = { ...prefsData, theme: 'system' as const };
+                      setPrefsData(nextPrefs);
+                      applyThemePreview('system');
+                    }}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-center transition-all cursor-pointer ${
+                      prefsData.theme === 'system'
+                        ? 'bg-accent-subtle border-accent text-accent shadow-sm ring-1 ring-accent'
+                        : 'bg-surface hover:bg-surface-hover border-border text-text-secondary hover:text-text-primary'
+                    }`}
+                    id="theme-select-system"
+                  >
+                    <div className={`p-2 rounded-lg ${prefsData.theme === 'system' ? 'bg-accent text-accent-foreground' : 'bg-surface-muted text-text-muted'}`}>
+                      <Monitor className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold leading-tight">System</div>
+                      <div className="text-[10px] text-text-muted mt-0.5">Auto sync OS</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Sound Settings */}
-              <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3">
+              <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-200 font-medium">
-                    {prefsData.soundEnabled ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+                  <div className="flex items-center gap-2 text-text-primary font-medium">
+                    {prefsData.soundEnabled ? <Volume2 className="w-4 h-4 text-accent" /> : <VolumeX className="w-4 h-4 text-text-muted" />}
                     <span>Mechanical Switch Audio Feedback</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -362,13 +467,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="sr-only peer"
                       id="sound-enabled-toggle"
                     />
-                    <div className="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                   </label>
                 </div>
 
                 {prefsData.soundEnabled && (
                   <div className="space-y-1.5 pt-2">
-                    <div className="flex justify-between text-xs text-slate-400">
+                    <div className="flex justify-between text-xs text-text-muted">
                       <span>Volume</span>
                       <span>{Math.round(prefsData.soundVolume * 100)}%</span>
                     </div>
@@ -379,17 +484,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       step="0.05"
                       value={prefsData.soundVolume}
                       onChange={(e) => setPrefsData((prev) => ({ ...prev, soundVolume: parseFloat(e.target.value) }))}
-                      className="w-full accent-amber-400 cursor-pointer"
+                      className="w-full accent-accent cursor-pointer"
                     />
                   </div>
                 )}
               </div>
 
               {/* Keyboard Visualizer Toggle */}
-              <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-medium text-slate-200">Show Keyboard Guide</span>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <span className="font-medium text-text-primary">Show Keyboard Guide</span>
+                  <p className="text-xs text-text-muted mt-0.5">
                     Displays visual keyboard with interactive finger placement and target key highlights.
                   </p>
                 </div>
@@ -401,15 +506,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="sr-only peer"
                     id="keyboard-visible-toggle"
                   />
-                  <div className="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                 </label>
               </div>
 
               {/* Smooth Caret Toggle */}
-              <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-medium text-slate-200">Smooth Caret Motion</span>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <span className="font-medium text-text-primary">Smooth Caret Motion</span>
+                  <p className="text-xs text-text-muted mt-0.5">
                     Animates cursor gliding between letters with subtle motion transition.
                   </p>
                 </div>
@@ -421,15 +526,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="sr-only peer"
                     id="smooth-caret-toggle"
                   />
-                  <div className="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                 </label>
               </div>
 
               {/* Ghost Pacer Toggle */}
-              <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-medium text-slate-200">Real-Time Ghost PB Pacer</span>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <span className="font-medium text-text-primary">Real-Time Ghost PB Pacer</span>
+                  <p className="text-xs text-text-muted mt-0.5">
                     Displays an ethereal pacing caret moving at your personal best WPM to race against yourself in real time.
                   </p>
                 </div>
@@ -441,7 +546,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="sr-only peer"
                     id="ghost-pacer-toggle"
                   />
-                  <div className="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
             </div>
@@ -449,29 +554,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-border bg-surface-muted/50 flex items-center justify-between">
           <button
             type="button"
             onClick={() => {
               setFormData({ ...aiSettings });
               setPrefsData({ ...preferences });
+              applyThemePreview(preferences.theme || 'dark');
             }}
-            className="text-xs text-slate-400 hover:text-slate-200 font-medium"
+            className="text-xs text-text-muted hover:text-text-primary font-medium cursor-pointer"
           >
             Reset Changes
           </button>
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              onClick={handleCloseAndRevert}
+              className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary rounded-xl hover:bg-surface-hover transition-colors border border-border cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSaveAndClose}
-              className="px-5 py-2 text-xs font-semibold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-colors shadow-lg shadow-amber-500/20"
+              className="px-5 py-2 text-xs font-semibold text-accent-foreground bg-accent hover:bg-accent-hover rounded-xl transition-colors shadow-glow-accent-sm"
               id="save-settings-button"
             >
               Save Settings

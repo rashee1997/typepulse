@@ -98,15 +98,15 @@ const KEYBOARD_ROWS: KeyDef[][] = [
 ];
 
 const FINGER_COLOR_MAP: Record<FingerType, { border: string; bg: string; text: string; label: string }> = {
-  'left-pinky': { border: 'border-rose-500/30', bg: 'bg-rose-500/10', text: 'text-rose-400', label: 'Left Pinky' },
-  'left-ring': { border: 'border-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', label: 'Left Ring' },
-  'left-middle': { border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Left Middle' },
-  'left-index': { border: 'border-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', label: 'Left Index' },
-  'thumb': { border: 'border-indigo-500/30', bg: 'bg-indigo-500/10', text: 'text-indigo-400', label: 'Thumb' },
-  'right-index': { border: 'border-blue-500/30', bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Right Index' },
-  'right-middle': { border: 'border-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', label: 'Right Middle' },
-  'right-ring': { border: 'border-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', label: 'Right Ring' },
-  'right-pinky': { border: 'border-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', label: 'Right Pinky' },
+  'left-pinky': { border: 'border-danger-border', bg: 'bg-danger-subtle', text: 'text-danger', label: 'Left Pinky' },
+  'left-ring': { border: 'border-warning-border', bg: 'bg-warning-subtle', text: 'text-warning', label: 'Left Ring' },
+  'left-middle': { border: 'border-success-border', bg: 'bg-success-subtle', text: 'text-success', label: 'Left Middle' },
+  'left-index': { border: 'border-info-border', bg: 'bg-info-subtle', text: 'text-info', label: 'Left Index' },
+  'thumb': { border: 'border-primary-border', bg: 'bg-primary-subtle', text: 'text-primary', label: 'Thumb' },
+  'right-index': { border: 'border-info-border', bg: 'bg-info-subtle', text: 'text-info', label: 'Right Index' },
+  'right-middle': { border: 'border-success-border', bg: 'bg-success-subtle', text: 'text-success', label: 'Right Middle' },
+  'right-ring': { border: 'border-warning-border', bg: 'bg-warning-subtle', text: 'text-warning', label: 'Right Ring' },
+  'right-pinky': { border: 'border-danger-border', bg: 'bg-danger-subtle', text: 'text-danger', label: 'Right Pinky' },
 };
 
 export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
@@ -163,12 +163,12 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
     <div className="w-full max-w-full overflow-hidden flex flex-col items-center select-none" id="keyboard-visualizer-container">
       {/* Eye-Level Live Finger Placement Cockpit */}
       {showFingerGuide && (
-        <div className="w-full mb-3 p-3 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between gap-3 shadow-md">
+        <div className="w-full mb-3 p-3 bg-surface border border-border rounded-2xl flex items-center justify-between gap-3 shadow-card">
           <div className="flex items-center gap-3 min-w-0">
             {/* Target key badge */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Target</span>
-              <div className="min-w-8 h-8 px-2 rounded-lg bg-amber-400 text-slate-950 font-mono font-extrabold text-base flex items-center justify-center shadow-[0_0_12px_rgba(251,191,36,0.4)]">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-text-subtle">Target</span>
+              <div className="min-w-8 h-8 px-2 rounded-lg bg-accent text-accent-foreground font-mono font-extrabold text-base flex items-center justify-center shadow-glow-accent-sm">
                 {targetChar === ' ' ? '␣ SPACE' : targetChar || '—'}
               </div>
             </div>
@@ -176,21 +176,21 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
             {/* Assigned Finger & Coaching */}
             <div className="min-w-0 flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-medium">Use Finger:</span>
+                <span className="text-xs text-text-muted font-medium">Use Finger:</span>
                 {targetInfo ? (
-                  <span className={cn('text-xs font-bold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700/80', targetInfo.color)}>
+                  <span className={cn('text-xs font-bold px-2 py-0.5 rounded-md bg-surface-muted border border-border', targetInfo.color)}>
                     {targetInfo.finger}
                   </span>
                 ) : (
-                  <span className="text-xs text-slate-400">Home Row Rest</span>
+                  <span className="text-xs text-text-muted">Home Row Rest</span>
                 )}
                 {targetInfo?.needsShift && (
-                  <span className="text-[11px] font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/30">
+                  <span className="text-[11px] font-bold text-danger bg-danger-subtle px-2 py-0.5 rounded border border-danger-border">
                     Hold {targetInfo.shiftHand}
                   </span>
                 )}
               </div>
-              <span className="text-[11px] text-slate-400 truncate mt-0.5">
+              <span className="text-[11px] text-text-muted truncate mt-0.5">
                 {getTechniqueHint()}
               </span>
             </div>
@@ -201,8 +201,8 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
             onClick={() => setInternalHeatmap((prev) => !prev)}
             className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-colors shrink-0 ${
               internalHeatmap
-                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+                ? 'bg-danger-subtle text-danger border border-danger-border'
+                : 'bg-surface-hover text-text-muted hover:text-text-primary border border-border'
             }`}
             title="Toggle error frequency heatmap"
           >
@@ -212,7 +212,7 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
       )}
 
       {/* Keyboard Bed */}
-      <div className="p-2 sm:p-2.5 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-sm w-full max-w-full overflow-x-auto scrollbar-none">
+      <div className="p-2 sm:p-2.5 bg-surface rounded-2xl border border-border shadow-card backdrop-blur-sm w-full max-w-full overflow-x-auto scrollbar-none">
         <div className="flex flex-col gap-1 min-w-[560px]">
           {KEYBOARD_ROWS.map((row, rIdx) => (
             <div key={rIdx} className="flex justify-center gap-1">
@@ -232,9 +232,9 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
                 const errorCount = keyStats[kDef.key]?.errors || 0;
                 let heatmapClass = '';
                 if (internalHeatmap && errorCount > 0) {
-                  if (errorCount >= 8) heatmapClass = 'bg-rose-600/30 border-rose-500';
-                  else if (errorCount >= 4) heatmapClass = 'bg-amber-600/25 border-amber-500';
-                  else heatmapClass = 'bg-yellow-600/15 border-yellow-500/50';
+                  if (errorCount >= 8) heatmapClass = 'bg-danger-subtle border-danger text-danger';
+                  else if (errorCount >= 4) heatmapClass = 'bg-warning-subtle border-warning text-warning';
+                  else heatmapClass = 'bg-accent-subtle border-accent-border text-accent';
                 }
 
                 const fingerStyle = FINGER_COLOR_MAP[kDef.finger] || FINGER_COLOR_MAP['thumb'];
@@ -246,23 +246,23 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
                     className={cn(
                       'relative h-9 rounded-lg border text-xs font-mono flex flex-col items-center justify-center transition-all duration-75',
                       kDef.width || 'w-8 sm:w-9',
-                      'bg-slate-800/80 border-slate-700/70 text-slate-300 shadow-sm',
+                      'bg-surface-muted border-border text-text-secondary shadow-sm',
                       fingerStyle.border,
                       // Target Key Glow
-                      isTarget && 'bg-amber-400/25 border-amber-400 text-amber-200 shadow-[0_0_14px_rgba(251,191,36,0.6)] scale-105 z-10 font-bold',
+                      isTarget && 'bg-accent-subtle border-accent text-accent shadow-glow-accent-sm scale-105 z-10 font-bold',
                       // Pressed Key Animation
-                      isActive && 'bg-emerald-500/35 border-emerald-400 text-emerald-200 scale-95',
+                      isActive && 'bg-success-subtle border-success text-success scale-95',
                       heatmapClass
                     )}
                   >
                     {/* Bumps on F and J home row anchor keys */}
                     {(kDef.key === 'f' || kDef.key === 'j') && (
-                      <span className="absolute bottom-1 w-2.5 h-0.5 bg-amber-400/80 rounded-full" />
+                      <span className="absolute bottom-1 w-2.5 h-0.5 bg-accent rounded-full" />
                     )}
 
                     {/* Shift char label if dual character */}
                     {kDef.shiftChar && (
-                      <span className="text-[9px] text-slate-500 leading-none">
+                      <span className="text-[9px] text-text-subtle leading-none">
                         {kDef.shiftChar}
                       </span>
                     )}
@@ -279,25 +279,25 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
       </div>
 
       {/* Subtle Finger Zone Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-[10px] text-slate-400 font-medium">
+      <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-[10px] text-text-muted font-medium">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-rose-500/60 border border-rose-400" />
+          <span className="w-2 h-2 rounded-full bg-danger-subtle border border-danger-border" />
           <span>Pinky</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-amber-500/60 border border-amber-400" />
+          <span className="w-2 h-2 rounded-full bg-warning-subtle border border-warning-border" />
           <span>Ring</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500/60 border border-emerald-400" />
+          <span className="w-2 h-2 rounded-full bg-success-subtle border border-success-border" />
           <span>Middle</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-cyan-500/60 border border-cyan-400" />
+          <span className="w-2 h-2 rounded-full bg-info-subtle border border-info-border" />
           <span>Index</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-indigo-500/60 border border-indigo-400" />
+          <span className="w-2 h-2 rounded-full bg-primary-subtle border border-primary-border" />
           <span>Thumbs (Space)</span>
         </div>
       </div>

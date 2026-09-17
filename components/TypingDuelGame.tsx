@@ -329,33 +329,33 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-5 animate-fadeIn" id="typing-duel-arena">
       {/* Top Bar Header & Opponent Selector */}
-      <div className="bg-slate-900/80 border border-slate-800 px-4 py-3 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+      <div className="bg-surface border border-border px-4 py-3 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-card">
         <div className="flex items-center gap-3">
           <button
             onClick={onExit}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-slate-100 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="p-2 rounded-xl bg-surface-hover hover:bg-surface-active text-text-secondary hover:text-text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors border border-border"
             id="duel-exit-btn"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Arcade Arena</span>
           </button>
-          <div className="h-5 w-px bg-slate-800" />
+          <div className="h-5 w-px bg-border" />
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-amber-400/20 text-amber-400 font-bold">⚔️</span>
+            <span className="p-1.5 rounded-lg bg-accent-subtle border border-accent-border text-accent font-bold">⚔️</span>
             <div>
-              <h2 className="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+              <h2 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
                 Typing Duel
-                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-mono font-bold">
+                <span className="px-1.5 py-0.2 rounded bg-accent-subtle text-accent border border-accent-border text-[9px] font-mono font-bold">
                   AI COMBAT
                 </span>
               </h2>
-              <p className="text-[11px] text-slate-400">Face AI rivals on dynamic passages with bonus XP rewards</p>
+              <p className="text-[11px] text-text-muted">Face AI rivals on dynamic passages with bonus XP rewards</p>
             </div>
           </div>
         </div>
 
         {/* Difficulty Tier Selector */}
-        <div className="flex items-center gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800 shrink-0">
+        <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-border shrink-0">
           {(['novice', 'adept', 'master', 'grandmaster'] as DuelDifficulty[]).map((diff) => {
             const opp = DUEL_OPPONENTS[diff];
             const active = difficulty === diff;
@@ -367,8 +367,8 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
                 onClick={() => handleSelectDifficulty(diff)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize transition-all flex items-center gap-1.5 ${
                   active
-                    ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 disabled:opacity-50'
+                    ? 'bg-accent text-accent-foreground font-bold shadow-sm'
+                    : 'text-text-muted hover:text-text-primary disabled:opacity-50'
                 }`}
               >
                 <span>{opp.avatar}</span>
@@ -381,24 +381,24 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
       </div>
 
       {/* Duel Combat HUD & Dual-Lane Progress Visualizer */}
-      <div className="relative w-full bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl overflow-hidden">
+      <div className="relative w-full bg-gradient-to-b from-surface via-surface-muted to-surface border border-border rounded-3xl p-5 sm:p-6 shadow-card overflow-hidden">
         {/* Duel Header Info */}
-        <div className="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-3">
+        <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-amber-400 flex items-center justify-center text-xl shadow-inner">
-              <Swords className="w-5 h-5 text-amber-400" />
+            <div className="w-10 h-10 rounded-2xl bg-accent-subtle border border-accent-border text-accent flex items-center justify-center text-xl shadow-inner">
+              <Swords className="w-5 h-5 text-accent" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-100 text-sm">{opponent.name}</span>
-                <span className="px-1.5 py-0.2 rounded bg-indigo-950 border border-indigo-800 text-[10px] text-indigo-300 font-mono">
+                <span className="font-bold text-text-primary text-sm">{opponent.name}</span>
+                <span className="px-1.5 py-0.2 rounded bg-primary-subtle border border-primary-border text-[10px] text-primary font-mono">
                   {opponent.title}
                 </span>
-                <span className="text-xs text-amber-400 font-mono font-bold">
+                <span className="text-xs text-accent font-mono font-bold">
                   Target: {opponent.targetWpm} WPM
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">{opponent.description}</p>
+              <p className="text-xs text-text-muted mt-0.5">{opponent.description}</p>
             </div>
           </div>
 
@@ -406,10 +406,10 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
             <button
               onClick={() => loadPassage(difficulty)}
               disabled={gameState === 'dueling' || gameState === 'countdown' || loadingPassage}
-              className="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-amber-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-40"
+              className="px-2.5 py-1.5 bg-surface-hover hover:bg-surface-active text-text-secondary hover:text-accent rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-40 border border-border"
               title="Generate new AI text for this difficulty"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingPassage ? 'animate-spin text-amber-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingPassage ? 'animate-spin text-accent' : ''}`} />
               <span className="hidden sm:inline">Refresh Text</span>
             </button>
           </div>
@@ -418,16 +418,16 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
         {/* Dual Race Tracks */}
         <div className="space-y-3.5">
           {/* Lane 1: Player Track */}
-          <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-amber-400 mb-1.5">
+          <div className="bg-surface border border-accent-border rounded-2xl p-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-accent mb-1.5">
               <div className="flex items-center gap-2">
                 <span className="font-bold">YOU (Contender)</span>
-                <span className="font-mono text-slate-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                <span className="font-mono text-text-primary bg-surface-muted px-2 py-0.5 rounded border border-border">
                   {playerWpm} WPM
                 </span>
                 {streak >= 10 && (
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono animate-pulse flex items-center gap-0.5">
-                    <Flame className="w-3 h-3 text-amber-400" /> {streak} Streak
+                  <span className="px-1.5 py-0.5 rounded bg-accent-subtle text-accent text-[10px] font-mono animate-pulse flex items-center gap-0.5">
+                    <Flame className="w-3 h-3 text-accent" /> {streak} Streak
                   </span>
                 )}
               </div>
@@ -435,17 +435,17 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
             </div>
 
             {/* Track Bar */}
-            <div className="relative h-9 bg-slate-950/90 rounded-xl border border-slate-800 flex items-center px-3 overflow-hidden">
+            <div className="relative h-9 bg-surface-muted rounded-xl border border-border flex items-center px-3 overflow-hidden">
               <div
-                className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-amber-500/30 via-amber-400/40 to-amber-400 transition-all duration-100 rounded-xl"
+                className="absolute left-0 top-0 bottom-0 bg-accent/40 transition-all duration-100 rounded-xl"
                 style={{ width: `${playerProgress}%` }}
               />
-              <div className="absolute right-0 top-0 bottom-0 w-6 bg-[repeating-linear-gradient(45deg,#000,#000_4px,#fff_4px,#fff_8px)] opacity-50 border-l border-amber-400" />
+              <div className="absolute right-0 top-0 bottom-0 w-6 bg-[repeating-linear-gradient(45deg,var(--surface-muted),var(--surface-muted)_4px,var(--surface-active)_4px,var(--surface-active)_8px)] opacity-60 border-l-2 border-accent" />
               <div
                 className="absolute top-1/2 -translate-y-1/2 transition-all duration-100 flex items-center gap-1 z-10"
                 style={{ left: `calc(${Math.min(95, playerProgress * 0.92)}% + 6px)` }}
               >
-                <div className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black text-[11px] rounded shadow-[0_0_12px_rgba(251,191,36,0.6)] flex items-center gap-1">
+                <div className="px-2 py-0.5 bg-accent text-accent-foreground font-black text-[11px] rounded shadow-glow-accent flex items-center gap-1">
                   <span>⚡</span>
                   <span className="font-mono">YOU</span>
                 </div>
@@ -454,13 +454,13 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
           </div>
 
           {/* Lane 2: AI Opponent Track */}
-          <div className="bg-slate-900/90 border border-indigo-500/30 rounded-2xl p-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-indigo-400 mb-1.5">
+          <div className="bg-surface border border-primary-border rounded-2xl p-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-primary mb-1.5">
               <div className="flex items-center gap-2">
                 <span className="font-bold">
                   {opponent.avatar} {opponent.name} ({opponent.title})
                 </span>
-                <span className="font-mono text-slate-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                <span className="font-mono text-text-primary bg-surface-muted px-2 py-0.5 rounded border border-border">
                   {opponent.targetWpm} WPM
                 </span>
               </div>
@@ -468,17 +468,17 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
             </div>
 
             {/* Track Bar */}
-            <div className="relative h-9 bg-slate-950/90 rounded-xl border border-slate-800 flex items-center px-3 overflow-hidden">
+            <div className="relative h-9 bg-surface-muted rounded-xl border border-border flex items-center px-3 overflow-hidden">
               <div
-                className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-600/30 via-indigo-500/40 to-indigo-500 transition-all duration-100 rounded-xl"
+                className="absolute left-0 top-0 bottom-0 bg-primary/40 transition-all duration-100 rounded-xl"
                 style={{ width: `${rivalProgress}%` }}
               />
-              <div className="absolute right-0 top-0 bottom-0 w-6 bg-[repeating-linear-gradient(45deg,#000,#000_4px,#fff_4px,#fff_8px)] opacity-50 border-l border-indigo-400" />
+              <div className="absolute right-0 top-0 bottom-0 w-6 bg-[repeating-linear-gradient(45deg,var(--surface-muted),var(--surface-muted)_4px,var(--surface-active)_4px,var(--surface-active)_8px)] opacity-60 border-l-2 border-primary" />
               <div
                 className="absolute top-1/2 -translate-y-1/2 transition-all duration-100 flex items-center gap-1 z-10"
                 style={{ left: `calc(${Math.min(95, rivalProgress * 0.92)}% + 6px)` }}
               >
-                <div className="px-2 py-0.5 bg-indigo-600 text-white font-black text-[11px] rounded shadow-[0_0_12px_rgba(99,102,241,0.5)] flex items-center gap-1">
+                <div className="px-2 py-0.5 bg-primary text-primary-foreground font-black text-[11px] rounded shadow-glow-primary flex items-center gap-1">
                   <span>{opponent.avatar}</span>
                   <span className="font-mono">AI</span>
                 </div>
@@ -490,35 +490,35 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
         {/* Lead Differential Indicator */}
         <div className="mt-3 flex items-center justify-between text-xs font-mono">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400">Pacing:</span>
+            <span className="text-text-muted">Pacing:</span>
             {charLead > 0 ? (
-              <span className="text-emerald-400 font-bold">+{charLead} chars Ahead</span>
+              <span className="text-success font-bold">+{charLead} chars Ahead</span>
             ) : charLead < 0 ? (
-              <span className="text-rose-400 font-bold">{charLead} chars Behind</span>
+              <span className="text-danger font-bold">{charLead} chars Behind</span>
             ) : (
-              <span className="text-slate-400">Dead Heat (Tied)</span>
+              <span className="text-text-muted">Dead Heat (Tied)</span>
             )}
           </div>
-          <div className="flex items-center gap-3 text-slate-400">
-            <span>Elapsed: <strong className="text-slate-200">{elapsedSeconds.toFixed(1)}s</strong></span>
-            <span>Max Reward: <strong className="text-emerald-400">+{opponent.baseXp + opponent.winBonusXp} XP</strong></span>
+          <div className="flex items-center gap-3 text-text-muted">
+            <span>Elapsed: <strong className="text-text-primary">{elapsedSeconds.toFixed(1)}s</strong></span>
+            <span>Max Reward: <strong className="text-success">+{opponent.baseXp + opponent.winBonusXp} XP</strong></span>
           </div>
         </div>
       </div>
 
       {/* Duel Arena: Ready / Countdown / Typing / Win-Loss Dashboard */}
       {gameState === 'ready' && (
-        <div className="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-4 shadow-xl">
-          <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/30 text-amber-400 flex items-center justify-center text-3xl shadow-inner">
+        <div className="w-full bg-surface border border-border rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-4 shadow-card">
+          <div className="w-16 h-16 rounded-2xl bg-accent-subtle border border-accent-border text-accent flex items-center justify-center text-3xl shadow-inner">
             ⚔️
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-100">
+            <h3 className="text-xl font-bold text-text-primary">
               Ready to Duel {opponent.name}?
             </h3>
-            <p className="text-xs text-slate-400 max-w-md mt-1.5 leading-relaxed">
-              Your opponent types at a calibrated <strong className="text-amber-400">{opponent.targetWpm} WPM</strong>. Complete the AI-crafted passage before {opponent.name} to claim the victory bonus and earn up to{' '}
-              <strong className="text-emerald-400">+{opponent.baseXp + opponent.winBonusXp} XP</strong>!
+            <p className="text-xs text-text-muted max-w-md mt-1.5 leading-relaxed">
+              Your opponent types at a calibrated <strong className="text-accent">{opponent.targetWpm} WPM</strong>. Complete the AI-crafted passage before {opponent.name} to claim the victory bonus and earn up to{' '}
+              <strong className="text-success">+{opponent.baseXp + opponent.winBonusXp} XP</strong>!
             </p>
           </div>
 
@@ -526,10 +526,10 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
             <button
               onClick={startDuelCountdown}
               disabled={loadingPassage || !passage}
-              className="px-6 py-3 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg hover:scale-105 flex items-center gap-2"
+              className="px-6 py-3 bg-accent hover:bg-accent-hover disabled:opacity-40 text-accent-foreground font-bold rounded-xl text-sm transition-all shadow-glow-accent-sm hover:scale-105 flex items-center gap-2"
               id="duel-start-btn"
             >
-              <Zap className="w-4 h-4 fill-slate-950" />
+              <Zap className="w-4 h-4 fill-accent-foreground" />
               <span>Enter Duel Ring</span>
             </button>
           </div>
@@ -537,11 +537,11 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
       )}
 
       {gameState === 'countdown' && (
-        <div className="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-2 shadow-xl">
-          <span className="text-xs uppercase tracking-widest text-slate-400 font-bold font-mono">
+        <div className="w-full bg-surface border border-border rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-2 shadow-card">
+          <span className="text-xs uppercase tracking-widest text-text-muted font-bold font-mono">
             Duel Commencing in
           </span>
-          <span className="text-6xl font-black font-mono text-amber-400 animate-pulse">
+          <span className="text-6xl font-black font-mono text-accent animate-pulse">
             {countdown > 0 ? countdown : 'FIGHT!'}
           </span>
         </div>
@@ -550,7 +550,7 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
       {gameState === 'dueling' && passage && (
         <div
           onClick={() => inputRef.current?.focus()}
-          className="relative w-full bg-slate-900/90 border-2 border-amber-400/40 rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-2xl cursor-text select-none"
+          className="relative w-full bg-surface border-2 border-accent-border rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-card cursor-text select-none"
         >
           {/* Hidden Capture Input */}
           <input
@@ -567,7 +567,7 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
           {/* Interactive Passage Text Renderer */}
           <div
             ref={textContainerRef}
-            className="font-mono text-base sm:text-lg leading-relaxed tracking-wide text-slate-400 break-words"
+            className="font-mono text-base sm:text-lg leading-relaxed tracking-wide text-text-muted break-words"
           >
             {passage.text.split('').map((char, idx) => {
               const hasTyped = idx < currentIndex;
@@ -575,11 +575,11 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
               const typedChar = inputChars[idx];
               const isCorrect = typedChar === char;
 
-              let charClass = 'text-slate-400';
+              let charClass = 'text-text-muted';
               if (hasTyped) {
-                charClass = isCorrect ? 'text-amber-300 font-semibold' : 'text-rose-400 bg-rose-950/60 rounded';
+                charClass = isCorrect ? 'text-accent font-semibold' : 'text-danger bg-danger-subtle rounded';
               } else if (isCurrent) {
-                charClass = 'text-slate-100 bg-amber-400/30 border-b-2 border-amber-400 animate-pulse';
+                charClass = 'text-text-primary bg-accent-subtle border-b-2 border-accent animate-pulse';
               }
 
               return (
@@ -590,11 +590,11 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
             })}
           </div>
 
-          <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-between text-xs text-text-subtle pt-2 border-t border-border">
             <span>
-              Characters: <strong className="text-slate-300">{currentIndex}</strong> / {passage.text.length}
+              Characters: <strong className="text-text-primary">{currentIndex}</strong> / {passage.text.length}
             </span>
-            <span className="text-amber-400 font-mono">
+            <span className="text-accent font-mono">
               Keep typing to outrun {opponent.name}!
             </span>
           </div>
@@ -603,13 +603,13 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
 
       {/* WIN / LOSS DASHBOARD SCREEN */}
       {gameState === 'finished' && finalDuelResult && (
-        <div className="w-full bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col items-center text-center gap-5 shadow-2xl animate-fadeIn" id="duel-results-screen">
+        <div className="w-full bg-surface border border-border rounded-3xl p-6 sm:p-8 flex flex-col items-center text-center gap-5 shadow-dialog animate-fadeIn" id="duel-results-screen">
           {/* Victory / Defeat Badge */}
           <div
             className={`w-20 h-20 rounded-3xl flex items-center justify-center text-4xl shadow-inner ${
               duelWinner === 'player'
-                ? 'bg-amber-400/20 border-2 border-amber-400/50 text-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.3)]'
-                : 'bg-rose-500/20 border-2 border-rose-500/50 text-rose-300 shadow-[0_0_30px_rgba(244,63,94,0.2)]'
+                ? 'bg-accent-subtle border-2 border-accent text-accent shadow-glow-accent'
+                : 'bg-danger-subtle border-2 border-danger-border text-danger shadow-glow-danger'
             }`}
           >
             {duelWinner === 'player' ? '🏆' : '💀'}
@@ -620,23 +620,23 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
               <span
                 className={`px-2.5 py-0.5 rounded-full font-mono text-xs font-extrabold tracking-wider uppercase ${
                   duelWinner === 'player'
-                    ? 'bg-amber-400 text-slate-950'
-                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'bg-danger-subtle text-danger border border-danger-border'
                 }`}
               >
                 {duelWinner === 'player' ? 'VICTORY' : 'DEFEAT'}
               </span>
-              <span className="text-xs text-slate-400 font-mono">
+              <span className="text-xs text-text-muted font-mono">
                 vs {opponent.name} ({opponent.targetWpm} WPM)
               </span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-100">
+            <h2 className="text-2xl sm:text-3xl font-black text-text-primary">
               {duelWinner === 'player'
                 ? `You Defeated ${opponent.name}!`
                 : `${opponent.name} Outpaced You!`}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md">
+            <p className="text-xs sm:text-sm text-text-muted mt-1 max-w-md">
               {duelWinner === 'player'
                 ? `Outstanding performance! You maintained ${finalDuelResult.stats.playerWpm} WPM and finished in ${finalDuelResult.stats.elapsedSeconds.toFixed(1)} seconds.`
                 : `A valiant effort! You clocked ${finalDuelResult.stats.playerWpm} WPM against ${opponent.name}'s ${opponent.targetWpm} WPM.`}
@@ -644,82 +644,82 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
           </div>
 
           {/* XP Gained Highlight Card */}
-          <div className="w-full max-w-lg bg-gradient-to-r from-amber-500/15 via-slate-900 to-amber-500/15 border border-amber-500/40 rounded-2xl p-4 sm:p-5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+          <div className="w-full max-w-lg bg-gradient-to-r from-accent-subtle via-surface-muted to-accent-subtle border border-accent-border rounded-2xl p-4 sm:p-5 shadow-card">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
               <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-400" />
-                <span className="text-xs uppercase tracking-wider font-mono font-bold text-slate-300">
+                <Trophy className="w-5 h-5 text-accent" />
+                <span className="text-xs uppercase tracking-wider font-mono font-bold text-text-primary">
                   Duel XP Reward
                 </span>
               </div>
-              <span className="text-2xl sm:text-3xl font-mono font-black text-amber-400 flex items-center gap-1">
+              <span className="text-2xl sm:text-3xl font-mono font-black text-accent flex items-center gap-1">
                 +{finalDuelResult.xpBreakdown.total} XP
               </span>
             </div>
 
             {/* XP Breakdown Grid */}
             <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-              <div className="p-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-[10px] text-slate-500 block">Base Match</span>
-                <span className="font-bold text-slate-200">+{finalDuelResult.xpBreakdown.base} XP</span>
+              <div className="p-2 bg-surface-muted rounded-xl border border-border">
+                <span className="text-[10px] text-text-subtle block">Base Match</span>
+                <span className="font-bold text-text-primary">+{finalDuelResult.xpBreakdown.base} XP</span>
               </div>
-              <div className="p-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-[10px] text-slate-500 block">
+              <div className="p-2 bg-surface-muted rounded-xl border border-border">
+                <span className="text-[10px] text-text-subtle block">
                   {duelWinner === 'player' ? 'Win Bonus' : 'Consolation'}
                 </span>
-                <span className={`font-bold ${duelWinner === 'player' ? 'text-amber-400' : 'text-slate-400'}`}>
+                <span className={`font-bold ${duelWinner === 'player' ? 'text-accent' : 'text-text-muted'}`}>
                   +{finalDuelResult.xpBreakdown.winBonus} XP
                 </span>
               </div>
-              <div className="p-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
-                <span className="text-[10px] text-slate-500 block">Accuracy (≥95%)</span>
-                <span className="font-bold text-emerald-400">+{finalDuelResult.xpBreakdown.accuracyBonus} XP</span>
+              <div className="p-2 bg-surface-muted rounded-xl border border-border">
+                <span className="text-[10px] text-text-subtle block">Accuracy (≥95%)</span>
+                <span className="font-bold text-success">+{finalDuelResult.xpBreakdown.accuracyBonus} XP</span>
               </div>
             </div>
           </div>
 
           {/* Match Telemetry Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-lg text-xs font-mono">
-            <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800">
-              <span className="text-[10px] text-slate-500 block">Your Speed</span>
-              <span className="text-base font-bold text-amber-400 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[10px] text-text-subtle block">Your Speed</span>
+              <span className="text-base font-bold text-accent mt-0.5 block">
                 {finalDuelResult.stats.playerWpm} WPM
               </span>
             </div>
-            <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800">
-              <span className="text-[10px] text-slate-500 block">Rival Speed</span>
-              <span className="text-base font-bold text-indigo-300 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[10px] text-text-subtle block">Rival Speed</span>
+              <span className="text-base font-bold text-primary mt-0.5 block">
                 {finalDuelResult.stats.rivalWpm} WPM
               </span>
             </div>
-            <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800">
-              <span className="text-[10px] text-slate-500 block">Accuracy</span>
-              <span className="text-base font-bold text-slate-200 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[10px] text-text-subtle block">Accuracy</span>
+              <span className="text-base font-bold text-text-primary mt-0.5 block">
                 {finalDuelResult.stats.accuracy}%
               </span>
             </div>
-            <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800">
-              <span className="text-[10px] text-slate-500 block">Time</span>
-              <span className="text-base font-bold text-slate-200 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[10px] text-text-subtle block">Time</span>
+              <span className="text-base font-bold text-text-primary mt-0.5 block">
                 {finalDuelResult.stats.elapsedSeconds.toFixed(1)}s
               </span>
             </div>
           </div>
 
           {/* Career Record Strip */}
-          <div className="flex items-center gap-4 text-xs font-mono text-slate-400 pt-2">
-            <span>Career Duels: <strong className="text-slate-200">{careerStats.duelsWon + careerStats.duelsLost}</strong></span>
+          <div className="flex items-center gap-4 text-xs font-mono text-text-muted pt-2">
+            <span>Career Duels: <strong className="text-text-primary">{careerStats.duelsWon + careerStats.duelsLost}</strong></span>
             <span>•</span>
-            <span>Record: <strong className="text-emerald-400">{careerStats.duelsWon}W</strong> - <strong className="text-rose-400">{careerStats.duelsLost}L</strong></span>
+            <span>Record: <strong className="text-success">{careerStats.duelsWon}W</strong> - <strong className="text-danger">{careerStats.duelsLost}L</strong></span>
             <span>•</span>
-            <span>Career XP: <strong className="text-amber-400">{careerStats.totalDuelXp.toLocaleString()} XP</strong></span>
+            <span>Career XP: <strong className="text-accent">{careerStats.totalDuelXp.toLocaleString()} XP</strong></span>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3 mt-2 flex-wrap justify-center">
             <button
               onClick={() => loadPassage(difficulty)}
-              className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-md"
+              className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-accent-foreground font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-md"
               id="duel-rematch-btn"
             >
               <RotateCcw className="w-4 h-4" />
@@ -735,7 +735,7 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
                     handleSelectDifficulty(tiers[nextIdx]);
                   }
                 }}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5"
+                className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5"
                 id="duel-next-tier-btn"
               >
                 <span>Next Difficulty</span>
@@ -745,7 +745,7 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
 
             <button
               onClick={onExit}
-              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition-colors"
+              className="px-5 py-2.5 bg-surface-hover hover:bg-surface-active text-text-primary border border-border font-semibold rounded-xl text-xs transition-colors"
             >
               Arcade Arena
             </button>

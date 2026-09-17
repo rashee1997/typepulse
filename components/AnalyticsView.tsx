@@ -32,32 +32,32 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fadeIn" id="analytics-view-container">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-surface border border-border rounded-2xl shadow-card">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 flex flex-col items-center justify-center font-extrabold shadow-lg shadow-amber-500/20">
+          <div className="w-14 h-14 rounded-2xl bg-accent text-accent-foreground flex flex-col items-center justify-center font-extrabold shadow-glow-accent-sm">
             <span className="text-xl leading-none">{level}</span>
             <span className="text-[10px] uppercase tracking-wider font-semibold">Level</span>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-100">{title}</h2>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono text-[11px] font-bold flex items-center gap-1 border border-amber-500/30">
-                <Flame className="w-3 h-3 text-amber-400" />
+              <h2 className="text-xl font-bold text-text-primary">{title}</h2>
+              <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent font-mono text-[11px] font-bold flex items-center gap-1 border border-accent-border">
+                <Flame className="w-3 h-3 text-accent" />
                 {dailyStreak} Day Streak
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-text-muted mt-1">
               {xp} / {xpNeeded} XP to Level {level + 1} ({xpPercent}%)
             </p>
-            <div className="w-48 bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
-              <div className="bg-amber-400 h-full rounded-full transition-all" style={{ width: `${xpPercent}%` }} />
+            <div className="w-48 bg-surface-muted h-1.5 rounded-full mt-1.5 overflow-hidden border border-border">
+              <div className="bg-accent h-full rounded-full transition-all" style={{ width: `${xpPercent}%` }} />
             </div>
           </div>
         </div>
 
         <button
           onClick={onBackToPractice}
-          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 self-start sm:self-center transition-colors"
+          className="px-4 py-2 bg-surface-muted hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-medium rounded-xl border border-border self-start sm:self-center transition-colors"
         >
           Back to Practice
         </button>
@@ -65,74 +65,74 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
       {/* Key Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-            <Zap className="w-4 h-4 text-amber-400" />
+        <div className="p-4 bg-surface border border-border rounded-xl shadow-card">
+          <div className="flex items-center gap-2 text-text-muted text-xs font-medium">
+            <Zap className="w-4 h-4 text-accent" />
             <span>Personal Best</span>
           </div>
           <div className="flex items-baseline gap-1 mt-2">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-amber-400">
+            <span className="text-2xl sm:text-3xl font-bold font-mono text-accent">
               {highScores.bestWpm || 0}
             </span>
-            <span className="text-xs text-slate-500 font-mono">WPM</span>
+            <span className="text-xs text-text-subtle font-mono">WPM</span>
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-            <Target className="w-4 h-4 text-emerald-400" />
+        <div className="p-4 bg-surface border border-border rounded-xl shadow-card">
+          <div className="flex items-center gap-2 text-text-muted text-xs font-medium">
+            <Target className="w-4 h-4 text-success" />
             <span>Best Accuracy</span>
           </div>
           <div className="flex items-baseline gap-1 mt-2">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400">
+            <span className="text-2xl sm:text-3xl font-bold font-mono text-success">
               {highScores.bestAccuracy || 0}%
             </span>
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-            <Trophy className="w-4 h-4 text-cyan-400" />
+        <div className="p-4 bg-surface border border-border rounded-xl shadow-card">
+          <div className="flex items-center gap-2 text-text-muted text-xs font-medium">
+            <Trophy className="w-4 h-4 text-primary" />
             <span>Highest Combo</span>
           </div>
           <div className="flex items-baseline gap-1 mt-2">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-cyan-400">
+            <span className="text-2xl sm:text-3xl font-bold font-mono text-primary">
               {highScores.highestCombo || 0}
             </span>
-            <span className="text-xs text-slate-500 font-mono">keys</span>
+            <span className="text-xs text-text-subtle font-mono">keys</span>
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-            <Clock className="w-4 h-4 text-indigo-400" />
+        <div className="p-4 bg-surface border border-border rounded-xl shadow-card">
+          <div className="flex items-center gap-2 text-text-muted text-xs font-medium">
+            <Clock className="w-4 h-4 text-primary" />
             <span>Time Practiced</span>
           </div>
           <div className="flex items-baseline gap-1 mt-2">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-indigo-400">
+            <span className="text-2xl sm:text-3xl font-bold font-mono text-primary">
               {practiceHours}
             </span>
-            <span className="text-xs text-slate-500 font-mono">hours</span>
+            <span className="text-xs text-text-subtle font-mono">hours</span>
           </div>
         </div>
       </div>
 
       {/* Weak Keys Diagnosis Section */}
-      <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
+      <div className="p-6 bg-surface border border-border rounded-2xl space-y-4 shadow-card">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-              <Target className="w-4 h-4 text-rose-400" />
+            <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
+              <Target className="w-4 h-4 text-danger" />
               <span>Hesitation & Error Frequency</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-text-muted mt-0.5">
               Cumulative error frequency recorded across all your typing sessions.
             </p>
           </div>
           {sortedWeakKeys.length > 0 && (
             <button
               onClick={() => onTrainWeakKeys(sortedWeakKeys.slice(0, 4).map(([k]) => k))}
-              className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold text-xs rounded-xl border border-rose-500/40 transition-colors self-start sm:self-center"
+              className="px-3.5 py-1.5 bg-danger-subtle hover:bg-danger/20 text-danger font-semibold text-xs rounded-xl border border-danger-border transition-colors self-start sm:self-center"
             >
               Train Weakest Keys
             </button>
@@ -140,7 +140,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </div>
 
         {sortedWeakKeys.length === 0 ? (
-          <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 text-center">
+          <div className="p-4 bg-surface-muted rounded-xl border border-border text-xs text-text-muted text-center">
             No persistent weak keys detected yet! Complete more tests to build your muscle-memory heatmap.
           </div>
         ) : (
@@ -148,14 +148,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             {sortedWeakKeys.map(([char, stats]) => (
               <div
                 key={char}
-                className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center justify-between"
+                className="p-3 bg-surface-muted border border-border rounded-xl flex items-center justify-between"
               >
-                <span className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-amber-400 font-mono font-bold flex items-center justify-center text-sm">
+                <span className="w-8 h-8 rounded-lg bg-surface border border-border text-accent font-mono font-bold flex items-center justify-center text-sm shadow-sm">
                   {char.toUpperCase()}
                 </span>
                 <div className="text-right">
-                  <div className="text-xs font-mono font-semibold text-rose-400">{stats.errors} errors</div>
-                  <div className="text-[10px] text-slate-500">logged</div>
+                  <div className="text-xs font-mono font-semibold text-danger">{stats.errors} errors</div>
+                  <div className="text-[10px] text-text-subtle">logged</div>
                 </div>
               </div>
             ))}
@@ -167,18 +167,18 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       <AchievementsGallery userProgress={userProgress} />
 
       {/* Recent Sessions History */}
-      <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
-        <h3 className="font-bold text-slate-100 text-base">Recent Sessions</h3>
+      <div className="p-6 bg-surface border border-border rounded-2xl space-y-4 shadow-card">
+        <h3 className="font-bold text-text-primary text-base">Recent Sessions</h3>
 
         {history.length === 0 ? (
-          <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 text-center">
+          <div className="p-4 bg-surface-muted rounded-xl border border-border text-xs text-text-muted text-center">
             No session history recorded yet. Complete a test to start your analytics ledger.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                <tr className="border-b border-border text-text-muted uppercase text-[10px] tracking-wider">
                   <th className="py-2.5 px-3">Mode</th>
                   <th className="py-2.5 px-3">Speed</th>
                   <th className="py-2.5 px-3">Accuracy</th>
@@ -186,14 +186,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   <th className="py-2.5 px-3">XP</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-border">
                 {history.slice(0, 10).map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/30">
-                    <td className="py-2.5 px-3 font-medium text-slate-200">{s.modeTitle}</td>
-                    <td className="py-2.5 px-3 font-mono text-amber-400 font-bold">{s.wpm} WPM</td>
-                    <td className="py-2.5 px-3 font-mono text-emerald-400">{s.accuracy}%</td>
-                    <td className="py-2.5 px-3 text-slate-400 font-mono">{s.durationSeconds}s</td>
-                    <td className="py-2.5 px-3 text-indigo-400 font-mono">+{s.xpEarned} XP</td>
+                  <tr key={s.id} className="hover:bg-surface-hover/50 transition-colors">
+                    <td className="py-2.5 px-3 font-medium text-text-primary">{s.modeTitle}</td>
+                    <td className="py-2.5 px-3 font-mono text-accent font-bold">{s.wpm} WPM</td>
+                    <td className="py-2.5 px-3 font-mono text-success">{s.accuracy}%</td>
+                    <td className="py-2.5 px-3 text-text-muted font-mono">{s.durationSeconds}s</td>
+                    <td className="py-2.5 px-3 text-primary font-mono font-semibold">+{s.xpEarned} XP</td>
                   </tr>
                 ))}
               </tbody>

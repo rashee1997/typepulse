@@ -144,6 +144,8 @@ export interface AISettings {
   systemPrompt?: string;
 }
 
+export type ThemePreference = 'dark' | 'light' | 'system' | 'dark-slate' | 'cyber-amber' | 'emerald-focus';
+
 export interface AppPreferences {
   soundEnabled: boolean;
   soundVolume: number; // 0.0 - 1.0
@@ -153,7 +155,7 @@ export interface AppPreferences {
   showGhostPacer?: boolean;
   targetPacerWpm?: number;
   fontSize: 'small' | 'medium' | 'large';
-  theme: 'dark-slate' | 'cyber-amber' | 'emerald-focus';
+  theme: ThemePreference;
 }
 
 export interface AICoachFeedback {

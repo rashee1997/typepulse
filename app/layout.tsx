@@ -18,8 +18,29 @@ export const metadata: Metadata = {
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" className="bg-slate-950 text-slate-100 overflow-x-hidden">
-      <body className="bg-slate-950 text-slate-100 min-h-screen antialiased overflow-x-hidden w-full max-w-full" suppressHydrationWarning>
+    <html lang="en" className="dark overflow-x-hidden" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const stored = localStorage.getItem('typepulse_preferences');
+                if (stored) {
+                  const prefs = JSON.parse(stored);
+                  if (prefs.theme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                  } else if (prefs.theme === 'system') {
+                    if (!window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                      document.documentElement.classList.remove('dark');
+                    }
+                  }
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className="bg-background text-foreground min-h-screen antialiased overflow-x-hidden w-full max-w-full" suppressHydrationWarning>
         {children}
       </body>
     </html>

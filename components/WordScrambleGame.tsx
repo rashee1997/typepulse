@@ -375,11 +375,11 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-5 animate-fadeIn" id="word-scramble-game">
       {/* Top Header */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-surface border border-border rounded-3xl p-5 shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onExit}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center gap-1 text-xs font-semibold"
+            className="p-2.5 rounded-xl bg-surface-hover hover:bg-surface-active text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1 text-xs font-semibold border border-border"
             id="scramble-exit-btn"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -387,18 +387,18 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-400/20 text-indigo-300 font-mono text-[10px] font-bold tracking-wider border border-indigo-400/30 flex items-center gap-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-primary-subtle text-primary font-mono text-[10px] font-bold tracking-wider border border-primary-border flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
                 ANAGRAM MIND DRILL
               </span>
-              <span className="text-xs text-slate-500 font-mono">Word Scramble Challenge</span>
+              <span className="text-xs text-text-subtle font-mono">Word Scramble Challenge</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-100 mt-0.5">Word Scramble</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-text-primary mt-0.5">Word Scramble</h1>
           </div>
         </div>
 
         {/* Game Mode Selector */}
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-2xl border border-slate-800/80">
+        <div className="flex items-center gap-1.5 bg-surface-muted p-1 rounded-2xl border border-border">
           <button
             disabled={gameState === 'playing'}
             onClick={() => {
@@ -407,8 +407,8 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               gameMode === 'sprint'
-                ? 'bg-indigo-600 text-white shadow-md font-extrabold'
-                : 'text-slate-400 hover:text-slate-200 disabled:opacity-50'
+                ? 'bg-primary text-primary-foreground shadow-sm font-extrabold'
+                : 'text-text-muted hover:text-text-primary disabled:opacity-50'
             }`}
           >
             ⚡ 60s Sprint
@@ -421,8 +421,8 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               gameMode === 'gauntlet'
-                ? 'bg-indigo-600 text-white shadow-md font-extrabold'
-                : 'text-slate-400 hover:text-slate-200 disabled:opacity-50'
+                ? 'bg-primary text-primary-foreground shadow-sm font-extrabold'
+                : 'text-text-muted hover:text-text-primary disabled:opacity-50'
             }`}
           >
             🎯 10-Word Gauntlet
@@ -432,77 +432,77 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
 
       {/* Main Game Cockpit */}
       {gameState === 'ready' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-5 shadow-xl">
-          <div className="w-16 h-16 rounded-3xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-3xl shadow-inner">
+        <div className="bg-surface border border-border rounded-3xl p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-5 shadow-card">
+          <div className="w-16 h-16 rounded-3xl bg-primary-subtle border border-primary-border text-primary flex items-center justify-center text-3xl shadow-inner">
             🧩
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-100">Ready to Unscramble?</h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-md">
+            <h2 className="text-2xl font-black text-text-primary">Ready to Unscramble?</h2>
+            <p className="text-sm text-text-muted mt-1 max-w-md">
               Letters are scrambled in random order. Type letters on your keyboard or tap tiles to reconstruct the hidden word before time expires!
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg my-2 text-xs font-mono text-slate-400">
-            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
-              <span className="text-slate-500 block text-[10px]">MODE</span>
-              <span className="text-indigo-300 font-bold mt-0.5 block">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg my-2 text-xs font-mono text-text-muted">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-text-subtle block text-[10px]">MODE</span>
+              <span className="text-primary font-bold mt-0.5 block">
                 {gameMode === 'sprint' ? '60s Speed Sprint' : '10-Word Gauntlet'}
               </span>
             </div>
-            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
-              <span className="text-slate-500 block text-[10px]">TIME PER WORD</span>
-              <span className="text-amber-400 font-bold mt-0.5 block">+5s on solve (Sprint)</span>
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-text-subtle block text-[10px]">TIME PER WORD</span>
+              <span className="text-accent font-bold mt-0.5 block">+5s on solve (Sprint)</span>
             </div>
-            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
-              <span className="text-slate-500 block text-[10px]">XP REWARD</span>
-              <span className="text-emerald-400 font-bold mt-0.5 block">Up to +450 XP</span>
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-text-subtle block text-[10px]">XP REWARD</span>
+              <span className="text-success font-bold mt-0.5 block">Up to +450 XP</span>
             </div>
           </div>
 
           <button
             onClick={() => startGame(gameMode)}
-            className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-black rounded-2xl text-base shadow-xl hover:scale-105 transition-all flex items-center gap-2"
+            className="px-8 py-4 bg-primary hover:bg-primary-hover text-primary-foreground font-black rounded-2xl text-base shadow-glow-primary hover:scale-105 transition-all flex items-center gap-2"
             id="start-word-scramble-btn"
           >
-            <Play className="w-5 h-5 fill-white" />
+            <Play className="w-5 h-5 fill-primary-foreground" />
             <span>START UNSCRAMBLING</span>
           </button>
         </div>
       )}
 
       {gameState === 'playing' && currentItem && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col gap-6">
+        <div className="bg-surface border border-border rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-6">
           {/* Top Telemetry Strip */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800 text-xs font-mono">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border text-xs font-mono">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                <Timer className={`w-4 h-4 ${timeLeft <= 10 ? 'text-rose-400 animate-ping' : 'text-indigo-400'}`} />
-                <span className="text-slate-400">Time:</span>
-                <span className={`font-bold ${timeLeft <= 10 ? 'text-rose-400' : 'text-slate-200'}`}>
+              <div className="flex items-center gap-1.5 bg-surface-muted px-3 py-1.5 rounded-xl border border-border">
+                <Timer className={`w-4 h-4 ${timeLeft <= 10 ? 'text-danger animate-ping' : 'text-primary'}`} />
+                <span className="text-text-muted">Time:</span>
+                <span className={`font-bold ${timeLeft <= 10 ? 'text-danger' : 'text-text-primary'}`}>
                   {timeLeft}s
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                <Flame className={`w-4 h-4 ${streak > 1 ? 'text-amber-400 animate-pulse' : 'text-slate-500'}`} />
-                <span className="text-slate-400">Streak:</span>
-                <span className={streak > 1 ? 'text-amber-300 font-bold' : 'text-slate-300'}>
+              <div className="flex items-center gap-1.5 bg-surface-muted px-3 py-1.5 rounded-xl border border-border">
+                <Flame className={`w-4 h-4 ${streak > 1 ? 'text-accent animate-pulse' : 'text-text-subtle'}`} />
+                <span className="text-text-muted">Streak:</span>
+                <span className={streak > 1 ? 'text-accent font-bold' : 'text-text-secondary'}>
                   {streak}x
                 </span>
               </div>
 
-              <div className="hidden sm:flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                <Trophy className="w-4 h-4 text-emerald-400" />
-                <span className="text-slate-400">Solved:</span>
-                <span className="text-emerald-400 font-bold">
+              <div className="hidden sm:flex items-center gap-1.5 bg-surface-muted px-3 py-1.5 rounded-xl border border-border">
+                <Trophy className="w-4 h-4 text-success" />
+                <span className="text-text-muted">Solved:</span>
+                <span className="text-success font-bold">
                   {wordsSolved} / {gameMode === 'gauntlet' ? wordList.length : '∞'}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-indigo-300 font-bold">
+              <div className="px-3 py-1.5 bg-primary-subtle border border-primary-border rounded-xl text-primary font-bold">
                 Score: {score.toLocaleString()}
               </div>
             </div>
@@ -518,12 +518,12 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
           />
 
           {/* Category Clue Banner */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-surface-muted p-4 rounded-2xl border border-border">
             <div className="flex items-center gap-2.5">
-              <span className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 text-indigo-300 text-xs font-mono font-bold uppercase">
+              <span className="px-2.5 py-1 rounded-xl bg-surface border border-border text-primary text-xs font-mono font-bold uppercase">
                 {currentItem.category}
               </span>
-              <p className="text-xs sm:text-sm text-slate-300 italic">
+              <p className="text-xs sm:text-sm text-text-secondary italic">
                 &ldquo;{currentItem.hint}&rdquo;
               </p>
             </div>
@@ -531,7 +531,7 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
             <div className="flex items-center gap-2">
               <button
                 onClick={handleShuffle}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 border border-slate-700"
+                className="px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text-secondary hover:text-text-primary rounded-xl text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 border border-border"
                 title="Shuffle scrambled letters"
               >
                 <Shuffle className="w-3.5 h-3.5" />
@@ -541,7 +541,7 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
               <button
                 onClick={handleHint}
                 disabled={revealedHints.length >= currentItem.word.length - 1}
-                className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 border border-amber-500/30 disabled:opacity-40"
+                className="px-3 py-1.5 bg-accent-subtle hover:bg-accent/20 text-accent rounded-xl text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 border border-accent-border disabled:opacity-40"
                 title="Reveal a letter (-25 pts)"
               >
                 <Lightbulb className="w-3.5 h-3.5" />
@@ -552,7 +552,7 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
 
           {/* Scrambled Letter Tiles Pool */}
           <div className="flex flex-col items-center gap-3">
-            <span className="text-xs text-slate-500 font-mono uppercase tracking-wider">
+            <span className="text-xs text-text-subtle font-mono uppercase tracking-wider">
               SCRAMBLED LETTERS (TYPE ON KEYBOARD)
             </span>
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 py-2">
@@ -561,8 +561,8 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
                   key={i}
                   className={`w-12 h-14 sm:w-14 sm:h-16 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-black font-mono transition-all select-none border-b-4 ${
                     tile.isUsed
-                      ? 'bg-slate-950/40 text-slate-700 border-slate-900 scale-95 opacity-30'
-                      : 'bg-gradient-to-b from-indigo-500 to-indigo-700 text-white border-indigo-900 shadow-lg hover:scale-105 active:scale-95'
+                      ? 'bg-surface-muted/40 text-text-subtle/30 border-border scale-95 opacity-30'
+                      : 'bg-primary hover:bg-primary-hover text-primary-foreground border-primary-border shadow-md hover:scale-105 active:scale-95'
                   }`}
                 >
                   {tile.char}
@@ -573,14 +573,14 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
 
           {/* Solution Input Slots */}
           <div className="flex flex-col items-center gap-2">
-            <span className="text-xs text-slate-400 font-mono">YOUR GUESS</span>
+            <span className="text-xs text-text-muted font-mono">YOUR GUESS</span>
             <div
               className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 p-4 rounded-2xl transition-all ${
                 feedbackEffect === 'correct'
-                  ? 'bg-emerald-500/20 border-2 border-emerald-400 scale-105'
+                  ? 'bg-success-subtle border-2 border-success scale-105'
                   : feedbackEffect === 'wrong'
-                  ? 'bg-rose-500/20 border-2 border-rose-400 animate-shake'
-                  : 'bg-slate-950 border-2 border-slate-800'
+                  ? 'bg-danger-subtle border-2 border-danger animate-shake'
+                  : 'bg-surface-muted border-2 border-border'
               }`}
             >
               {Array.from({ length: currentItem.word.length }).map((_, i) => {
@@ -592,9 +592,9 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
                     className={`w-12 h-14 sm:w-14 sm:h-16 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-black font-mono border-2 transition-all ${
                       char
                         ? isHinted
-                          ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                          : 'bg-slate-900 border-indigo-400 text-indigo-200 shadow-md'
-                        : 'bg-slate-950 border-slate-800 text-slate-700'
+                          ? 'bg-accent-subtle border-accent text-accent'
+                          : 'bg-surface border-primary text-primary shadow-sm'
+                        : 'bg-surface-muted border-border text-text-subtle/40'
                     }`}
                   >
                     {char || '•'}
@@ -602,7 +602,7 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
                 );
               })}
             </div>
-            <span className="text-[11px] text-slate-500 font-mono mt-1">
+            <span className="text-[11px] text-text-subtle font-mono mt-1">
               Press letters to fill • Backspace to undo • Space to shuffle
             </span>
           </div>
@@ -611,68 +611,68 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
 
       {/* Finished Summary Screen & Distinct XP Rewards */}
       {gameState === 'finished' && (
-        <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border-2 border-indigo-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col items-center text-center gap-6 animate-fadeIn">
+        <div className="bg-surface border-2 border-primary-border rounded-3xl p-6 sm:p-8 shadow-dialog flex flex-col items-center text-center gap-6 animate-fadeIn">
           <div className="flex flex-col items-center gap-2">
-            <div className="w-20 h-20 rounded-3xl bg-indigo-500/20 border border-indigo-400 text-indigo-300 flex items-center justify-center text-4xl shadow-2xl">
+            <div className="w-20 h-20 rounded-3xl bg-primary-subtle border border-primary-border text-primary flex items-center justify-center text-4xl shadow-glow-primary">
               🧩
             </div>
 
-            <span className="px-3 py-1 rounded-full bg-indigo-400/20 border border-indigo-400/40 text-indigo-300 text-xs font-mono font-bold uppercase">
+            <span className="px-3 py-1 rounded-full bg-primary-subtle border border-primary-border text-primary text-xs font-mono font-bold uppercase">
               CHALLENGE COMPLETED • {gameMode === 'sprint' ? '60s SPRINT' : 'GAUNTLET'}
             </span>
 
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-100 mt-1">
+            <h2 className="text-3xl sm:text-4xl font-black text-text-primary mt-1">
               {wordsSolved >= 5 ? 'Master Cryptographer!' : 'Puzzle Completed!'}
             </h2>
-            <p className="text-sm text-slate-400 max-w-lg">
+            <p className="text-sm text-text-muted max-w-lg">
               You unscrambled {wordsSolved} hidden words with high mental dexterity and quick pattern recognition!
             </p>
           </div>
 
           {/* Stats Breakdown */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-2xl">
-            <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800">
-              <span className="text-[11px] text-slate-500 block">Final Score</span>
-              <span className="text-xl font-mono font-bold text-indigo-300 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[11px] text-text-subtle block">Final Score</span>
+              <span className="text-xl font-mono font-bold text-primary mt-0.5 block">
                 {score.toLocaleString()}
               </span>
             </div>
 
-            <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800">
-              <span className="text-[11px] text-slate-500 block">Words Solved</span>
-              <span className="text-xl font-mono font-bold text-emerald-400 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[11px] text-text-subtle block">Words Solved</span>
+              <span className="text-xl font-mono font-bold text-success mt-0.5 block">
                 {wordsSolved}
               </span>
             </div>
 
-            <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800">
-              <span className="text-[11px] text-slate-500 block">Best Streak</span>
-              <span className="text-xl font-mono font-bold text-amber-400 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[11px] text-text-subtle block">Best Streak</span>
+              <span className="text-xl font-mono font-bold text-accent mt-0.5 block">
                 {bestStreak}x
               </span>
             </div>
 
-            <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800">
-              <span className="text-[11px] text-slate-500 block">Time Elapsed</span>
-              <span className="text-xl font-mono font-bold text-slate-200 mt-0.5 block">
+            <div className="p-3 bg-surface-muted rounded-2xl border border-border">
+              <span className="text-[11px] text-text-subtle block">Time Elapsed</span>
+              <span className="text-xl font-mono font-bold text-text-primary mt-0.5 block">
                 {gameMode === 'sprint' ? `${60 - timeLeft}s` : 'Completed'}
               </span>
             </div>
           </div>
 
           {/* Distinct XP Reward Callout */}
-          <div className="w-full max-w-md bg-gradient-to-r from-indigo-500/20 via-slate-950 to-indigo-500/10 border border-indigo-400/40 rounded-2xl p-4 flex items-center justify-between shadow-lg">
+          <div className="w-full max-w-md bg-primary-subtle border border-primary-border rounded-2xl p-4 flex items-center justify-between shadow-card">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-400/20 text-indigo-300 flex items-center justify-center text-xl font-bold">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center text-xl font-bold">
                 ⚡
               </div>
               <div className="text-left">
-                <span className="text-[11px] text-slate-400 font-mono block">DISTINCT XP REWARD</span>
-                <span className="text-xl font-black text-indigo-300 font-mono">+{calculatedXp} XP EARNED</span>
+                <span className="text-[11px] text-text-muted font-mono block">DISTINCT XP REWARD</span>
+                <span className="text-xl font-black text-primary font-mono">+{calculatedXp} XP EARNED</span>
               </div>
             </div>
-            <div className="text-right text-[11px] font-mono text-slate-400">
-              <span className="block text-emerald-400 font-bold">Credited to Profile</span>
+            <div className="text-right text-[11px] font-mono text-text-muted">
+              <span className="block text-success font-bold">Credited to Profile</span>
               <span>Anagram Bonus Applied</span>
             </div>
           </div>
@@ -681,7 +681,7 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={() => startGame(gameMode)}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-sm transition-all shadow-lg hover:scale-105 flex items-center gap-2"
+              className="px-6 py-3 bg-primary hover:bg-primary-hover text-primary-foreground font-black rounded-xl text-sm transition-all shadow-glow-primary-sm hover:scale-105 flex items-center gap-2"
               id="rematch-scramble-btn"
             >
               <RotateCcw className="w-4 h-4" />
@@ -690,7 +690,7 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
 
             <button
               onClick={onExit}
-              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-sm transition-colors flex items-center gap-2"
+              className="px-6 py-3 bg-surface-hover hover:bg-surface-active text-text-primary border border-border font-bold rounded-xl text-sm transition-colors flex items-center gap-2"
               id="exit-scramble-btn"
             >
               <span>Back to Word Games</span>

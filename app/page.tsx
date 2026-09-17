@@ -9,6 +9,7 @@ import {
   GameMode,
   Lesson,
   SessionState,
+  ThemePreference,
   TypingStats,
   UserProgress,
 } from '@/types/typing';
@@ -61,10 +62,12 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Sun,
   Target,
   Trophy,
   Volume2,
   VolumeX,
+  Moon,
   Zap,
 } from 'lucide-react';
 
@@ -144,6 +147,51 @@ export default function Home() {
   const [sessionState, setSessionState] = useState<SessionState>('ready');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [activeKeyPressed, setActiveKeyPressed] = useState<string>('');
+
+  // Synchronize Theme class with document.documentElement
+  useEffect(() => {
+    const root = document.documentElement;
+    const currentPref = preferences.theme || 'dark';
+
+    if (currentPref === 'light') {
+      root.classList.remove('dark');
+    } else if (currentPref === 'dark' || currentPref === 'dark-slate') {
+      root.classList.add('dark');
+    } else if (currentPref === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const applySystemTheme = () => {
+        if (mediaQuery.matches) {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+      };
+      applySystemTheme();
+      mediaQuery.addEventListener('change', applySystemTheme);
+      return () => mediaQuery.removeEventListener('change', applySystemTheme);
+    }
+  }, [preferences.theme]);
+
+  const isDarkMode =
+    preferences.theme === 'light'
+      ? false
+      : preferences.theme === 'system' && typeof window !== 'undefined'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : true;
+
+  const toggleTheme = () => {
+    const nextTheme: ThemePreference = isDarkMode ? 'light' : 'dark';
+    const updatedPrefs: AppPreferences = { ...preferences, theme: nextTheme };
+    setPreferences(updatedPrefs);
+    try {
+      localStorage.setItem('typepulse_preferences', JSON.stringify(updatedPrefs));
+    } catch {}
+    if (nextTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+  };
 
   // Generate or configure text based on selected mode
   const setupNewTest = useCallback(
@@ -388,7 +436,7 @@ export default function Home() {
   const currentChar = engineChars[engineIndex]?.char || '';
 
   return (
-    <div className="min-h-screen w-full max-w-full bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950 overflow-x-hidden">
+    <div className="min-h-screen w-full max-w-full bg-background text-foreground flex flex-col font-sans selection:bg-accent selection:text-accent-foreground overflow-x-hidden">
       {/* Hidden input to capture keystrokes from any physical or virtual keyboard */}
       <input
         ref={inputRef}
@@ -404,7 +452,7 @@ export default function Home() {
       />
 
       {/* TOP GLOBAL NAVBAR - SLEEK RESPONSIVE HEADER WITH ZERO OVERFLOW */}
-      <header className="w-full max-w-full border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2 shrink-0 shadow-md overflow-x-clip">
+      <header className="w-full max-w-full border-b border-border bg-surface/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2 shrink-0 shadow-sm overflow-x-clip">
         <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3 min-w-0">
           {/* Brand & Logo */}
           <button
@@ -417,17 +465,17 @@ export default function Home() {
             className="flex items-center gap-1.5 sm:gap-2 hover:opacity-90 transition-opacity shrink-0"
             id="nav-logo"
           >
-            <div className="p-1.5 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
+            <div className="p-1.5 rounded-xl bg-accent text-accent-foreground font-bold shadow-glow-accent-sm shrink-0">
               <Keyboard className="w-4 h-4" />
             </div>
-            <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100">TypePulse</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/20 border border-amber-400/40 text-amber-300 font-mono font-bold hidden sm:inline">
+            <span className="font-extrabold text-sm sm:text-base tracking-tight text-text-primary">TypePulse</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-subtle border border-accent-border text-accent font-mono font-bold hidden sm:inline">
               AI
             </span>
           </button>
 
           {/* Center Nav Views - Fully Responsive & Scroll-safe */}
-          <nav className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 shrink min-w-0 overflow-x-auto scrollbar-none">
+          <nav className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-border shrink min-w-0 overflow-x-auto scrollbar-none">
             <button
               onClick={() => {
                 setCurrentView('typing');
@@ -440,8 +488,8 @@ export default function Home() {
               title="Practice"
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
                 currentView === 'typing' && gameMode === 'practice'
-                  ? 'bg-amber-400 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <Zap className="w-3.5 h-3.5 shrink-0" />
@@ -453,8 +501,8 @@ export default function Home() {
               title="Academy Curriculum"
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
                 currentView === 'lessons'
-                  ? 'bg-amber-400 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5 shrink-0" />
@@ -466,8 +514,8 @@ export default function Home() {
               title="AI Missions"
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
                 currentView === 'ai-missions'
-                  ? 'bg-amber-400 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <Bot className="w-3.5 h-3.5 shrink-0" />
@@ -479,8 +527,8 @@ export default function Home() {
               title="Arcade & Word Games"
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
                 currentView === 'word-rush'
-                  ? 'bg-amber-400 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <Gamepad2 className="w-3.5 h-3.5 shrink-0" />
@@ -492,8 +540,8 @@ export default function Home() {
               title="Profile & Stats"
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
                 currentView === 'analytics'
-                  ? 'bg-amber-400 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <Activity className="w-3.5 h-3.5 shrink-0" />
@@ -505,31 +553,31 @@ export default function Home() {
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Daily Streak Pill */}
             <div
-              className="px-2 sm:px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-1 text-xs text-amber-400 font-bold font-mono shrink-0"
+              className="px-2 sm:px-2.5 py-1 rounded-xl bg-surface-muted border border-border flex items-center gap-1 text-xs text-accent font-bold font-mono shrink-0"
               title={`${userProgress.dailyStreak} Day Typing Streak`}
             >
-              <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <Flame className="w-3.5 h-3.5 text-accent shrink-0" />
               <span>{userProgress.dailyStreak}d</span>
             </div>
 
             {/* Level & XP Pill */}
             <button
               onClick={() => setCurrentView('analytics')}
-              className="px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 items-center gap-1 text-xs text-slate-300 font-medium transition-colors shrink-0 hidden sm:flex"
+              className="px-2 py-1 rounded-xl bg-surface-muted border border-border hover:border-border-subtle items-center gap-1 text-xs text-text-secondary font-medium transition-colors shrink-0 hidden sm:flex"
               title={`Level ${userProgress.level} (${userProgress.title})`}
             >
-              <Award className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <Award className="w-3.5 h-3.5 text-primary shrink-0" />
               <span>Lvl {userProgress.level}</span>
             </button>
 
             {/* AI Coach Quick Chat Button */}
             <button
               onClick={() => setIsCoachChatOpen(true)}
-              className="px-2.5 py-1 rounded-xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/30 flex items-center gap-1.5 text-xs font-semibold transition-colors shrink-0"
+              className="px-2.5 py-1 rounded-xl bg-primary-subtle border border-primary-border text-primary hover:bg-primary-subtle/80 flex items-center gap-1.5 text-xs font-semibold transition-colors shrink-0"
               title="Open AI Typing Coach (Sensei)"
               id="open-coach-chat-btn"
             >
-              <Bot className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <Bot className="w-3.5 h-3.5 text-primary shrink-0" />
               <span className="hidden sm:inline">Sensei</span>
             </button>
 
@@ -540,22 +588,37 @@ export default function Home() {
                 setPreferences((p) => ({ ...p, soundEnabled: nextSound }));
                 soundFx.setConfig(nextSound, preferences.soundVolume);
               }}
-              className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors shrink-0"
+              className="p-1.5 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors shrink-0 cursor-pointer"
               title={preferences.soundEnabled ? 'Mute Mechanical Audio' : 'Unmute Audio'}
             >
-              {preferences.soundEnabled ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4" />}
+              {preferences.soundEnabled ? <Volume2 className="w-4 h-4 text-accent" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
-            {/* Settings Dialog (OpenAI-Compatible Endpoint) */}
+            {/* Theme Toggle (Light / Dark Mode) */}
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors shrink-0 cursor-pointer flex items-center justify-center"
+              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              id="theme-toggle-button"
+            >
+              {isDarkMode ? (
+                <Sun className="w-4 h-4 text-accent hover:rotate-45 transition-transform" />
+              ) : (
+                <Moon className="w-4 h-4 text-accent hover:-rotate-12 transition-transform" />
+              )}
+            </button>
+
+            {/* Settings Dialog (OpenAI-Compatible Endpoint & Preferences) */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors relative shrink-0"
-              title="OpenAI Endpoint & AI Settings"
+              className="p-1.5 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors relative shrink-0 cursor-pointer"
+              title="Settings & Appearance"
               id="open-settings-button"
             >
               <Settings className="w-4 h-4" />
               {aiSettings.apiKey && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-success" />
               )}
             </button>
           </div>
@@ -620,9 +683,9 @@ export default function Home() {
           <div className="w-full flex flex-col gap-3 animate-fadeIn">
             {/* Mode Controls Bar (for Free Practice) */}
             {gameMode === 'practice' && (
-              <div className="w-full flex flex-wrap items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-slate-900/60 border border-slate-800/80 rounded-2xl text-xs text-slate-400">
+              <div className="w-full flex flex-wrap items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-surface border border-border rounded-2xl text-xs text-text-muted shadow-sm">
                 {/* Content Discipline Switcher */}
-                <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
+                <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-border">
                   <button
                     onClick={() => {
                       setContentCategory('words');
@@ -630,8 +693,8 @@ export default function Home() {
                     }}
                     className={`px-3 py-1 rounded-lg font-medium transition-all ${
                       contentCategory === 'words'
-                        ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-accent text-accent-foreground font-bold shadow-sm'
+                        : 'text-text-muted hover:text-text-primary'
                     }`}
                   >
                     Words
@@ -645,8 +708,8 @@ export default function Home() {
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
                       contentCategory === 'quotes'
-                        ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-accent text-accent-foreground font-bold shadow-sm'
+                        : 'text-text-muted hover:text-text-primary'
                     }`}
                   >
                     <Quote className="w-3 h-3" />
@@ -661,8 +724,8 @@ export default function Home() {
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
                       contentCategory === 'code'
-                        ? 'bg-amber-400 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-accent text-accent-foreground font-bold shadow-sm'
+                        : 'text-text-muted hover:text-text-primary'
                     }`}
                   >
                     <Code className="w-3 h-3" />
@@ -675,7 +738,7 @@ export default function Home() {
                   {contentCategory === 'words' ? (
                     <>
                       {/* Word vs Time Mode */}
-                      <div className="flex items-center gap-1 bg-slate-950/40 p-0.5 rounded-lg border border-slate-800">
+                      <div className="flex items-center gap-1 bg-surface-muted p-0.5 rounded-lg border border-border">
                         <button
                           onClick={() => {
                             setTimeLimit(null);
@@ -683,7 +746,7 @@ export default function Home() {
                             setupNewTest('practice', undefined, null);
                           }}
                           className={`px-2.5 py-0.5 rounded font-medium transition-colors ${
-                            timeLimit === null ? 'bg-slate-800 text-amber-400 font-semibold' : 'hover:text-slate-200'
+                            timeLimit === null ? 'bg-surface text-accent font-semibold shadow-sm' : 'hover:text-text-primary'
                           }`}
                         >
                           Count
@@ -695,7 +758,7 @@ export default function Home() {
                             setupNewTest('practice', undefined, 30);
                           }}
                           className={`px-2.5 py-0.5 rounded font-medium transition-colors ${
-                            timeLimit !== null ? 'bg-slate-800 text-amber-400 font-semibold' : 'hover:text-slate-200'
+                            timeLimit !== null ? 'bg-surface text-accent font-semibold shadow-sm' : 'hover:text-text-primary'
                           }`}
                         >
                           Time
@@ -703,7 +766,7 @@ export default function Home() {
                       </div>
 
                       {timeLimit === null ? (
-                        <div className="flex items-center gap-1 border-r border-slate-800 pr-2">
+                        <div className="flex items-center gap-1 border-r border-border pr-2">
                           {[15, 25, 50, 100].map((count) => (
                             <button
                               key={count}
@@ -712,7 +775,7 @@ export default function Home() {
                                 setupNewTest('practice');
                               }}
                               className={`px-1.5 py-0.5 rounded font-mono transition-colors ${
-                                wordCount === count ? 'text-amber-400 font-bold' : 'hover:text-slate-200'
+                                wordCount === count ? 'text-accent font-bold' : 'hover:text-text-primary'
                               }`}
                             >
                               {count}
@@ -720,7 +783,7 @@ export default function Home() {
                           ))}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1 border-r border-slate-800 pr-2">
+                        <div className="flex items-center gap-1 border-r border-border pr-2">
                           {[15, 30, 60, 120].map((seconds) => (
                             <button
                               key={seconds}
@@ -730,7 +793,7 @@ export default function Home() {
                                 setupNewTest('practice', undefined, seconds);
                               }}
                               className={`px-1.5 py-0.5 rounded font-mono transition-colors ${
-                                timeLimit === seconds ? 'text-amber-400 font-bold' : 'hover:text-slate-200'
+                                timeLimit === seconds ? 'text-accent font-bold' : 'hover:text-text-primary'
                               }`}
                             >
                               {seconds}s
@@ -746,7 +809,7 @@ export default function Home() {
                           setupNewTest('practice');
                         }}
                         className={`px-2 py-0.5 rounded transition-colors ${
-                          includePunctuation ? 'text-amber-400 font-bold' : 'hover:text-slate-200'
+                          includePunctuation ? 'text-accent font-bold' : 'hover:text-text-primary'
                         }`}
                       >
                         @ punctuation
@@ -757,7 +820,7 @@ export default function Home() {
                           setupNewTest('practice');
                         }}
                         className={`px-2 py-0.5 rounded transition-colors ${
-                          includeNumbers ? 'text-amber-400 font-bold' : 'hover:text-slate-200'
+                          includeNumbers ? 'text-accent font-bold' : 'hover:text-text-primary'
                         }`}
                       >
                         # numbers
@@ -767,28 +830,28 @@ export default function Home() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setupNewTest('practice')}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-amber-400 rounded-lg font-medium transition-colors"
+                        className="flex items-center gap-1 px-2.5 py-1 bg-surface-muted hover:bg-surface-hover text-accent rounded-lg font-medium border border-border transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
                         <span>Next Quote</span>
                       </button>
-                      <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">Wisdom & Mindset</span>
+                      <span className="text-[11px] text-text-subtle font-mono hidden sm:inline">Wisdom & Mindset</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setupNewTest('practice')}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-amber-400 rounded-lg font-medium transition-colors"
+                        className="flex items-center gap-1 px-2.5 py-1 bg-surface-muted hover:bg-surface-hover text-accent rounded-lg font-medium border border-border transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
                         <span>Next Snippet</span>
                       </button>
-                      <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">TS · JS · React · SQL · Bash</span>
+                      <span className="text-[11px] text-text-subtle font-mono hidden sm:inline">TS · JS · React · SQL · Bash</span>
                     </div>
                   )}
 
                   {/* Real-Time Ghost Pacer Quick Toggle */}
-                  <div className="border-l border-slate-800 pl-2">
+                  <div className="border-l border-border pl-2">
                     <button
                       onClick={() => {
                         const nextState = preferences.showGhostPacer === false ? true : false;
@@ -798,18 +861,18 @@ export default function Home() {
                       }}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                         preferences.showGhostPacer !== false
-                          ? 'bg-indigo-950/70 text-indigo-300 border border-indigo-700/50 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                          ? 'bg-primary-subtle text-primary border border-primary-border shadow-sm'
+                          : 'text-text-muted hover:text-text-primary border border-transparent'
                       }`}
                       title="Toggle Real-Time Ghost Pacer against your Personal Best"
                     >
-                      <Ghost className="w-3.5 h-3.5 text-indigo-400" />
+                      <Ghost className="w-3.5 h-3.5 text-primary" />
                       <span className="font-mono">
                         Ghost PB: {userProgress.highScores.bestWpm > 0 ? `${userProgress.highScores.bestWpm} WPM` : '50 WPM'}
                       </span>
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          preferences.showGhostPacer !== false ? 'bg-indigo-400 animate-pulse' : 'bg-slate-600'
+                          preferences.showGhostPacer !== false ? 'bg-primary animate-pulse' : 'bg-text-subtle'
                         }`}
                       />
                     </button>
@@ -820,14 +883,14 @@ export default function Home() {
 
             {/* If in Lesson or Mission, show active header */}
             {gameMode !== 'practice' && (
-              <div className="w-full px-4 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-center justify-between shrink-0">
+              <div className="w-full px-4 py-2.5 bg-surface border border-border rounded-2xl flex items-center justify-between shrink-0 shadow-sm">
                 <div>
-                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-accent uppercase tracking-wider">
                     {gameMode === 'lesson' ? 'Academy Lesson' : 'AI Mission'}
                   </span>
-                  <h3 className="text-sm font-bold text-slate-100">{modeTitle}</h3>
+                  <h3 className="text-sm font-bold text-text-primary">{modeTitle}</h3>
                   {activeMission && (
-                    <p className="text-xs text-indigo-300 mt-0.5">{activeMission.reason}</p>
+                    <p className="text-xs text-primary mt-0.5">{activeMission.reason}</p>
                   )}
                 </div>
                 <button
@@ -838,7 +901,7 @@ export default function Home() {
                     setActiveMission(null);
                     setupNewTest('practice');
                   }}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition-colors"
+                  className="px-3 py-1 bg-surface-muted hover:bg-surface-hover text-text-secondary text-xs rounded-xl border border-border transition-colors"
                 >
                   Exit Mode
                 </button>
@@ -850,18 +913,18 @@ export default function Home() {
               {/* LEFT COLUMN: LIVE METRICS & TYPING STAGE */}
               <div className="lg:col-span-6 flex flex-col gap-3">
                 {/* LIVE METRICS HUD */}
-                <div className="w-full flex items-center justify-between px-5 py-2.5 bg-slate-900/60 rounded-2xl border border-slate-800/70 shadow-sm">
+                <div className="w-full flex items-center justify-between px-5 py-2.5 bg-surface rounded-2xl border border-border shadow-sm">
                   <div className="flex items-center gap-5">
                     {/* WPM Counter */}
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Speed</span>
+                        <span className="text-[10px] text-text-subtle uppercase tracking-wider font-semibold">Speed</span>
                         {sessionState === 'playing' && preferences.showGhostPacer !== false && (
                           <span
                             className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold ${
                               engineIndex >= ghostIndex
-                                ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-800/40'
-                                : 'text-indigo-300 bg-indigo-950/60 border border-indigo-800/40'
+                                ? 'text-success bg-success-subtle border border-success-border'
+                                : 'text-primary bg-primary-subtle border border-primary-border'
                             }`}
                             title="Position relative to your Ghost PB Pacer"
                           >
@@ -872,27 +935,27 @@ export default function Home() {
                         )}
                       </div>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-extrabold font-mono text-amber-400">
+                        <span className="text-2xl font-extrabold font-mono text-accent">
                           {liveStats.wpm}
                         </span>
-                        <span className="text-[11px] text-slate-500 font-mono">WPM</span>
+                        <span className="text-[11px] text-text-subtle font-mono">WPM</span>
                       </div>
                     </div>
 
                     {/* Accuracy */}
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Accuracy</span>
-                      <span className="text-2xl font-extrabold font-mono text-emerald-400">
+                      <span className="text-[10px] text-text-subtle uppercase tracking-wider font-semibold">Accuracy</span>
+                      <span className="text-2xl font-extrabold font-mono text-success">
                         {liveStats.accuracy}%
                       </span>
                     </div>
 
                     {/* Timer or Word Counter */}
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                      <span className="text-[10px] text-text-subtle uppercase tracking-wider font-semibold">
                         {timeRemaining !== null ? 'Time Left' : 'Progress'}
                       </span>
-                      <span className="text-2xl font-extrabold font-mono text-slate-200">
+                      <span className="text-2xl font-extrabold font-mono text-text-primary">
                         {timeRemaining !== null
                           ? `${timeRemaining}s`
                           : `${engineIndex}/${engineChars.length}`}
@@ -903,15 +966,15 @@ export default function Home() {
                   {/* Combo Streak Indicator & Quick Restart */}
                   <div className="flex items-center gap-2">
                     {liveStats.combo > 5 && (
-                      <div className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold flex items-center gap-1.5 animate-pulse">
-                        <Flame className="w-3.5 h-3.5 text-amber-400" />
+                      <div className="px-2.5 py-1 rounded-full bg-accent-subtle border border-accent-border text-accent font-mono text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                        <Flame className="w-3.5 h-3.5 text-accent" />
                         <span>{liveStats.combo}</span>
                       </div>
                     )}
 
                     <button
                       onClick={() => setupNewTest(gameMode)}
-                      className="p-2 text-slate-400 hover:text-amber-400 hover:bg-slate-800/80 rounded-xl transition-colors"
+                      className="p-2 text-text-muted hover:text-accent hover:bg-surface-hover rounded-xl transition-colors"
                       title="Restart Test (Tab)"
                       id="restart-test-button"
                     >
@@ -924,7 +987,7 @@ export default function Home() {
                 <div
                   onClick={() => inputRef.current?.focus()}
                   ref={textContainerRef}
-                  className="w-full h-56 bg-slate-900/50 hover:bg-slate-900/60 p-5 rounded-2xl border border-slate-800 shadow-inner overflow-hidden cursor-text flex flex-col justify-start relative select-none transition-colors"
+                  className="w-full h-56 bg-surface hover:bg-surface-muted/50 p-5 rounded-2xl border border-border shadow-inner overflow-hidden cursor-text flex flex-col justify-start relative select-none transition-colors"
                   id="typing-text-canvas"
                 >
                   <div className="text-xl font-mono leading-relaxed tracking-wider break-words">
@@ -945,28 +1008,28 @@ export default function Home() {
                           ref={isCurrent ? activeCharRef : undefined}
                           className={`relative transition-colors duration-75 ${
                             isCorrect
-                              ? 'text-slate-100 font-medium'
+                              ? 'text-text-primary font-medium'
                               : isIncorrect
-                              ? 'text-rose-400 underline decoration-rose-500 decoration-2 font-bold bg-rose-500/10 rounded'
+                              ? 'text-error underline decoration-error decoration-2 font-bold bg-error-subtle rounded'
                               : isCorrected
-                              ? 'text-amber-300 font-medium'
+                              ? 'text-accent font-medium'
                               : isCurrent
-                              ? 'text-amber-400 font-bold'
-                              : 'text-slate-600'
+                              ? 'text-accent font-bold'
+                              : 'text-text-subtle'
                           }`}
                         >
                           {/* Blinking Caret on Current Character */}
                           {isCurrent && (
-                            <span className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-amber-400 animate-pulse rounded-full shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                            <span className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-accent animate-pulse rounded-full shadow-glow-accent-sm" />
                           )}
 
                           {/* Real-Time Ghost Pacer Caret */}
                           {isGhost && (
                             <span
-                              className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-indigo-400/90 rounded-full shadow-[0_0_8px_rgba(129,140,248,0.8)] pointer-events-none z-10"
+                              className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-primary/90 rounded-full shadow-glow-primary-sm pointer-events-none z-10"
                               title="Ghost PB Pacer"
                             >
-                              <span className="absolute -top-3.5 -left-1.5 text-[9px] text-indigo-300 font-mono select-none drop-shadow">
+                              <span className="absolute -top-3.5 -left-1.5 text-[9px] text-primary font-mono select-none drop-shadow">
                                 👻
                               </span>
                             </span>
@@ -980,15 +1043,15 @@ export default function Home() {
 
                   {/* Ready helper hint */}
                   {sessionState === 'ready' && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-slate-800/90 rounded-full text-xs text-slate-300 border border-slate-700/80 backdrop-blur-sm pointer-events-none">
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-surface-muted/90 rounded-full text-xs text-text-primary border border-border backdrop-blur-sm pointer-events-none shadow-sm">
                       Press any key to start typing
                     </div>
                   )}
                 </div>
 
                 {/* Quick Hint */}
-                <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 font-mono">
-                  <span>Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">Tab</kbd> to restart instantly</span>
+                <div className="flex items-center justify-between text-[11px] text-text-subtle px-1 font-mono">
+                  <span>Press <kbd className="px-1.5 py-0.5 rounded bg-surface-muted border border-border text-text-primary">Tab</kbd> to restart instantly</span>
                   <span>Click canvas to focus</span>
                 </div>
               </div>
@@ -1003,11 +1066,11 @@ export default function Home() {
                     keyStats={userProgress.keyStats}
                   />
                 ) : (
-                  <div className="h-64 rounded-2xl border border-dashed border-slate-800 flex flex-col items-center justify-center text-slate-500 text-xs p-6 text-center">
+                  <div className="h-64 rounded-2xl border border-dashed border-border flex flex-col items-center justify-center text-text-muted text-xs p-6 text-center">
                     <p>Virtual keyboard visualizer is turned off.</p>
                     <button
                       onClick={() => setPreferences((p) => ({ ...p, showKeyboard: true }))}
-                      className="mt-2 text-amber-400 hover:underline"
+                      className="mt-2 text-accent hover:underline"
                     >
                       Enable Keyboard Visualizer
                     </button>
@@ -1020,12 +1083,14 @@ export default function Home() {
       </main>
 
       {/* FOOTER */}
-      <footer className="w-full border-t border-slate-800/60 py-4 px-4 text-center text-xs text-slate-500">
+      <footer className="w-full border-t border-border py-4 px-4 text-center text-xs text-text-muted">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span>TypePulse AI • Touch Typing Mastery</span>
+            <span className="text-text-primary font-semibold">TypePulse AI</span>
             <span>•</span>
-            <span className="text-slate-400">
+            <span>Touch Typing Mastery</span>
+            <span>•</span>
+            <span className="text-text-muted">
               AI: {aiSettings.provider === 'gemini' ? 'Google Gemini' : aiSettings.model || 'OpenAI Compatible'}
             </span>
           </div>
@@ -1034,7 +1099,7 @@ export default function Home() {
             <span>•</span>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="text-amber-400 hover:underline"
+              className="text-accent hover:underline"
             >
               Configure AI Endpoint
             </button>

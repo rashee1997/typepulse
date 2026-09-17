@@ -20,12 +20,13 @@ interface NitroRacerProps {
   onExit: () => void;
 }
 
-type Difficulty = 'rookie' | 'pro' | 'master';
+type Difficulty = 'rookie' | 'pro' | 'master' | 'challenger';
 
 const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; rivalWpm: number; desc: string; xpMultiplier: number }> = {
   rookie: { label: 'Street Rookie', rivalWpm: 38, desc: 'Friendly pace (38 WPM)', xpMultiplier: 1 },
   pro: { label: 'Speed Pro', rivalWpm: 68, desc: 'High gear contest (68 WPM)', xpMultiplier: 1.5 },
   master: { label: 'Formula Master', rivalWpm: 96, desc: 'Hyper-speed legend (96 WPM)', xpMultiplier: 2.2 },
+  challenger: { label: 'Challenger Twin', rivalWpm: 60, desc: 'Adaptive AI Twin (Calibrated to your speed + 4 WPM)', xpMultiplier: 2.5 },
 };
 
 const generateTrackWords = (): string[] => {
@@ -119,20 +120,37 @@ export const NitroRacerGame: React.FC<NitroRacerProps> = ({ onFinish, onExit }) 
   useEffect(() => {
     if (gameState !== 'racing') return;
 
-    const rivalTargetWpm = DIFFICULTY_CONFIG[difficulty].rivalWpm;
-    // Standard 5 chars per word: characters per second = (rivalTargetWpm * 5) / 60
+    const baseTargetWpm = DIFFICULTY_CONFIG[difficulty].rivalWpm;
     const totalWordsCount = words.length || 32;
+    let accumulatedRivalChars = 0;
 
     const interval = setInterval(() => {
       const now = Date.now();
       const elapsedSec = Math.max(0.1, (now - raceStartTime) / 1000);
       setRaceElapsedSeconds(elapsedSec);
 
-      // Rival progress calculation with slight humanized speed jitter (+/- 8%)
+      // Challenger Twin dynamic adjustment
+      let effectiveWpm = baseTargetWpm;
+      if (difficulty === 'challenger') {
+        const livePlayerSpeed = playerWpmRef.current;
+        const playerBase = livePlayerSpeed > 20 ? livePlayerSpeed + 4 : 52;
+        // Rubber-band dynamics
+        const delta = playerProgress - rivalProgress;
+        if (delta > 8) {
+          effectiveWpm = playerBase * 1.15; // Sprint surge to contest lead
+        } else if (delta < -8) {
+          effectiveWpm = playerBase * 0.92; // Moderate pacing
+        } else {
+          effectiveWpm = playerBase;
+        }
+      }
+
+      // Humanized jitter
       const jitter = (Math.sin(elapsedSec * 2.5) * 0.08) + 1;
-      const rivalCharsPerSec = ((rivalTargetWpm * jitter) * 5) / 60;
+      const rivalCharsPerSec = ((effectiveWpm * jitter) * 5) / 60;
       const totalCharsEstimated = totalWordsCount * 5.2;
-      const rivalP = Math.min(100, (rivalCharsPerSec * elapsedSec / totalCharsEstimated) * 100);
+      accumulatedRivalChars += rivalCharsPerSec * 0.1;
+      const rivalP = Math.min(100, (accumulatedRivalChars / totalCharsEstimated) * 100);
       setRivalProgress(rivalP);
 
       // Check if rival crosses finish line first
@@ -147,7 +165,7 @@ export const NitroRacerGame: React.FC<NitroRacerProps> = ({ onFinish, onExit }) 
     }, 100);
 
     return () => clearInterval(interval);
-  }, [gameState, raceStartTime, difficulty, words.length]);
+  }, [gameState, raceStartTime, difficulty, words.length, playerProgress, rivalProgress]);
 
   // Handle Typing Input
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,7 +269,7 @@ export const NitroRacerGame: React.FC<NitroRacerProps> = ({ onFinish, onExit }) 
 
         {/* Difficulty Selector */}
         <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-border">
-          {(['rookie', 'pro', 'master'] as Difficulty[]).map((diff) => (
+          {(['rookie', 'pro', 'master', 'challenger'] as Difficulty[]).map((diff) => (
             <button
               key={diff}
               disabled={gameState === 'racing' || gameState === 'countdown'}
@@ -261,11 +279,13 @@ export const NitroRacerGame: React.FC<NitroRacerProps> = ({ onFinish, onExit }) 
               }}
               className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize transition-all ${
                 difficulty === diff
-                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  ? diff === 'challenger'
+                    ? 'bg-cyan-500 text-white shadow-glow-accent'
+                    : 'bg-accent text-accent-foreground shadow-sm'
                   : 'text-text-muted hover:text-text-primary disabled:opacity-50'
               }`}
             >
-              {diff}
+              {diff === 'challenger' ? '🤖 Challenger Twin' : diff}
             </button>
           ))}
         </div>
@@ -315,13 +335,21 @@ export const NitroRacerGame: React.FC<NitroRacerProps> = ({ onFinish, onExit }) 
             </div>
           </div>
 
-          {/* Lane 2: AI Rival (🏎️ Indigo Phantom) */}
-          <div className="relative bg-surface border border-primary-border rounded-2xl p-3 pt-2">
+          {/* Lane 2: AI Rival / Challenger Twin */}
+          <div className={`relative bg-surface rounded-2xl p-3 pt-2 border ${
+            difficulty === 'challenger' ? 'border-cyan-500/40 bg-gradient-to-r from-cyan-950/20 to-surface' : 'border-primary-border'
+          }`}>
             <div className="flex items-center justify-between text-xs font-semibold text-primary mb-1">
               <span className="flex items-center gap-1.5">
-                <span>RIVAL ({DIFFICULTY_CONFIG[difficulty].label})</span>
+                {difficulty === 'challenger' ? (
+                  <span className="text-cyan-400 font-bold flex items-center gap-1">
+                    <span>🤖 CHALLENGER TWIN (Adaptive AI Ghost)</span>
+                  </span>
+                ) : (
+                  <span>RIVAL ({DIFFICULTY_CONFIG[difficulty].label})</span>
+                )}
                 <span className="text-[10px] text-text-muted font-mono">
-                  Target: {DIFFICULTY_CONFIG[difficulty].rivalWpm} WPM
+                  {difficulty === 'challenger' ? 'Calibrated to your speed' : `Target: ${DIFFICULTY_CONFIG[difficulty].rivalWpm} WPM`}
                 </span>
               </span>
               <span className="font-mono text-xs">{Math.round(rivalProgress)}%</span>
@@ -332,22 +360,31 @@ export const NitroRacerGame: React.FC<NitroRacerProps> = ({ onFinish, onExit }) 
               {/* Lane Dashes */}
               <div className="absolute inset-0 flex items-center justify-around pointer-events-none opacity-40">
                 {[...Array(14)].map((_, i) => (
-                  <div key={i} className="w-4 h-1 bg-primary-border rounded-full" />
+                  <div key={i} className={`w-4 h-1 rounded-full ${difficulty === 'challenger' ? 'bg-cyan-400/40' : 'bg-primary-border'}`} />
                 ))}
               </div>
 
               {/* Finish Line Checkered Strip */}
-              <div className="absolute right-0 top-0 bottom-0 w-8 bg-[repeating-linear-gradient(45deg,var(--surface-muted),var(--surface-muted)_6px,var(--surface-active)_6px,var(--surface-active)_12px)] opacity-80 border-l-2 border-primary" />
+              <div className={`absolute right-0 top-0 bottom-0 w-8 bg-[repeating-linear-gradient(45deg,var(--surface-muted),var(--surface-muted)_6px,var(--surface-active)_6px,var(--surface-active)_12px)] opacity-80 border-l-2 ${
+                difficulty === 'challenger' ? 'border-cyan-400' : 'border-primary'
+              }`} />
 
               {/* Rival Car Avatar */}
               <div
                 className="absolute top-1/2 -translate-y-1/2 transition-all duration-200 flex items-center gap-1 z-10"
                 style={{ left: `calc(${rivalProgress * 0.88}% + 8px)` }}
               >
-                <div className="px-2 py-1 bg-primary text-primary-foreground font-black text-xs rounded-lg shadow-glow-primary flex items-center gap-1">
-                  <span>🏎️</span>
-                  <span className="text-[10px] font-mono">AI</span>
-                </div>
+                {difficulty === 'challenger' ? (
+                  <div className="px-2 py-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black text-xs rounded-lg shadow-lg flex items-center gap-1 border border-cyan-300">
+                    <span>🤖</span>
+                    <span className="text-[10px] font-mono">TWIN</span>
+                  </div>
+                ) : (
+                  <div className="px-2 py-1 bg-primary text-primary-foreground font-black text-xs rounded-lg shadow-glow-primary flex items-center gap-1">
+                    <span>🏎️</span>
+                    <span className="text-[10px] font-mono">AI</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

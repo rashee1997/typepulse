@@ -11,19 +11,78 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { prompt, systemInstruction } = await req.json();
+    const {
+      prompt,
+      systemInstruction,
+      temperature = 0.7,
+      stream = false,
+      jsonMode = false,
+    } = await req.json();
+
     if (!prompt) {
       return NextResponse.json({ error: 'Missing prompt' }, { status: 400 });
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    const config: Record<string, unknown> = {
+      systemInstruction:
+        systemInstruction ||
+        'You are an elite, encouraging, high-precision touch typing coach. Keep all answers concise, practical, and action-oriented.',
+      temperature,
+    };
+
+    if (jsonMode) {
+      config.responseMimeType = 'application/json';
+    }
+
+    if (stream) {
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config,
+      });
+
+      const encoder = new TextEncoder();
+      const customReadable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of responseStream) {
+              const text = chunk.text;
+              if (text) {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
+                );
+              }
+            }
+            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+            controller.close();
+          } catch (err) {
+            controller.error(err);
+          }
+        },
+      });
+
+      return new Response(customReadable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      });
+    }
+
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
-      config: {
-        systemInstruction: systemInstruction || 'You are an elite, encouraging, high-precision touch typing coach. Keep all answers concise, practical, and action-oriented.',
-        temperature: 0.7,
-      },
+      config,
     });
 
     return NextResponse.json({ text: response.text });

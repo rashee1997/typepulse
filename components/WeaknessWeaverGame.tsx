@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UserProgress, TypingStats, AISettings } from '@/types/typing';
-import { generateWeaknessNarrative } from '@/lib/ai-service';
+import { generateWeaknessNarrative, generateAdaptiveMicroClause } from '@/lib/ai-service';
 import { getWeakestPatterns } from '@/lib/progress-service';
 import { TypingEngine } from '@/lib/typing-engine';
 import { soundFx } from '@/lib/sound';
@@ -17,6 +17,7 @@ import {
   Layers,
   CheckCircle2,
   Cpu,
+  Zap,
 } from 'lucide-react';
 
 interface WeaknessWeaverGameProps {
@@ -41,6 +42,15 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [gameState, setGameState] = useState<'playing' | 'completed'>('playing');
   const [liveStats, setLiveStats] = useState<TypingStats>(() => engine.getStats());
+  const [activeReinforcement, setActiveReinforcement] = useState<string | null>(null);
+
+  // Dynamic injection limiter per round
+  const injectionsCountRef = useRef<number>(0);
+  const recentErrorPatternRef = useRef<{ lastChar: string; errorChar: string; count: number }>({
+    lastChar: '',
+    errorChar: '',
+    count: 0,
+  });
 
   // Prefetched next passage to ensure zero latency between rounds
   const prefetchedPassageRef = useRef<string | null>(null);
@@ -119,6 +129,9 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
   }, [weakPatterns, aiSettings]);
 
   const restartRound = () => {
+    injectionsCountRef.current = 0;
+    recentErrorPatternRef.current = { lastChar: '', errorChar: '', count: 0 };
+    setActiveReinforcement(null);
     const updated = getWeakestPatterns(4, 'all', userProgress);
     setWeakPatterns(updated);
     loadDrill(updated);
@@ -141,6 +154,8 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
     }
 
     if (e.key.length === 1 || e.key === 'Backspace') {
+      const currentChar = engine.chars[engine.currentIndex]?.char || '';
+      const prevChar = engine.chars[engine.currentIndex - 1]?.char || '';
       const res = engine.handleInput(e.key, e.ctrlKey);
       setLiveStats(engine.getStats());
 
@@ -148,6 +163,25 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
         soundFx.playKeypress();
       } else {
         soundFx.playError();
+
+        // Bi-gram friction detection
+        const targetPattern = (prevChar + currentChar).toLowerCase().replace(/[^a-z]/g, '');
+        if (targetPattern.length >= 2 && injectionsCountRef.current < 2) {
+          if (recentErrorPatternRef.current.errorChar === currentChar) {
+            recentErrorPatternRef.current.count += 1;
+          } else {
+            recentErrorPatternRef.current = { lastChar: prevChar, errorChar: currentChar, count: 1 };
+          }
+
+          if (recentErrorPatternRef.current.count >= 2) {
+            injectionsCountRef.current += 1;
+            const clause = generateAdaptiveMicroClause(targetPattern);
+            engine.appendText(' ' + clause);
+            setActiveReinforcement(targetPattern);
+            soundFx.playComboMilestone();
+            setTimeout(() => setActiveReinforcement(null), 4500);
+          }
+        }
       }
 
       if (res.isFinished) {
@@ -206,10 +240,16 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
       </div>
 
       {/* Targeted Pattern Badges */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-fuchsia-400" />
           <span className="text-xs font-bold text-slate-300">Targeted N-Gram Sequences:</span>
+          {activeReinforcement && (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 animate-pulse">
+              <Zap className="w-3 h-3 text-amber-400" />
+              Dynamic Recalibration: [{activeReinforcement.toUpperCase()}]
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {weakPatterns.map((pattern, i) => (

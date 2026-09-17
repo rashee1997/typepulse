@@ -1,7 +1,9 @@
-import { Achievement, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
+import { Achievement, ArcadeScores, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
 import { INITIAL_ACHIEVEMENTS } from './achievements';
+import { calculateKeyConfidence } from './adaptive-engine';
 
 const PROGRESS_STORAGE_KEY = 'typepulse_user_progress';
+const LEGACY_ARCADE_STORAGE_KEY = 'typepulse_arcade_stats';
 
 export const LEVEL_TITLES: { minLevel: number; title: string }[] = [
   { minLevel: 1, title: 'Keyboard Novice' },
@@ -27,6 +29,21 @@ export function getXpForNextLevel(level: number): number {
   return level * 300;
 }
 
+export const INITIAL_ARCADE_SCORES: ArcadeScores = {
+  raceWins: 0,
+  racePodiums: 0,
+  raceBestWpm: 0,
+  orbitalHighScore: 0,
+  orbitalWordsDestroyed: 0,
+  bombDefusalHighScore: 0,
+  bombsDefusedTotal: 0,
+  blitzHighScore: 0,
+  blitzMaxMultiplier: 1,
+  duelWins: 0,
+  duelBestWpm: 0,
+  totalGamesPlayed: 0,
+};
+
 export const INITIAL_USER_PROGRESS: UserProgress = {
   xp: 0,
   level: 1,
@@ -46,20 +63,47 @@ export const INITIAL_USER_PROGRESS: UserProgress = {
   },
   keyStats: {},
   patternStats: {},
+  confidenceScores: {},
+  arcadeStats: { ...INITIAL_ARCADE_SCORES },
 };
 
 export function loadUserProgress(): UserProgress {
   if (typeof window === 'undefined') return INITIAL_USER_PROGRESS;
   try {
     const raw = localStorage.getItem(PROGRESS_STORAGE_KEY);
-    if (!raw) return INITIAL_USER_PROGRESS;
+    let legacyArcade: Partial<ArcadeScores> = {};
+    try {
+      const rawArcade = localStorage.getItem(LEGACY_ARCADE_STORAGE_KEY);
+      if (rawArcade) {
+        legacyArcade = JSON.parse(rawArcade);
+      }
+    } catch {}
+
+    if (!raw) {
+      return {
+        ...INITIAL_USER_PROGRESS,
+        arcadeStats: { ...INITIAL_ARCADE_SCORES, ...legacyArcade },
+      };
+    }
     const parsed = JSON.parse(raw);
+    const keyStats = { ...(parsed.keyStats || {}) };
+    const patternStats = { ...(parsed.patternStats || {}) };
+    const confidenceScores = parsed.confidenceScores || calculateKeyConfidence(keyStats, patternStats);
+
+    const mergedArcadeStats: ArcadeScores = {
+      ...INITIAL_ARCADE_SCORES,
+      ...legacyArcade,
+      ...(parsed.arcadeStats || {}),
+    };
+
     return {
       ...INITIAL_USER_PROGRESS,
       ...parsed,
       highScores: { ...INITIAL_USER_PROGRESS.highScores, ...(parsed.highScores || {}) },
-      keyStats: { ...(parsed.keyStats || {}) },
-      patternStats: { ...(parsed.patternStats || {}) },
+      keyStats,
+      patternStats,
+      confidenceScores,
+      arcadeStats: mergedArcadeStats,
     };
   } catch {
     return INITIAL_USER_PROGRESS;
@@ -257,6 +301,8 @@ export function processCompletedSession(
     }
   });
 
+  const confidenceScores = calculateKeyConfidence(updatedKeyStats, updatedPatternStats);
+
   const updatedProgress: UserProgress = {
     xp: totalXp,
     level: currentLevel,
@@ -270,6 +316,8 @@ export function processCompletedSession(
     highScores,
     keyStats: updatedKeyStats,
     patternStats: updatedPatternStats,
+    confidenceScores,
+    arcadeStats: prev.arcadeStats || { ...INITIAL_ARCADE_SCORES },
   };
 
   saveUserProgress(updatedProgress);
@@ -280,6 +328,133 @@ export function processCompletedSession(
     newAchievements,
     leveledUp,
     newLevel: currentLevel,
+  };
+}
+
+/**
+ * Records an arcade mini-game result directly into the unified UserProgress,
+ * awarding XP, updating streak, logging session summary, and updating arcadeStats.
+ */
+export function recordArcadeGameResult(
+  gameId: string,
+  gameTitle: string,
+  gameStats: {
+    score: number;
+    wpm?: number;
+    accuracy?: number;
+    elapsedSeconds?: number;
+    won?: boolean;
+    podium?: boolean;
+    wordsDestroyed?: number;
+    bombsDefused?: number;
+    multiplier?: number;
+  }
+): {
+  updatedProgress: UserProgress;
+  leveledUp: boolean;
+  xpEarned: number;
+} {
+  const current = loadUserProgress();
+  const today = new Date().toISOString().split('T')[0];
+  let newStreak = current.dailyStreak;
+
+  if (current.lastActiveDate !== today) {
+    const lastDate = new Date(current.lastActiveDate);
+    const currentDate = new Date(today);
+    const diffDays = Math.round((currentDate.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
+    if (diffDays === 1) newStreak += 1;
+    else if (diffDays > 1) newStreak = 1;
+  }
+
+  // Base arcade XP: score / 10 + win bonus
+  let xpEarned = Math.max(15, Math.round(gameStats.score / 10));
+  if (gameStats.won) xpEarned += 50;
+
+  let totalXp = current.xp + xpEarned;
+  let currentLevel = current.level;
+  let leveledUp = false;
+
+  while (totalXp >= getXpForNextLevel(currentLevel)) {
+    totalXp -= getXpForNextLevel(currentLevel);
+    currentLevel += 1;
+    leveledUp = true;
+  }
+
+  const prevArcade = current.arcadeStats || { ...INITIAL_ARCADE_SCORES };
+  const updatedArcade: ArcadeScores = {
+    ...prevArcade,
+    totalGamesPlayed: prevArcade.totalGamesPlayed + 1,
+  };
+
+  if (gameId === 'nitro-racer') {
+    if (gameStats.won) updatedArcade.raceWins += 1;
+    if (gameStats.podium) updatedArcade.racePodiums += 1;
+    if (gameStats.wpm && gameStats.wpm > updatedArcade.raceBestWpm) {
+      updatedArcade.raceBestWpm = gameStats.wpm;
+    }
+  } else if (gameId === 'orbital-defense') {
+    if (gameStats.score > updatedArcade.orbitalHighScore) updatedArcade.orbitalHighScore = gameStats.score;
+    if (gameStats.wordsDestroyed) updatedArcade.orbitalWordsDestroyed += gameStats.wordsDestroyed;
+  } else if (gameId === 'bomb-defusal') {
+    if (gameStats.score > updatedArcade.bombDefusalHighScore) updatedArcade.bombDefusalHighScore = gameStats.score;
+    if (gameStats.bombsDefused) updatedArcade.bombsDefusedTotal += gameStats.bombsDefused;
+  } else if (gameId === 'word-blitz') {
+    if (gameStats.score > updatedArcade.blitzHighScore) updatedArcade.blitzHighScore = gameStats.score;
+    if (gameStats.multiplier && gameStats.multiplier > updatedArcade.blitzMaxMultiplier) {
+      updatedArcade.blitzMaxMultiplier = gameStats.multiplier;
+    }
+  } else if (gameId === 'typing-duel') {
+    if (gameStats.won) updatedArcade.duelWins += 1;
+    if (gameStats.wpm && gameStats.wpm > updatedArcade.duelBestWpm) {
+      updatedArcade.duelBestWpm = gameStats.wpm;
+    }
+  }
+
+  const sessionSummary: TypingSessionSummary = {
+    id: `arcade-${Date.now()}`,
+    date: Date.now(),
+    mode: 'word-rush' as GameMode,
+    modeTitle: `Arcade: ${gameTitle}`,
+    wpm: gameStats.wpm || 0,
+    rawWpm: gameStats.wpm || 0,
+    accuracy: gameStats.accuracy || 95,
+    durationSeconds: gameStats.elapsedSeconds || 60,
+    totalChars: Math.round(((gameStats.wpm || 30) * 5 * (gameStats.elapsedSeconds || 60)) / 60),
+    errors: 0,
+    score: gameStats.score,
+    xpEarned,
+    weakKeys: [],
+  };
+
+  const updatedProgress: UserProgress = {
+    ...current,
+    xp: totalXp,
+    level: currentLevel,
+    title: getTitleForLevel(currentLevel),
+    dailyStreak: newStreak,
+    lastActiveDate: today,
+    history: [sessionSummary, ...current.history.slice(0, 49)],
+    highScores: {
+      ...current.highScores,
+      totalSessions: current.highScores.totalSessions + 1,
+      totalTimePracticedSeconds: current.highScores.totalTimePracticedSeconds + (gameStats.elapsedSeconds || 60),
+    },
+    arcadeStats: updatedArcade,
+  };
+
+  saveUserProgress(updatedProgress);
+
+  // Keep legacy localStorage in sync for backwards compatibility
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(LEGACY_ARCADE_STORAGE_KEY, JSON.stringify(updatedArcade));
+    } catch {}
+  }
+
+  return {
+    updatedProgress,
+    leveledUp,
+    xpEarned,
   };
 }
 

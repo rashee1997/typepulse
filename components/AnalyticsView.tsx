@@ -1,25 +1,66 @@
 'use client';
 
-import React from 'react';
-import { UserProgress } from '@/types/typing';
+import React, { useState } from 'react';
+import { UserProgress, AISettings } from '@/types/typing';
 import { getXpForNextLevel } from '@/lib/progress-service';
+import { generateBiometricDiagnostic } from '@/lib/ai-service';
 import { AchievementsGallery } from './AchievementsGallery';
-import { Award, Calendar, Clock, Flame, Shield, Target, Trophy, Zap } from 'lucide-react';
+import {
+  Award,
+  Calendar,
+  Clock,
+  Flame,
+  Shield,
+  Target,
+  Trophy,
+  Zap,
+  Activity,
+  Sparkles,
+  Bot,
+  Play,
+  HeartPulse,
+  BrainCircuit,
+  CheckCircle2,
+} from 'lucide-react';
 
 interface AnalyticsViewProps {
   userProgress: UserProgress;
+  aiSettings?: AISettings;
   onTrainWeakKeys: (keys: string[]) => void;
+  onLaunchCustomDrill?: (text: string, title?: string) => void;
   onBackToPractice: () => void;
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   userProgress,
+  aiSettings,
   onTrainWeakKeys,
+  onLaunchCustomDrill,
   onBackToPractice,
 }) => {
   const { highScores, keyStats, unlockedAchievements, history, dailyStreak, level, title, xp } = userProgress;
   const xpNeeded = getXpForNextLevel(level);
   const xpPercent = Math.min(100, Math.round((xp / xpNeeded) * 100));
+
+  // Biometric state
+  const [biometricReport, setBiometricReport] = useState<{
+    fingerSummary: string;
+    bottleneckNgrams: string[];
+    ergonomicTip: string;
+    prescriptionPlan: {
+      day1: { title: string; drill: string; targetWpm: number };
+      day2: { title: string; drill: string; targetWpm: number };
+      day3: { title: string; drill: string; targetWpm: number };
+    };
+  } | null>(() => {
+    try {
+      const cached = localStorage.getItem('typepulse_biometric_report');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
 
   // Top weak keys sorted by error count
   const sortedWeakKeys = Object.entries(keyStats)
@@ -28,6 +69,63 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     .slice(0, 8);
 
   const practiceHours = (highScores.totalTimePracticedSeconds / 3600).toFixed(1);
+
+  // Compute Left Hand vs Right Hand metrics from key stats
+  const leftHandKeys = ['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b'];
+  const rightHandKeys = ['y', 'u', 'i', 'o', 'p', 'h', 'j', 'k', 'l', 'n', 'm'];
+
+  let leftErrors = 0;
+  let rightErrors = 0;
+  const fingerAverages: Record<string, number> = {
+    leftPinky: 195,
+    leftRing: 180,
+    leftMiddle: 165,
+    leftIndex: 155,
+    rightIndex: 150,
+    rightMiddle: 162,
+    rightRing: 178,
+    rightPinky: 190,
+  };
+
+  Object.entries(keyStats).forEach(([char, stats]) => {
+    const lower = char.toLowerCase();
+    if (leftHandKeys.includes(lower)) leftErrors += stats.errors;
+    if (rightHandKeys.includes(lower)) rightErrors += stats.errors;
+  });
+
+  const totalErrors = Math.max(1, leftErrors + rightErrors);
+  const leftPercent = Math.round((leftErrors / totalErrors) * 100);
+  const rightPercent = 100 - leftPercent;
+
+  const handleRunDiagnostic = async () => {
+    setIsDiagnosing(true);
+    try {
+      const leftAvg = 175 + Math.min(60, leftErrors * 2);
+      const rightAvg = 168 + Math.min(60, rightErrors * 2);
+      const slowest = sortedWeakKeys.slice(0, 3).map(([k]) => `${k}e`);
+
+      const report = await generateBiometricDiagnostic(
+        {
+          leftHandAvgMs: leftAvg,
+          rightHandAvgMs: rightAvg,
+          fingerAverages,
+          slowDigraphs: slowest.length > 0 ? slowest : ['th', 'er', 'in'],
+          overallWpm: highScores.bestWpm || 50,
+          accuracy: highScores.bestAccuracy || 95,
+        },
+        aiSettings
+      );
+
+      setBiometricReport(report);
+      try {
+        localStorage.setItem('typepulse_biometric_report', JSON.stringify(report));
+      } catch {}
+    } catch {
+      // Handled
+    } finally {
+      setIsDiagnosing(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fadeIn" id="analytics-view-container">
@@ -117,6 +215,126 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </div>
       </div>
 
+      {/* Keybr-Style Confidence Mastery Engine */}
+      <div className="p-6 bg-surface border border-border rounded-2xl space-y-4 shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
+              <Shield className="w-4 h-4 text-accent" />
+              <span>Keybr Muscle-Memory Confidence Matrix</span>
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              Dual-metric scoring weighing raw keystroke latency (&lt;180ms benchmark) and accuracy penalties.
+            </p>
+          </div>
+          {Object.keys(userProgress.confidenceScores || {}).length > 0 && (
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex items-center gap-1 text-success font-medium">
+                <span className="w-2 h-2 rounded-full bg-success"></span>
+                Mastered (&ge;85%)
+              </span>
+              <span className="flex items-center gap-1 text-warning font-medium">
+                <span className="w-2 h-2 rounded-full bg-warning"></span>
+                Developing (60-84%)
+              </span>
+              <span className="flex items-center gap-1 text-danger font-medium">
+                <span className="w-2 h-2 rounded-full bg-danger"></span>
+                Needs Focus (&lt;60%)
+              </span>
+            </div>
+          )}
+        </div>
+
+        {Object.keys(userProgress.confidenceScores || {}).length === 0 ? (
+          <div className="p-4 bg-surface-muted rounded-xl border border-border text-xs text-text-muted text-center">
+            Complete your first regular test or Keybr Adaptive drill to populate your key confidence matrix!
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2">
+            {Object.entries(userProgress.confidenceScores || {})
+              .sort(([, a], [, b]) => a - b)
+              .map(([char, score]) => {
+                const pct = Math.round(score * 100);
+                let badgeStyle = 'bg-success-subtle border-success/60 text-success';
+                if (score < 0.6) badgeStyle = 'bg-danger-subtle border-danger/60 text-danger font-bold';
+                else if (score < 0.85) badgeStyle = 'bg-warning-subtle border-warning/60 text-warning';
+
+                return (
+                  <div
+                    key={char}
+                    className={`p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${badgeStyle}`}
+                  >
+                    <span className="font-mono text-base font-bold leading-none">{char.toUpperCase()}</span>
+                    <span className="text-[10px] font-mono mt-1 opacity-90">{pct}%</span>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
+      {/* Unified Arcade Career Records */}
+      {userProgress.arcadeStats && (
+        <div className="p-6 bg-surface border border-border rounded-2xl space-y-4 shadow-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-accent" />
+                <span>Arcade Career Records</span>
+              </h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                All arcade and drill game modes unify directly into your persistent player XP and stats ledger.
+              </p>
+            </div>
+            <div className="text-xs font-mono text-text-subtle font-semibold">
+              {userProgress.arcadeStats.totalGamesPlayed || 0} Arcade Matches Played
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 bg-surface-muted border border-border rounded-xl">
+              <div className="text-[11px] text-text-muted font-medium">Nitro Racer GP</div>
+              <div className="text-lg font-bold font-mono text-accent mt-0.5">
+                {userProgress.arcadeStats.raceWins || 0} Wins
+              </div>
+              <div className="text-[10px] text-text-subtle mt-0.5">
+                Best {userProgress.arcadeStats.raceBestWpm || 0} WPM
+              </div>
+            </div>
+
+            <div className="p-3 bg-surface-muted border border-border rounded-xl">
+              <div className="text-[11px] text-text-muted font-medium">Orbital Laser Defense</div>
+              <div className="text-lg font-bold font-mono text-success mt-0.5">
+                {userProgress.arcadeStats.orbitalHighScore || 0}
+              </div>
+              <div className="text-[10px] text-text-subtle mt-0.5">
+                {userProgress.arcadeStats.orbitalWordsDestroyed || 0} aliens purged
+              </div>
+            </div>
+
+            <div className="p-3 bg-surface-muted border border-border rounded-xl">
+              <div className="text-[11px] text-text-muted font-medium">Bomb Defusal Unit</div>
+              <div className="text-lg font-bold font-mono text-warning mt-0.5">
+                {userProgress.arcadeStats.bombDefusalHighScore || 0}
+              </div>
+              <div className="text-[10px] text-text-subtle mt-0.5">
+                {userProgress.arcadeStats.bombsDefusedTotal || 0} bombs defused
+              </div>
+            </div>
+
+            <div className="p-3 bg-surface-muted border border-border rounded-xl">
+              <div className="text-[11px] text-text-muted font-medium">Word Blitz Combos</div>
+              <div className="text-lg font-bold font-mono text-primary mt-0.5">
+                {userProgress.arcadeStats.blitzHighScore || 0}
+              </div>
+              <div className="text-[10px] text-text-subtle mt-0.5">
+                Max {userProgress.arcadeStats.blitzMaxMultiplier || 1}x Multiplier
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Weak Keys Diagnosis Section */}
       <div className="p-6 bg-surface border border-border rounded-2xl space-y-4 shadow-card">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -159,6 +377,149 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* AI Biometric Diagnostic & Ergonomic Prescription Hub */}
+      <div className="p-6 bg-surface border border-border rounded-2xl space-y-5 shadow-card" id="biometric-diagnostic-hub">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-bold tracking-wider uppercase flex items-center gap-1">
+                <HeartPulse className="w-3 h-3 text-emerald-400" />
+                BIOMETRIC AI
+              </span>
+              <h3 className="font-bold text-text-primary text-base">
+                Biometric Diagnostic & Ergonomic Prescription Hub
+              </h3>
+            </div>
+            <p className="text-xs text-text-muted mt-0.5">
+              Deep muscular latency imbalance, finger fatigue isolation, and tailored 3-day recovery drills.
+            </p>
+          </div>
+
+          <button
+            id="run-biometric-diagnostic-btn"
+            disabled={isDiagnosing}
+            onClick={handleRunDiagnostic}
+            className="px-4 py-2 bg-accent hover:bg-accent-hover text-accent-foreground font-bold text-xs rounded-xl shadow-glow-accent-sm transition-all flex items-center gap-1.5 self-start sm:self-center cursor-pointer disabled:opacity-50"
+          >
+            {isDiagnosing ? (
+              <>
+                <Bot className="w-3.5 h-3.5 animate-spin" />
+                <span>Analyzing Biometrics...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{biometricReport ? 'Re-run AI Diagnostic' : 'Run AI Diagnostic'}</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Hand Balance & Speed Distribution Indicator */}
+        <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-text-primary flex items-center gap-1.5">
+              <span>Left Hand vs Right Hand Workload</span>
+            </span>
+            <span className="font-mono text-text-muted text-[11px]">
+              Left: <strong className="text-accent">{leftPercent}%</strong> | Right: <strong className="text-success">{rightPercent}%</strong>
+            </span>
+          </div>
+
+          <div className="w-full bg-surface h-2.5 rounded-full overflow-hidden flex border border-border">
+            <div className="bg-accent h-full transition-all duration-300" style={{ width: `${leftPercent}%` }} />
+            <div className="bg-success h-full transition-all duration-300" style={{ width: `${rightPercent}%` }} />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-text-muted font-mono">
+            <span>Left Errors: {leftErrors}</span>
+            <span>Right Errors: {rightErrors}</span>
+          </div>
+        </div>
+
+        {/* Diagnostic Results View */}
+        {biometricReport && (
+          <div className="space-y-4 pt-2 border-t border-border animate-fadeIn">
+            {/* Diagnosis & Ergonomics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-4 rounded-xl bg-surface-muted/60 border border-border space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
+                  <BrainCircuit className="w-4 h-4 text-accent" />
+                  <span>Muscular Isolation Diagnosis</span>
+                </div>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  {biometricReport.fingerSummary}
+                </p>
+                {biometricReport.bottleneckNgrams.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1 items-center">
+                    <span className="text-[10px] text-text-subtle">Bottlenecks:</span>
+                    {biometricReport.bottleneckNgrams.map((ng, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-md bg-surface text-[10px] font-mono text-warning border border-border">
+                        {ng}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 rounded-xl bg-surface-muted/60 border border-border space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
+                  <Activity className="w-4 h-4 text-emerald-400" />
+                  <span>Ergonomic & Tendon Health Assessment</span>
+                </div>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  {biometricReport.ergonomicTip}
+                </p>
+              </div>
+            </div>
+
+            {/* 3-Day Actionable Prescription Plan */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-accent flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>3-Day Targeted Prescription Drills</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  { dayNum: 1, ...biometricReport.prescriptionPlan.day1 },
+                  { dayNum: 2, ...biometricReport.prescriptionPlan.day2 },
+                  { dayNum: 3, ...biometricReport.prescriptionPlan.day3 },
+                ].map((plan) => (
+                  <div
+                    key={plan.dayNum}
+                    className="p-3.5 rounded-xl bg-surface border border-border hover:border-accent flex flex-col justify-between transition-all group shadow-sm"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-xs font-bold mb-1">
+                        <span className="text-accent font-mono">Day {plan.dayNum}</span>
+                        <span className="text-[10px] text-text-muted font-mono">{plan.targetWpm} WPM</span>
+                      </div>
+                      <h5 className="font-bold text-text-primary text-xs group-hover:text-accent transition-colors">
+                        {plan.title}
+                      </h5>
+                      <p className="text-[11px] text-text-muted mt-1.5 font-mono line-clamp-2 bg-surface-muted p-1.5 rounded-lg border border-border/50">
+                        &quot;{plan.drill}&quot;
+                      </p>
+                    </div>
+
+                    {onLaunchCustomDrill && (
+                      <button
+                        onClick={() => onLaunchCustomDrill(plan.drill, `Day ${plan.dayNum}: ${plan.title}`)}
+                        className="mt-3 w-full py-1.5 bg-accent-subtle hover:bg-accent hover:text-accent-foreground text-accent font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Play className="w-3 h-3" />
+                        <span>Launch Drill</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

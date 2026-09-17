@@ -550,6 +550,99 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
               </div>
 
+              {/* Error Discipline Mode */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3">
+                <div>
+                  <span className="font-medium text-text-primary">Error Navigation & Discipline</span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Choose how the typing engine handles mistakes and backspacing.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPrefsData((prev) => ({ ...prev, errorMode: 'standard' }))}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      (prefsData.errorMode || 'standard') === 'standard'
+                        ? 'bg-accent-subtle border-accent text-accent ring-1 ring-accent'
+                        : 'bg-surface hover:bg-surface-hover border-border text-text-secondary'
+                    }`}
+                  >
+                    <div className="text-xs font-bold">Standard</div>
+                    <div className="text-[10px] text-text-muted mt-0.5">Free backspacing and error correction</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrefsData((prev) => ({ ...prev, errorMode: 'stop-on-error' }))}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      prefsData.errorMode === 'stop-on-error'
+                        ? 'bg-accent-subtle border-accent text-accent ring-1 ring-accent'
+                        : 'bg-surface hover:bg-surface-hover border-border text-text-secondary'
+                    }`}
+                  >
+                    <div className="text-xs font-bold">Stop on Error</div>
+                    <div className="text-[10px] text-text-muted mt-0.5">Must correct mistakes before moving forward</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrefsData((prev) => ({ ...prev, errorMode: 'confidence' }))}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      prefsData.errorMode === 'confidence'
+                        ? 'bg-accent-subtle border-accent text-accent ring-1 ring-accent'
+                        : 'bg-surface hover:bg-surface-hover border-border text-text-secondary'
+                    }`}
+                  >
+                    <div className="text-xs font-bold">Confidence Mode</div>
+                    <div className="text-[10px] text-text-muted mt-0.5">No backspacing allowed; pure momentum</div>
+                  </button>
+                </div>
+
+                {/* Quick Word Skip on Space */}
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-medium text-text-primary">Quick Word Skip on Space</span>
+                    <p className="text-[11px] text-text-muted">Pressing Space mid-word skips immediately to the next word.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={prefsData.quickWordSkip ?? true}
+                      onChange={(e) => setPrefsData((prev) => ({ ...prev, quickWordSkip: e.target.checked }))}
+                      className="sr-only peer"
+                      id="quick-word-skip-toggle"
+                    />
+                    <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Viewport Transition Mode */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-text-primary">Fixed 3-Line Sliding Window</span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Keeps active text anchored on line 2 with smooth line promotions, avoiding vertical viewport jump.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={(prefsData.viewportMode || '3-line') === '3-line'}
+                    onChange={(e) =>
+                      setPrefsData((prev) => ({
+                        ...prev,
+                        viewportMode: e.target.checked ? '3-line' : 'scrolling',
+                      }))
+                    }
+                    className="sr-only peer"
+                    id="viewport-mode-toggle"
+                  />
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+              </div>
+
               {/* Ghost Pacer Toggle */}
               <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
                 <div>
@@ -567,6 +660,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     id="ghost-pacer-toggle"
                   />
                   <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              {/* Cadence Metronome & Rhythm Pacer Section */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium text-text-primary">Cadence Metronome & Rhythm Pacer</span>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      Rhythmic audio ticks that stabilize keystroke cadence and prevent rushing or stuttering.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={prefsData.cadenceMetronomeEnabled ?? false}
+                      onChange={(e) => setPrefsData((prev) => ({ ...prev, cadenceMetronomeEnabled: e.target.checked }))}
+                      className="sr-only peer"
+                      id="cadence-metronome-toggle"
+                    />
+                    <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                  </label>
+                </div>
+
+                {prefsData.cadenceMetronomeEnabled && (
+                  <div className="pt-3 border-t border-border/60 space-y-3 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-text-secondary">Target Metronome Speed</span>
+                      <span className="font-mono text-xs font-bold text-accent">{prefsData.cadenceTargetWpm || 60} WPM</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="140"
+                      step="5"
+                      value={prefsData.cadenceTargetWpm || 60}
+                      onChange={(e) => setPrefsData((prev) => ({ ...prev, cadenceTargetWpm: Number(e.target.value) }))}
+                      className="w-full accent-accent cursor-pointer"
+                    />
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-text-secondary">Metronome Volume</span>
+                      <span className="font-mono text-xs text-text-muted">{Math.round((prefsData.cadenceMetronomeVolume ?? 0.15) * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="0.4"
+                      step="0.02"
+                      value={prefsData.cadenceMetronomeVolume ?? 0.15}
+                      onChange={(e) => setPrefsData((prev) => ({ ...prev, cadenceMetronomeVolume: Number(e.target.value) }))}
+                      className="w-full accent-accent cursor-pointer"
+                    />
+
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <span className="text-xs font-medium text-text-primary">Visual Cadence Bar</span>
+                        <p className="text-[11px] text-text-muted">Real-time rhythm indicator (Locked In, Smooth, Rushing, Stuttering).</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={prefsData.cadenceVisualPacer ?? true}
+                          onChange={(e) => setPrefsData((prev) => ({ ...prev, cadenceVisualPacer: e.target.checked }))}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Nitro Racer AI Challenger Twin */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-text-primary">Nitro Racer &quot;Challenger Twin&quot; Ghost</span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Spawns an AI competitor that mirrors and challenges your real-time pace with humanized acceleration curves.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={prefsData.challengerTwinEnabled ?? true}
+                    onChange={(e) => setPrefsData((prev) => ({ ...prev, challengerTwinEnabled: e.target.checked }))}
+                    className="sr-only peer"
+                    id="challenger-twin-toggle"
+                  />
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                 </label>
               </div>
             </div>

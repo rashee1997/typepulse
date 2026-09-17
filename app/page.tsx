@@ -418,6 +418,29 @@ export default function Home() {
     gameMode,
   ]);
 
+  // Cadence Metronome Sound Tick & Rhythm Loop
+  useEffect(() => {
+    if (sessionState !== 'playing' || !preferences.cadenceMetronomeEnabled) {
+      return;
+    }
+
+    const targetWpm = preferences.cadenceTargetWpm || 60;
+    // Standard typing: 1 word = 5 characters / keystrokes
+    const intervalMs = (60 / (targetWpm * 5)) * 1000;
+    const vol = preferences.cadenceMetronomeVolume ?? 0.15;
+
+    const timer = setInterval(() => {
+      soundFx.playMetronomeTick(false, vol);
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [
+    sessionState,
+    preferences.cadenceMetronomeEnabled,
+    preferences.cadenceTargetWpm,
+    preferences.cadenceMetronomeVolume,
+  ]);
+
   // Keep active character centered in view
   useEffect(() => {
     if (activeCharRef.current && textContainerRef.current) {
@@ -541,6 +564,19 @@ export default function Home() {
     setIsResultsOpen(false);
     setCurrentView('typing');
     setupNewTest('accuracy-challenge', drillText, null);
+  };
+
+  const handleLaunchCustomDrill = (drillText: string, title: string = 'Biometric AI Prescription') => {
+    activeLessonRef.current = null;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'practice';
+    setActiveLesson(null);
+    setActiveMission(null);
+    setGameMode('practice');
+    setModeTitle(title);
+    setIsResultsOpen(false);
+    setCurrentView('typing');
+    setupNewTest('practice', drillText, null);
   };
 
   const handleUpdateArcadeXp = useCallback((amount: number) => {
@@ -785,7 +821,9 @@ export default function Home() {
         {currentView === 'analytics' && (
           <AnalyticsView
             userProgress={userProgress}
+            aiSettings={aiSettings}
             onTrainWeakKeys={handleTrainWeakKeys}
+            onLaunchCustomDrill={handleLaunchCustomDrill}
             onBackToPractice={switchToPractice}
           />
         )}
@@ -1133,6 +1171,15 @@ export default function Home() {
                               : `-${ghostIndex - engineIndex} PB`}
                           </span>
                         )}
+                        {preferences.cadenceVisualPacer && (
+                          <span
+                            className="text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1 animate-pulse"
+                            title={`Cadence Metronome Rhythm: ${preferences.cadenceTargetWpm || 60} WPM`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            {preferences.cadenceTargetWpm || 60} WPM
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-baseline gap-1">
                         <span className="text-2xl font-extrabold font-mono text-accent">
@@ -1283,6 +1330,7 @@ export default function Home() {
                     activeKey={activeKeyPressed}
                     showFingerGuide={preferences.showFingerGuidance}
                     keyStats={userProgress.keyStats}
+                    confidenceScores={userProgress.confidenceScores}
                     isBasicLesson={gameMode === 'lesson' && activeLesson?.tier === 1}
                     activeLessonTitle={activeLesson?.title}
                     showAnimatedHands={preferences.showAnimatedHandsInLessons !== false}

@@ -16,6 +16,8 @@ export type GameMode =
   | 'weakness-weaver'
   | 'typing-quest'
   | 'adaptive-boss'
+  | 'story-stream'
+  | 'code-pulse'
   | 'arcade';
 
 export type SessionState = 'ready' | 'countdown' | 'playing' | 'paused' | 'completed';
@@ -45,6 +47,32 @@ export interface PatternStat {
   ewmaScore: number;
 }
 
+export type ErrorMode = 'standard' | 'stop-on-error' | 'confidence';
+
+export interface ReplayEvent {
+  deltaMs: number;
+  key: string;
+  isCorrect: boolean;
+  index: number;
+}
+
+export interface ArcadeScores {
+  raceWins: number;
+  racePodiums: number;
+  raceBestWpm: number;
+  orbitalHighScore: number;
+  orbitalWordsDestroyed: number;
+  bombDefusalHighScore: number;
+  bombsDefusedTotal: number;
+  blitzHighScore: number;
+  blitzMaxMultiplier: number;
+  duelWins: number;
+  duelBestWpm: number;
+  storyStreamBestWpm?: number;
+  codePulseBestWpm?: number;
+  totalGamesPlayed: number;
+}
+
 export interface TypingStats {
   wpm: number;
   rawWpm: number;
@@ -61,6 +89,9 @@ export interface TypingStats {
   weakKeys: string[];
   timeline: WpmSample[];
   patternStats?: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }>;
+  confidenceScores?: Record<string, number>;
+  confidenceScore?: number;
+  replayEvents?: ReplayEvent[];
 }
 
 export interface Lesson {
@@ -170,6 +201,8 @@ export interface UserProgress {
   };
   keyStats: Record<string, { typed: number; errors: number }>;
   patternStats?: Record<string, PatternStat>;
+  confidenceScores?: Record<string, number>; // 0.0 - 1.0 (Keybr confidence metric)
+  arcadeStats?: ArcadeScores; // Unified arcade performance metrics
 }
 
 export interface QuestOption {
@@ -246,8 +279,16 @@ export interface AppPreferences {
   smoothCaret: boolean;
   showGhostPacer?: boolean;
   targetPacerWpm?: number;
+  cadenceMetronomeEnabled?: boolean;
+  cadenceMetronomeVolume?: number; // 0.0 - 1.0
+  cadenceTargetWpm?: number;
+  cadenceVisualPacer?: boolean;
+  challengerTwinEnabled?: boolean;
   fontSize: 'small' | 'medium' | 'large';
   theme: ThemePreference;
+  errorMode?: ErrorMode; // 'standard' | 'stop-on-error' | 'confidence'
+  quickWordSkip?: boolean;
+  viewportMode?: '3-line' | 'scrolling';
 }
 
 export interface AICoachFeedback {

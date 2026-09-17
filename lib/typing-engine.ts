@@ -1,4 +1,5 @@
-import { CharState, TypingStats, WpmSample } from '@/types/typing';
+import { CharState, ErrorMode, ReplayEvent, TypingStats, WpmSample } from '@/types/typing';
+import { calculateKeyConfidence } from './adaptive-engine';
 
 export class TypingEngine {
   public text: string = '';
@@ -15,12 +16,17 @@ export class TypingEngine {
   public errorsByChar: Record<string, number> = {};
   public timeline: WpmSample[] = [];
   public patternStats: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }> = {};
+  public replayEvents: ReplayEvent[] = [];
+  public errorMode: ErrorMode = 'standard';
+  public quickWordSkip: boolean = false;
   private keyIntervals: number[] = [];
   private lastKeyTimestamp: number = 0;
   private previousKey: string | null = null;
   private twoKeysAgo: string | null = null;
 
-  constructor(initialText: string = '') {
+  constructor(initialText: string = '', errorMode: ErrorMode = 'standard', quickWordSkip: boolean = false) {
+    this.errorMode = errorMode;
+    this.quickWordSkip = quickWordSkip;
     this.reset(initialText);
   }
 
@@ -44,6 +50,7 @@ export class TypingEngine {
     this.errorsByChar = {};
     this.timeline = [];
     this.patternStats = {};
+    this.replayEvents = [];
     this.keyIntervals = [];
     this.lastKeyTimestamp = 0;
     this.previousKey = null;
@@ -75,6 +82,16 @@ export class TypingEngine {
 
     // Handle Backspace
     if (key === 'Backspace') {
+      if (this.errorMode === 'confidence') {
+        // Confidence mode: no backspacing permitted!
+        return {
+          success: false,
+          isFinished: false,
+          charTyped: 'Backspace',
+          targetChar: this.chars[this.currentIndex]?.char || '',
+          isCorrect: false,
+        };
+      }
       return this.handleBackspace(ctrlKey);
     }
 
@@ -96,6 +113,56 @@ export class TypingEngine {
         charTyped: key,
         targetChar: '',
         isCorrect: false,
+      };
+    }
+
+    // Stop-on-error mode constraint: if the current character has already been mistyped,
+    // block typing further characters until corrected via backspace!
+    if (this.errorMode === 'stop-on-error') {
+      const currentCh = this.chars[this.currentIndex];
+      if (currentCh && currentCh.status === 'incorrect' && key !== currentCh.char) {
+        return {
+          success: false,
+          isFinished: false,
+          charTyped: key,
+          targetChar: currentCh.char,
+          isCorrect: false,
+        };
+      }
+    }
+
+    // Quick Word Skip on Space:
+    // If typist hits Space mid-word, skip remaining characters in the current word,
+    // mark them incorrect, and advance to next word boundary.
+    if (this.quickWordSkip && key === ' ' && this.chars[this.currentIndex]?.char !== ' ') {
+      let spaceIdx = this.currentIndex;
+      while (spaceIdx < this.chars.length && this.chars[spaceIdx].char !== ' ') {
+        this.chars[spaceIdx].status = 'incorrect';
+        this.chars[spaceIdx].timestamp = now;
+        this.incorrectKeystrokes++;
+        this.totalKeystrokes++;
+        spaceIdx++;
+      }
+      if (spaceIdx < this.chars.length && this.chars[spaceIdx].char === ' ') {
+        this.chars[spaceIdx].status = 'correct';
+        this.chars[spaceIdx].timestamp = now;
+        this.correctKeystrokes++;
+        this.totalKeystrokes++;
+        spaceIdx++;
+      }
+      this.currentIndex = spaceIdx;
+      if (this.currentIndex < this.chars.length) {
+        this.chars[this.currentIndex].status = 'current';
+      }
+      const isFinished = this.currentIndex >= this.chars.length;
+      if (isFinished) this.endTime = now;
+      this.recordSample();
+      return {
+        success: true,
+        isFinished,
+        charTyped: ' ',
+        targetChar: ' ',
+        isCorrect: true,
       };
     }
 
@@ -123,6 +190,15 @@ export class TypingEngine {
       const expectedChar = target.char.toLowerCase();
       this.errorsByChar[expectedChar] = (this.errorsByChar[expectedChar] || 0) + 1;
     }
+
+    // Record replay event stream
+    const deltaMs = this.startTime ? now - this.startTime : 0;
+    this.replayEvents.push({
+      deltaMs,
+      key,
+      isCorrect,
+      index: this.currentIndex,
+    });
 
     // Record n-gram latency & accuracy patterns (unigram, bigram, trigram)
     const normKey = key.toLowerCase();
@@ -235,18 +311,6 @@ export class TypingEngine {
     prev.userTyped = undefined;
   }
 
-  public appendText(additionalText: string): void {
-    this.text += additionalText;
-    const newChars: CharState[] = additionalText.split('').map((char) => ({
-      char,
-      status: 'pending',
-    }));
-    this.chars.push(...newChars);
-    if (this.currentIndex < this.chars.length && this.chars[this.currentIndex].status === 'pending') {
-      this.chars[this.currentIndex].status = 'current';
-    }
-  }
-
   public getElapsedSeconds(): number {
     if (!this.startTime) return 0;
     const end = this.endTime || Date.now();
@@ -274,6 +338,52 @@ export class TypingEngine {
       errors: this.incorrectKeystrokes,
       combo: this.combo,
     });
+  }
+
+  public appendText(extraText: string) {
+    if (!extraText) return;
+    const startIdx = this.chars.length;
+    this.text += extraText;
+    const newChars = extraText.split('').map((char, index) => ({
+      char,
+      status: (startIdx + index === this.currentIndex) ? ('current' as const) : ('pending' as const),
+    }));
+    this.chars.push(...newChars);
+  }
+
+  public getRollingCadence(): {
+    ikiv: number;
+    status: 'locked-in' | 'smooth' | 'rushing' | 'stuttering';
+    currentTempoWpm: number;
+    variance: number;
+  } {
+    const recent = this.keyIntervals.slice(-10);
+    if (recent.length < 4) {
+      return { ikiv: 0, status: 'smooth', currentTempoWpm: 0, variance: 0 };
+    }
+    const mean = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const variance = recent.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / recent.length;
+    const stdDev = Math.sqrt(variance);
+    const cov = mean > 0 ? stdDev / mean : 1;
+    const currentTempoWpm = mean > 0 ? Math.round((60000 / mean) / 5) : 0;
+
+    let status: 'locked-in' | 'smooth' | 'rushing' | 'stuttering' = 'smooth';
+    if (cov < 0.22 && recent.length >= 7) {
+      status = 'locked-in';
+    } else if (cov < 0.38) {
+      status = 'smooth';
+    } else if (mean < 140 && cov >= 0.38) {
+      status = 'rushing';
+    } else {
+      status = 'stuttering';
+    }
+
+    return {
+      ikiv: Math.round(cov * 100),
+      status,
+      currentTempoWpm,
+      variance: Math.round(variance),
+    };
   }
 
   public getConsistency(): number {
@@ -312,6 +422,20 @@ export class TypingEngine {
       .slice(0, 5)
       .map(([char]) => char);
 
+    // Calculate Keybr confidence scores
+    const keyStatsForConfidence: Record<string, { typed: number; errors: number }> = {};
+    Object.keys(this.errorsByChar).forEach((ch) => {
+      keyStatsForConfidence[ch] = {
+        typed: (this.patternStats[ch]?.typed || 0) + this.errorsByChar[ch],
+        errors: this.errorsByChar[ch],
+      };
+    });
+    const confidenceScores = calculateKeyConfidence(keyStatsForConfidence, this.patternStats);
+    const confValues = Object.values(confidenceScores);
+    const confidenceScore = confValues.length > 0
+      ? Math.round((confValues.reduce((a, b) => a + b, 0) / confValues.length) * 100) / 100
+      : undefined;
+
     return {
       wpm,
       rawWpm,
@@ -328,6 +452,9 @@ export class TypingEngine {
       weakKeys,
       timeline: [...this.timeline],
       patternStats: { ...this.patternStats },
+      confidenceScores,
+      confidenceScore,
+      replayEvents: [...this.replayEvents],
     };
   }
 }

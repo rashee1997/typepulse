@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { AISettings, UserProgress, TypingStats } from '@/types/typing';
+import { AISettings, UserProgress, TypingStats, ArcadeScores } from '@/types/typing';
+import { recordArcadeGameResult } from '@/lib/progress-service';
 import { TypingRaceGame } from '@/components/TypingRaceGame';
 import { OrbitalDefenseGame } from '@/components/OrbitalDefenseGame';
 import { BombDefusalGame } from '@/components/BombDefusalGame';
@@ -12,6 +13,8 @@ import { NumericSymbolNinjaGame } from '@/components/NumericSymbolNinjaGame';
 import { ZenMarathonGame } from '@/components/ZenMarathonGame';
 import { WeaknessWeaverGame } from '@/components/WeaknessWeaverGame';
 import { BossGauntletGame } from '@/components/BossGauntletGame';
+import { StoryStreamGame } from '@/components/StoryStreamGame';
+import { CodePulseGame } from '@/components/CodePulseGame';
 import {
   Calendar,
   ChevronRight,
@@ -32,6 +35,8 @@ import {
   Waves,
   Skull,
   ShieldAlert,
+  BookOpen,
+  Code2,
 } from 'lucide-react';
 
 interface ArcadeDashboardProps {
@@ -53,22 +58,9 @@ type ActiveGame =
   | 'numeric-ninja'
   | 'zen-marathon'
   | 'weakness-weaver'
-  | 'boss-gauntlet';
-
-interface ArcadeScores {
-  raceWins: number;
-  racePodiums: number;
-  raceBestWpm: number;
-  orbitalHighScore: number;
-  orbitalWordsDestroyed: number;
-  bombDefusalHighScore: number;
-  bombsDefusedTotal: number;
-  blitzHighScore: number;
-  blitzMaxMultiplier: number;
-  duelWins: number;
-  duelBestWpm: number;
-  totalGamesPlayed: number;
-}
+  | 'boss-gauntlet'
+  | 'story-stream'
+  | 'code-pulse';
 
 export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   userProgress,
@@ -81,6 +73,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   const [showSpecializedDrills, setShowSpecializedDrills] = useState(false);
 
   const [scores, setScores] = useState<ArcadeScores>(() => {
+    if (userProgress.arcadeStats) return userProgress.arcadeStats;
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('typepulse_arcade_stats');
@@ -114,16 +107,24 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
 
   // Grand Prix Race Finish
   const handleRaceFinish = useCallback(
-    (totalXp: number, position: number, wpm: number, _accuracy: number) => {
+    (totalXp: number, position: number, wpm: number, accuracy: number) => {
       onUpdateXp(totalXp);
-      const newScores = {
+      const isWon = position === 1;
+      const isPodium = position <= 3;
+      const res = recordArcadeGameResult('nitro-racer', 'Nitro Racer GP', {
+        score: Math.round(wpm * 10),
+        wpm,
+        accuracy,
+        won: isWon,
+        podium: isPodium,
+      });
+      setScores(res.updatedProgress.arcadeStats || {
         ...scores,
-        raceWins: position === 1 ? (scores.raceWins || 0) + 1 : scores.raceWins || 0,
-        racePodiums: position <= 3 ? (scores.racePodiums || 0) + 1 : scores.racePodiums || 0,
+        raceWins: isWon ? (scores.raceWins || 0) + 1 : scores.raceWins || 0,
+        racePodiums: isPodium ? (scores.racePodiums || 0) + 1 : scores.racePodiums || 0,
         raceBestWpm: Math.max(scores.raceBestWpm || 0, wpm),
         totalGamesPlayed: scores.totalGamesPlayed + 1,
-      };
-      saveScores(newScores);
+      });
     },
     [onUpdateXp, scores]
   );
@@ -135,13 +136,17 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       const xp = Math.max(120, Math.round(score / 8));
       onUpdateXp(xp);
 
-      const newScores = {
+      const res = recordArcadeGameResult('orbital-defense', 'Orbital Defense', {
+        score,
+        wordsDestroyed,
+        accuracy,
+      });
+      setScores(res.updatedProgress.arcadeStats || {
         ...scores,
         orbitalHighScore: Math.max(scores.orbitalHighScore || 0, score),
         orbitalWordsDestroyed: (scores.orbitalWordsDestroyed || 0) + wordsDestroyed,
         totalGamesPlayed: scores.totalGamesPlayed + 1,
-      };
-      saveScores(newScores);
+      });
 
       if (onFinishSession) {
         onFinishSession(
@@ -175,13 +180,17 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       const xp = Math.max(120, Math.round(score / 7));
       onUpdateXp(xp);
 
-      const newScores = {
+      const res = recordArcadeGameResult('bomb-defusal', 'Bomb Defusal', {
+        score,
+        bombsDefused,
+        accuracy,
+      });
+      setScores(res.updatedProgress.arcadeStats || {
         ...scores,
         bombDefusalHighScore: Math.max(scores.bombDefusalHighScore || 0, score),
         bombsDefusedTotal: (scores.bombsDefusedTotal || 0) + bombsDefused,
         totalGamesPlayed: scores.totalGamesPlayed + 1,
-      };
-      saveScores(newScores);
+      });
 
       if (onFinishSession) {
         onFinishSession(
@@ -329,6 +338,28 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
     return (
       <BossGauntletGame
         userProgress={userProgress}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'story-stream') {
+    return (
+      <StoryStreamGame
+        userProgress={userProgress}
+        aiSettings={aiSettings}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'code-pulse') {
+    return (
+      <CodePulseGame
+        userProgress={userProgress}
+        aiSettings={aiSettings}
         onFinishSession={handleGenericSessionFinish}
         onExit={() => setActiveGame('none')}
       />
@@ -664,7 +695,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
             onClick={() => setShowSpecializedDrills((prev) => !prev)}
             className="px-3.5 py-1.5 rounded-xl bg-surface-muted hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-semibold border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <span>{showSpecializedDrills ? 'Collapse Drills' : 'View All 5 Drills'}</span>
+            <span>{showSpecializedDrills ? 'Collapse Special Modes' : 'View All 7 Special Modes'}</span>
             <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showSpecializedDrills ? 'rotate-90' : ''}`} />
           </button>
         </div>
@@ -763,6 +794,44 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
                 className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
               >
                 Fight Bosses
+              </button>
+            </div>
+
+            {/* Drill 6: AI Story Stream */}
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:border-indigo-400 flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 text-sm">📖</span>
+                  <h4 className="font-bold text-sm text-text-primary">AI Story Stream</h4>
+                </div>
+                <p className="text-xs text-text-muted">
+                  Branching interactive narrative adventure that weaves your struggle keys seamlessly into dynamic story prose.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveGame('story-stream')}
+                className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+              >
+                Stream Stories
+              </button>
+            </div>
+
+            {/* Drill 7: Code Pulse */}
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:border-emerald-400 flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-sm">💻</span>
+                  <h4 className="font-bold text-sm text-text-primary">Code Pulse</h4>
+                </div>
+                <p className="text-xs text-text-muted">
+                  Polyglot developer syntax drills covering TypeScript, Python, Rust, Go, and SQL with braces, arrows, and operator speed.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveGame('code-pulse')}
+                className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+              >
+                Pulse Code
               </button>
             </div>
           </div>

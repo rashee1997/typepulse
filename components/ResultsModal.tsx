@@ -74,6 +74,19 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     }
 
     let isMounted = true;
+    let hasFullResult = false;
+    // 1. Instant optimistic feedback (<5ms)
+    generateAiCoachFeedback(
+      stats,
+      { mode: modeTitle, level: userProgress.level, userWeakKeys: stats.weakKeys },
+      { ...aiSettings, provider: 'offline' }
+    ).then((optimistic) => {
+      if (isMounted && !hasFullResult) {
+        setCoachFeedback(optimistic);
+      }
+    });
+
+    // 2. Full AI enhancement (if configured)
     generateAiCoachFeedback(
       stats,
       { mode: modeTitle, level: userProgress.level, userWeakKeys: stats.weakKeys },
@@ -81,6 +94,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     )
       .then((feedback) => {
         if (isMounted) {
+          hasFullResult = true;
           setCoachFeedback(feedback);
           setLoadingCoach(false);
         }
@@ -251,12 +265,30 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
             </div>
 
             <div className="p-4 bg-surface-muted border border-border rounded-xl flex flex-col">
-              <span className="text-xs font-medium text-text-muted">Max Combo</span>
+              <span className="text-xs font-medium text-text-muted">
+                {stats.confidenceScore !== undefined ? 'Keybr Confidence' : 'Max Combo'}
+              </span>
               <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-3xl font-extrabold text-info font-mono">{stats.maxCombo}</span>
-                <span className="text-xs text-text-subtle font-mono">keys</span>
+                {stats.confidenceScore !== undefined ? (
+                  <>
+                    <span className="text-3xl font-extrabold text-info font-mono">
+                      {Math.round(stats.confidenceScore * 100)}%
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-3xl font-extrabold text-info font-mono">{stats.maxCombo}</span>
+                    <span className="text-xs text-text-subtle font-mono">keys</span>
+                  </>
+                )}
               </div>
-              <span className="text-[11px] text-text-subtle mt-0.5">Rhythm: {stats.consistency}%</span>
+              <span className="text-[11px] text-text-subtle mt-0.5">
+                {stats.confidenceScore !== undefined
+                  ? stats.confidenceScore >= 0.85
+                    ? 'Target Mastered 🎯'
+                    : 'Target Developing ⚡'
+                  : `Rhythm: ${stats.consistency}%`}
+              </span>
             </div>
 
             <div className="p-4 bg-surface-muted border border-border rounded-xl flex flex-col">
@@ -272,6 +304,22 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Ghost Replay Notification Banner */}
+          {stats.replayEvents && stats.replayEvents.length > 0 && (
+            <div className="p-3 bg-surface-muted border border-border rounded-xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-text-muted">
+                <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
+                <span>
+                  <strong className="text-text-primary">Ghost PB Replay Recorded:</strong>{' '}
+                  {stats.replayEvents.length} timestamped stroke events saved for asynchronous shadow racing.
+                </span>
+              </div>
+              <span className="font-mono text-[10px] text-text-subtle px-1.5 py-0.5 rounded bg-surface border border-border">
+                {stats.wpm} WPM Ghost
+              </span>
+            </div>
+          )}
 
           {/* WPM Timeline Graph */}
           {timelinePoints.length > 2 && (
@@ -362,28 +410,45 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
               </div>
             ) : null}
 
-            {/* Launch AI Mission CTA */}
-            <div className="pt-2 border-t border-border flex items-center justify-between">
-              <span className="text-xs text-text-muted">Ready for tailored practice?</span>
-              <button
-                type="button"
-                onClick={handleCreateMission}
-                disabled={generatingMission}
-                className="px-3.5 py-1.5 bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-foreground text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
-                id="generate-ai-mission-button"
-              >
-                {generatingMission ? (
-                  <>
-                    <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    <span>Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Generate AI Mission</span>
-                  </>
+            {/* Launch AI Mission & 1-Click Remediation Sprint CTA */}
+            <div className="pt-2 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
+              <span className="text-xs text-text-muted">Coach Actionable Next Step:</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {coachFeedback?.recommendedMission && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onStartMission(coachFeedback.recommendedMission!);
+                      onClose();
+                    }}
+                    className="flex-1 sm:flex-initial px-3.5 py-1.5 bg-accent hover:bg-accent/90 text-accent-foreground text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                    id="launch-coach-remediation-button"
+                    title="Launch instant 60s targeted drill designed by your Coach"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-accent-foreground" />
+                    <span>Launch 60s Remediation Drill</span>
+                  </button>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={handleCreateMission}
+                  disabled={generatingMission}
+                  className="px-3 py-1.5 bg-surface-hover hover:bg-surface-active border border-border text-text-primary text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                  id="generate-ai-mission-button"
+                >
+                  {generatingMission ? (
+                    <>
+                      <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      <span>Custom Mission</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

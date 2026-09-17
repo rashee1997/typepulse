@@ -12,6 +12,7 @@ interface KeyboardVisualizerProps {
   showFingerGuide?: boolean;
   showHeatmap?: boolean;
   keyStats?: Record<string, { typed: number; errors: number }>;
+  confidenceScores?: Record<string, number>;
   isBasicLesson?: boolean;
   activeLessonTitle?: string;
   showAnimatedHands?: boolean;
@@ -244,6 +245,7 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
   showFingerGuide = true,
   showHeatmap = false,
   keyStats = {},
+  confidenceScores = {},
   isBasicLesson = false,
   activeLessonTitle = '',
   showAnimatedHands = true,
@@ -283,7 +285,9 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
   };
 
   const targetInfo = getTargetFingerInfo();
-  const [internalHeatmap, setInternalHeatmap] = React.useState(showHeatmap || false);
+  const [heatmapMode, setHeatmapMode] = React.useState<'off' | 'errors' | 'confidence'>(
+    showHeatmap ? 'errors' : 'off'
+  );
 
   // Get intuitive coaching advice based on key/finger
   const getTechniqueHint = () => {
@@ -343,23 +347,38 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
               </span>
             )}
 
-            {/* Heatmap Error Toggle */}
-            <button
-              onClick={() => setInternalHeatmap((prev) => !prev)}
-              className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-colors shrink-0 cursor-pointer ${
-                internalHeatmap
-                  ? 'bg-danger-subtle text-danger border border-danger-border'
-                  : 'bg-surface-hover text-text-muted hover:text-text-primary border border-border'
-              }`}
-              title="Toggle error frequency heatmap"
-            >
-              {internalHeatmap ? '🔥 Heatmap On' : 'Heatmap'}
-            </button>
+            {/* Confidence & Error Heatmap Toggles */}
+            <div className="flex items-center bg-surface-muted p-0.5 rounded-xl border border-border text-[11px]">
+              <button
+                type="button"
+                onClick={() => setHeatmapMode((prev) => (prev === 'errors' ? 'off' : 'errors'))}
+                className={`px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  heatmapMode === 'errors'
+                    ? 'bg-danger text-white shadow-sm'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+                title="Highlight keys with high mistake counts"
+              >
+                🔥 Errors
+              </button>
+              <button
+                type="button"
+                onClick={() => setHeatmapMode((prev) => (prev === 'confidence' ? 'off' : 'confidence'))}
+                className={`px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  heatmapMode === 'confidence'
+                    ? 'bg-accent text-accent-foreground shadow-sm'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+                title="Show Keybr-style key mastery confidence (speed + accuracy)"
+              >
+                🎯 Confidence
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Keyboard Bed - reflowed after the hand/finger cue on mobile so the guide stays in the primary viewport */}
+      {/* Keyboard Bed */}
       <div className="order-3 lg:order-2 p-2 sm:p-2.5 bg-surface rounded-2xl border border-border shadow-card backdrop-blur-sm w-full max-w-full overflow-x-auto scrollbar-none">
         <div className="flex flex-col gap-1 min-w-[560px]">
           {KEYBOARD_ROWS.map((row, rIdx) => (
@@ -379,13 +398,21 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
                 // Heatmap error coloring
                 const errorCount = keyStats[kDef.key]?.errors || 0;
                 let heatmapClass = '';
-                if (internalHeatmap && errorCount > 0) {
-                  if (errorCount >= 8) heatmapClass = 'bg-danger-subtle border-danger text-danger';
+                if (heatmapMode === 'errors' && errorCount > 0) {
+                  if (errorCount >= 8) heatmapClass = 'bg-danger-subtle border-danger text-danger font-bold';
                   else if (errorCount >= 4) heatmapClass = 'bg-warning-subtle border-warning text-warning';
                   else heatmapClass = 'bg-accent-subtle border-accent-border text-accent';
+                } else if (heatmapMode === 'confidence') {
+                  const conf = confidenceScores ? confidenceScores[kDef.key.toLowerCase()] : undefined;
+                  if (conf !== undefined) {
+                    if (conf >= 0.85) heatmapClass = 'bg-success-subtle/80 border-success/60 text-success';
+                    else if (conf >= 0.6) heatmapClass = 'bg-warning-subtle/80 border-warning/60 text-warning';
+                    else heatmapClass = 'bg-danger-subtle/80 border-danger/60 text-danger font-bold';
+                  }
                 }
 
                 const fingerStyle = FINGER_COLOR_MAP[kDef.finger] || FINGER_COLOR_MAP['thumb'];
+                const confScore = confidenceScores ? confidenceScores[kDef.key.toLowerCase()] : undefined;
 
                 return (
                   <div
@@ -403,6 +430,13 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
                       heatmapClass
                     )}
                   >
+                    {/* Keybr Confidence Badge */}
+                    {heatmapMode === 'confidence' && confScore !== undefined && (
+                      <span className="absolute -top-1.5 right-0.5 px-1 py-0 rounded text-[7px] font-mono font-bold bg-surface border border-border leading-tight">
+                        {Math.round(confScore * 100)}%
+                      </span>
+                    )}
+
                     {/* Animated Finger Pointer in Basic Lessons */}
                     {isBasicLesson && isTarget && targetInfo && (
                       <span className="absolute -top-3.5 px-1 py-0.2 rounded-full text-[8px] bg-accent text-accent-foreground font-extrabold uppercase shadow-glow-accent-sm animate-bounce z-20 whitespace-nowrap">

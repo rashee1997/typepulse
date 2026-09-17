@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AIMission, AISettings, UserProgress } from '@/types/typing';
-import { generateAiMission } from '@/lib/ai-service';
-import { Bot, ChevronRight, Flame, Loader2, Plus, Sparkles, Target, Zap } from 'lucide-react';
+import { generateAiMission, generateTriTierDailyMissions } from '@/lib/ai-service';
+import { Bot, ChevronRight, Flame, Loader2, Plus, Sparkles, Target, Zap, Calendar, ShieldCheck } from 'lucide-react';
 
 interface AIMissionBoardProps {
   userProgress: UserProgress;
@@ -20,52 +20,17 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
   onBackToPractice,
   onOpenSettings,
 }) => {
-  const [missions, setMissions] = useState<AIMission[]>(() => [
-    {
-      id: 'default-mission-1',
-      type: 'WEAK_KEY_DRILL',
-      title: 'Home Row Anchor Recalibration',
-      description: 'Stabilize finger transitions across the fundamental home row.',
-      difficulty: 'Beginner',
-      targetWpm: 24,
-      targetAccuracy: 96,
-      focusKeys: ['a', 's', 'd', 'f', 'j', 'k', 'l'],
-      content: 'all ask fall alas salad flasks fall fads dad add sass dads glad half flag dash',
-      rewardXp: 180,
-      reason: 'Home row consistency is the foundation of all high-velocity typing.',
-      completed: false,
-      createdAt: 1700000000000,
-    },
-    {
-      id: 'default-mission-2',
-      type: 'ACCURACY_TARGET',
-      title: 'Precision Lock Sprint',
-      description: 'Finish a steady 30-word flow with zero room for error. Target 97%+ accuracy.',
-      difficulty: 'Intermediate',
-      targetWpm: 30,
-      targetAccuracy: 97,
-      content: 'Precision is the foundation of speed. Move smooth, keep calm, and speed will follow naturally without hesitation.',
-      rewardXp: 220,
-      reason: 'Reinforces the metronome rhythm to eliminate backspace penalties.',
-      completed: false,
-      createdAt: 1700000000000,
-    },
-    {
-      id: 'default-mission-3',
-      type: 'SPEED_SPRINT',
-      title: 'Velocity Barrier Breakthrough',
-      description: 'Push your boundaries and beat your personal pacing on common words.',
-      difficulty: 'Advanced',
-      targetWpm: 40,
-      targetAccuracy: 94,
-      content: 'quick reach rhythm drive build spark track glide shift sound smart steady fluid force craft habit sharp alert motion',
-      rewardXp: 280,
-      reason: 'High-frequency words are best practiced as reflexive whole-word chords.',
-      completed: false,
-      createdAt: 1700000000000,
-    },
-  ]);
-
+  const [dailyMissions, setDailyMissions] = useState<AIMission[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const storageKey = `typing_daily_missions_${todayKey}`;
+      const cached = localStorage.getItem(storageKey);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [customMissions, setCustomMissions] = useState<AIMission[]>([]);
   const [generating, setGenerating] = useState(false);
 
   // Extract weak keys from user progress
@@ -75,16 +40,39 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
     .slice(0, 4)
     .map(([char]) => char);
 
+  // Load Tri-Tier Daily Missions
+  useEffect(() => {
+    if (dailyMissions.length > 0) return;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const storageKey = `typing_daily_missions_${todayKey}`;
+    const currentWpm = userProgress.highScores.bestWpm || 35;
+    let isCancelled = false;
+
+    generateTriTierDailyMissions(todayKey, topWeakKeys, currentWpm, aiSettings).then((triMissions) => {
+      if (isCancelled) return;
+      setDailyMissions(triMissions);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(triMissions));
+      } catch {}
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [dailyMissions.length, userProgress.highScores.bestWpm, aiSettings, topWeakKeys]);
+
   const handleGenerateNewMission = async () => {
     setGenerating(true);
     try {
       const currentWpm = userProgress.highScores.bestWpm || 30;
       const newMission = await generateAiMission(topWeakKeys, currentWpm, aiSettings);
-      setMissions((prev) => [newMission, ...prev]);
+      setCustomMissions((prev) => [newMission, ...prev]);
     } finally {
       setGenerating(false);
     }
   };
+
+  const allMissions = [...dailyMissions, ...customMissions];
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fadeIn" id="ai-mission-board-container">
@@ -148,66 +136,79 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
 
       {/* Missions Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {missions.map((mission) => (
-          <div
-            key={mission.id}
-            className="p-5 bg-surface border border-border rounded-2xl flex flex-col justify-between gap-4 hover:border-border-hover transition-all shadow-card"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                    mission.difficulty === 'Master'
-                      ? 'bg-danger-subtle border-danger-border text-danger'
-                      : mission.difficulty === 'Advanced'
-                      ? 'bg-accent-subtle border-accent-border text-accent'
-                      : 'bg-primary-subtle border-primary-border text-primary'
-                  }`}
+        {allMissions.map((mission) => {
+          const isDaily = mission.id.startsWith('daily-');
+          return (
+            <div
+              key={mission.id}
+              className={`p-5 bg-surface border rounded-2xl flex flex-col justify-between gap-4 hover:border-border-hover transition-all shadow-card ${
+                isDaily ? 'border-accent/40 bg-gradient-to-br from-accent-subtle/20 to-surface' : 'border-border'
+              }`}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {isDaily && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent text-accent-foreground flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5" />
+                        Daily Protocol
+                      </span>
+                    )}
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                        mission.difficulty === 'Master'
+                          ? 'bg-danger-subtle border-danger-border text-danger'
+                          : mission.difficulty === 'Advanced'
+                          ? 'bg-accent-subtle border-accent-border text-accent'
+                          : 'bg-primary-subtle border-primary-border text-primary'
+                      }`}
+                    >
+                      {mission.difficulty} • {mission.type.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-accent">+{mission.rewardXp} XP</span>
+                </div>
+
+                <h3 className="font-bold text-text-primary text-base">{mission.title}</h3>
+                <p className="text-xs text-text-muted">{mission.description}</p>
+
+                {/* Coach Insight */}
+                <div className="p-2.5 bg-surface-muted border border-border rounded-xl text-[11px] text-text-secondary flex items-start gap-2">
+                  <Bot className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <p>{mission.reason}</p>
+                </div>
+              </div>
+
+              {/* Target Criteria & Action */}
+              <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-text-muted">
+                <div className="flex items-center gap-3 font-mono">
+                  {mission.targetWpm && (
+                    <span className="flex items-center gap-1 text-accent font-bold">
+                      <Zap className="w-3 h-3" />
+                      {mission.targetWpm} WPM
+                    </span>
+                  )}
+                  {mission.targetAccuracy && (
+                    <span className="flex items-center gap-1 text-success font-bold">
+                      <Target className="w-3 h-3" />
+                      {mission.targetAccuracy}% Acc
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onLaunchMission(mission)}
+                  className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-accent-foreground font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-glow-accent-sm"
+                  id={`launch-mission-${mission.id}`}
                 >
-                  {mission.difficulty} • {mission.type.replace(/_/g, ' ')}
-                </span>
-                <span className="text-xs font-mono font-bold text-accent">+{mission.rewardXp} XP</span>
-              </div>
-
-              <h3 className="font-bold text-text-primary text-base">{mission.title}</h3>
-              <p className="text-xs text-text-muted">{mission.description}</p>
-
-              {/* Coach Insight */}
-              <div className="p-2.5 bg-surface-muted border border-border rounded-xl text-[11px] text-text-secondary flex items-start gap-2">
-                <Bot className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                <p>{mission.reason}</p>
+                  <span>Deploy</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-
-            {/* Target Criteria & Action */}
-            <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-text-muted">
-              <div className="flex items-center gap-3 font-mono">
-                {mission.targetWpm && (
-                  <span className="flex items-center gap-1 text-accent">
-                    <Zap className="w-3 h-3" />
-                    {mission.targetWpm} WPM
-                  </span>
-                )}
-                {mission.targetAccuracy && (
-                  <span className="flex items-center gap-1 text-success">
-                    <Target className="w-3 h-3" />
-                    {mission.targetAccuracy}% Acc
-                  </span>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onLaunchMission(mission)}
-                className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-accent-foreground font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-glow-accent-sm"
-                id={`launch-mission-${mission.id}`}
-              >
-                <span>Deploy</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

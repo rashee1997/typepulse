@@ -138,6 +138,24 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
   const hasFinishedRef = useRef(false);
   const onFinishRef = useRef(onFinish);
 
+  // Cadence metronome sound loop
+  useEffect(() => {
+    if (gameState !== 'racing') return;
+    try {
+      const stored = localStorage.getItem('typepulse_preferences');
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (!parsed.cadenceMetronomeEnabled) return;
+      const targetWpm = parsed.cadenceTargetWpm || 60;
+      const intervalMs = (60 / (targetWpm * 5)) * 1000;
+      const vol = parsed.cadenceMetronomeVolume ?? 0.15;
+      const timer = setInterval(() => {
+        soundFx.playMetronomeTick(false, vol);
+      }, intervalMs);
+      return () => clearInterval(timer);
+    } catch {}
+  }, [gameState]);
+
   useEffect(() => {
     onFinishRef.current = onFinish;
   }, [onFinish]);

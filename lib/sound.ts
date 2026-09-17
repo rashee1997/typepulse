@@ -119,6 +119,10 @@ class SoundSynthesizer {
     this.playCombo();
   }
 
+  public playComboMilestone() {
+    this.playCombo();
+  }
+
   // Level up / Victory fanfare
   public playSuccess() {
     if (!this.enabled || this.volume <= 0) return;
@@ -151,6 +155,36 @@ class SoundSynthesizer {
 
   public playVictory() {
     this.playSuccess();
+  }
+
+  // Cadence metronome pacer tick (organic woodblock pulse for steady rhythm)
+  public playMetronomeTick(accent: boolean = false, customVolume?: number) {
+    if (!this.enabled) return;
+    const vol = customVolume !== undefined ? customVolume : this.volume;
+    if (vol <= 0) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      const freq = accent ? 1046.5 : 784; // C6 for accent, G5 for standard tick
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(accent ? 300 : 220, now + 0.025);
+
+      const gainLevel = (vol * (accent ? 0.35 : 0.22));
+      gain.gain.setValueAtTime(gainLevel, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.032);
+    } catch {}
   }
 }
 

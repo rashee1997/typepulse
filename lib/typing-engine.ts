@@ -14,8 +14,11 @@ export class TypingEngine {
   public maxCombo: number = 0;
   public errorsByChar: Record<string, number> = {};
   public timeline: WpmSample[] = [];
+  public patternStats: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }> = {};
   private keyIntervals: number[] = [];
   private lastKeyTimestamp: number = 0;
+  private previousKey: string | null = null;
+  private twoKeysAgo: string | null = null;
 
   constructor(initialText: string = '') {
     this.reset(initialText);
@@ -40,8 +43,11 @@ export class TypingEngine {
     this.maxCombo = 0;
     this.errorsByChar = {};
     this.timeline = [];
+    this.patternStats = {};
     this.keyIntervals = [];
     this.lastKeyTimestamp = 0;
+    this.previousKey = null;
+    this.twoKeysAgo = null;
   }
 
   public handleInput(key: string, ctrlKey: boolean = false): {
@@ -52,6 +58,7 @@ export class TypingEngine {
     isCorrect: boolean;
   } {
     const now = Date.now();
+    let currentInterval = 180;
 
     // Start timer on first valid keystroke
     if (!this.startTime) {
@@ -61,6 +68,7 @@ export class TypingEngine {
       const interval = now - this.lastKeyTimestamp;
       if (interval < 5000) {
         this.keyIntervals.push(interval);
+        currentInterval = interval;
       }
       this.lastKeyTimestamp = now;
     }
@@ -115,6 +123,37 @@ export class TypingEngine {
       const expectedChar = target.char.toLowerCase();
       this.errorsByChar[expectedChar] = (this.errorsByChar[expectedChar] || 0) + 1;
     }
+
+    // Record n-gram latency & accuracy patterns (unigram, bigram, trigram)
+    const normKey = key.toLowerCase();
+    const patternsToTrack: string[] = [normKey];
+    if (this.previousKey) {
+      patternsToTrack.push((this.previousKey + normKey).toLowerCase());
+    }
+    if (this.twoKeysAgo && this.previousKey) {
+      patternsToTrack.push((this.twoKeysAgo + this.previousKey + normKey).toLowerCase());
+    }
+
+    patternsToTrack.forEach((pattern) => {
+      if (!this.patternStats[pattern]) {
+        this.patternStats[pattern] = {
+          typed: 0,
+          errors: 0,
+          totalLatencyMs: 0,
+          avgLatencyMs: 0,
+        };
+      }
+      const stat = this.patternStats[pattern];
+      stat.typed += 1;
+      if (!isCorrect) {
+        stat.errors += 1;
+      }
+      stat.totalLatencyMs += currentInterval;
+      stat.avgLatencyMs = Math.round(stat.totalLatencyMs / stat.typed);
+    });
+
+    this.twoKeysAgo = this.previousKey;
+    this.previousKey = normKey;
 
     this.currentIndex++;
 
@@ -194,6 +233,18 @@ export class TypingEngine {
     }
     prev.status = 'current';
     prev.userTyped = undefined;
+  }
+
+  public appendText(additionalText: string): void {
+    this.text += additionalText;
+    const newChars: CharState[] = additionalText.split('').map((char) => ({
+      char,
+      status: 'pending',
+    }));
+    this.chars.push(...newChars);
+    if (this.currentIndex < this.chars.length && this.chars[this.currentIndex].status === 'pending') {
+      this.chars[this.currentIndex].status = 'current';
+    }
   }
 
   public getElapsedSeconds(): number {
@@ -276,6 +327,7 @@ export class TypingEngine {
       errorsByChar: { ...this.errorsByChar },
       weakKeys,
       timeline: [...this.timeline],
+      patternStats: { ...this.patternStats },
     };
   }
 }

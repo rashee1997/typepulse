@@ -524,6 +524,19 @@ export default function Home() {
     }));
   }, []);
 
+  const handleArcadeSessionFinish = useCallback(
+    (stats: TypingStats, mode: string) => {
+      const { updatedProgress } = processCompletedSession(
+        userProgress,
+        stats,
+        'arcade',
+        mode
+      );
+      setUserProgress(updatedProgress);
+    },
+    [userProgress]
+  );
+
   const currentLessonIndex = activeLesson
     ? LESSONS_CURRICULUM.findIndex((l) => l.id === activeLesson.id)
     : -1;
@@ -736,6 +749,7 @@ export default function Home() {
             userProgress={userProgress}
             aiSettings={aiSettings}
             onUpdateXp={handleUpdateArcadeXp}
+            onFinishSession={handleArcadeSessionFinish}
             onBackToPractice={switchToPractice}
           />
         )}

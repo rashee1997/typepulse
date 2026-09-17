@@ -6,7 +6,15 @@ export type GameMode =
   | 'speed-run'
   | 'word-rush'
   | 'daily-challenge'
-  | 'ai-mission';
+  | 'ai-mission'
+  | 'zen-marathon'
+  | 'numeric-ninja'
+  | 'echo-typing'
+  | 'boss-gauntlet'
+  | 'weakness-weaver'
+  | 'typing-quest'
+  | 'adaptive-boss'
+  | 'arcade';
 
 export type SessionState = 'ready' | 'countdown' | 'playing' | 'paused' | 'completed';
 
@@ -27,6 +35,14 @@ export interface WpmSample {
   combo: number;
 }
 
+export interface PatternStat {
+  typed: number;
+  errors: number;
+  totalLatencyMs: number;
+  avgLatencyMs: number;
+  ewmaScore: number;
+}
+
 export interface TypingStats {
   wpm: number;
   rawWpm: number;
@@ -42,6 +58,7 @@ export interface TypingStats {
   errorsByChar: Record<string, number>;
   weakKeys: string[];
   timeline: WpmSample[];
+  patternStats?: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }>;
 }
 
 export interface Lesson {
@@ -132,6 +149,60 @@ export interface UserProgress {
     totalSessions: number;
   };
   keyStats: Record<string, { typed: number; errors: number }>;
+  patternStats?: Record<string, PatternStat>;
+}
+
+export interface QuestOption {
+  id: string;
+  label: string;
+  promptText?: string;
+  targetExcerpt?: string;
+  consequenceSummary?: string;
+  targetWpm?: number;
+  nextSceneId?: string;
+}
+
+export interface QuestScene {
+  id: string;
+  title?: string;
+  sceneTitle?: string;
+  narrative: string;
+  promptText: string;
+  targetWpm?: number;
+  options: QuestOption[];
+  isEnding?: boolean;
+}
+
+export interface QuestState {
+  chapter: number;
+  health: number;
+  maxHealth?: number;
+  playerHp?: number;
+  inventory: string[];
+  history?: string[];
+  currentSceneId: string;
+}
+
+export interface TurnResult {
+  playerDamage?: number;
+  bossDamage?: number;
+  combo?: number;
+  accuracy?: number;
+  playerSuccess?: boolean;
+  roundDamageDealt?: number;
+  playerAccuracy?: number;
+  phraseCompleted?: boolean;
+  weakPatternTriggered?: string;
+}
+
+export interface BossTurnData {
+  bossDialogue: string;
+  attackName: string;
+  targetPhrase: string;
+  attackText: string;
+  timeLimitSeconds: number;
+  damageMultiplier: number;
+  dangerLevel?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface AISettings {

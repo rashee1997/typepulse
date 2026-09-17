@@ -1,25 +1,40 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AISettings, UserProgress } from '@/types/typing';
+import { AISettings, UserProgress, TypingStats } from '@/types/typing';
 import { WordRushGame } from '@/components/WordRushGame';
 import { NitroRacerGame } from '@/components/NitroRacerGame';
 import { WordBlitzGame } from '@/components/WordBlitzGame';
 import { TypingDuelGame, DuelStats } from '@/components/TypingDuelGame';
 import { TypingRaceGame } from '@/components/TypingRaceGame';
 import { WordScrambleGame } from '@/components/WordScrambleGame';
+import { DailyChallengeGame } from '@/components/DailyChallengeGame';
+import { ZenMarathonGame } from '@/components/ZenMarathonGame';
+import { NumericSymbolNinjaGame } from '@/components/NumericSymbolNinjaGame';
+import { EchoTypingGame } from '@/components/EchoTypingGame';
+import { BossGauntletGame } from '@/components/BossGauntletGame';
+import { WeaknessWeaverGame } from '@/components/WeaknessWeaverGame';
+import { TypingQuestGame } from '@/components/TypingQuestGame';
+import { AdaptiveBossFightGame } from '@/components/AdaptiveBossFightGame';
 import {
   Award,
+  Binary,
+  Brain,
+  Calendar,
   ChevronRight,
+  Compass,
   Flag,
   Flame,
   Gamepad2,
+  Ghost,
   Play,
   Puzzle,
   RotateCcw,
+  Skull,
   Sparkles,
   Swords,
   Trophy,
+  Waves,
   Zap,
 } from 'lucide-react';
 
@@ -27,6 +42,7 @@ interface ArcadeDashboardProps {
   userProgress: UserProgress;
   aiSettings: AISettings;
   onUpdateXp: (amount: number) => void;
+  onFinishSession?: (stats: TypingStats, mode: string) => void;
   onBackToPractice: () => void;
 }
 
@@ -37,7 +53,15 @@ type ActiveGame =
   | 'word-rush'
   | 'typing-duel'
   | 'typing-race'
-  | 'word-scramble';
+  | 'word-scramble'
+  | 'daily-challenge'
+  | 'zen-marathon'
+  | 'numeric-ninja'
+  | 'echo-typing'
+  | 'boss-gauntlet'
+  | 'weakness-weaver'
+  | 'typing-quest'
+  | 'adaptive-boss';
 
 interface ArcadeScores {
   nitroWins: number;
@@ -60,6 +84,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   userProgress,
   aiSettings,
   onUpdateXp,
+  onFinishSession,
   onBackToPractice,
 }) => {
   const [activeGame, setActiveGame] = useState<ActiveGame>('none');
@@ -221,7 +246,113 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
     [onUpdateXp]
   );
 
+  const handleGenericSessionFinish = useCallback(
+    (stats: TypingStats, mode: string) => {
+      const earnedXp = Math.max(35, Math.round(stats.wpm * (stats.accuracy / 100) * 1.5));
+      onUpdateXp(earnedXp);
+      if (onFinishSession) {
+        onFinishSession(stats, mode);
+      }
+      setScores((prev) => {
+        const updated = {
+          ...prev,
+          totalGamesPlayed: prev.totalGamesPlayed + 1,
+        };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
+    },
+    [onUpdateXp, onFinishSession]
+  );
+
   // Active Game Render Switches
+  if (activeGame === 'daily-challenge') {
+    return (
+      <DailyChallengeGame
+        userProgress={userProgress}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'zen-marathon') {
+    return (
+      <ZenMarathonGame
+        userProgress={userProgress}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'numeric-ninja') {
+    return (
+      <NumericSymbolNinjaGame
+        userProgress={userProgress}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'echo-typing') {
+    return (
+      <EchoTypingGame
+        userProgress={userProgress}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'boss-gauntlet') {
+    return (
+      <BossGauntletGame
+        userProgress={userProgress}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'weakness-weaver') {
+    return (
+      <WeaknessWeaverGame
+        userProgress={userProgress}
+        aiSettings={aiSettings}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'typing-quest') {
+    return (
+      <TypingQuestGame
+        userProgress={userProgress}
+        aiSettings={aiSettings}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
+  if (activeGame === 'adaptive-boss') {
+    return (
+      <AdaptiveBossFightGame
+        userProgress={userProgress}
+        aiSettings={aiSettings}
+        onFinishSession={handleGenericSessionFinish}
+        onExit={() => setActiveGame('none')}
+      />
+    );
+  }
+
   if (activeGame === 'typing-duel') {
     return (
       <TypingDuelGame
@@ -373,6 +504,54 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         </div>
       </div>
 
+      {/* Worldwide Daily Challenge Banner */}
+      <div className="bg-gradient-to-r from-amber-500/15 via-indigo-500/10 to-surface border-2 border-amber-500/30 hover:border-amber-500/50 rounded-3xl p-5 sm:p-6 shadow-card transition-all group">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center text-3xl shadow-glow-accent-sm shrink-0">
+              📅
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1 border border-amber-500/30">
+                  <Calendar className="w-3 h-3 text-amber-400" />
+                  WORLDWIDE DAILY CHALLENGE
+                </span>
+                <span className="text-xs text-text-subtle font-mono">Synchronized Global Passage</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-text-primary group-hover:text-amber-400 transition-colors">
+                Today&apos;s Daily Challenge
+              </h2>
+              <p className="text-xs sm:text-sm text-text-muted mt-1 max-w-xl leading-relaxed">
+                Test yourself against today&apos;s worldwide synchronized literature passage. Maintain your daily streak, beat the target WPM threshold, and earn daily gold honors!
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-amber-400 flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-amber-400" /> Daily Streak Protected
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-text-secondary">
+                  Accuracy Medal Tiers
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-accent">
+                  +400 Bonus XP
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2 w-full md:w-auto shrink-0">
+            <button
+              onClick={() => setActiveGame('daily-challenge')}
+              className="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-sm transition-all shadow-glow-accent-sm hover:scale-105 flex items-center justify-center gap-2"
+              id="launch-daily-challenge-btn"
+            >
+              <Calendar className="w-4 h-4 text-slate-950" />
+              <span>Launch Daily Challenge</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Featured Mode: Typing Duel (AI Combat Arena) */}
       <div className="bg-surface border-2 border-accent-border hover:border-accent rounded-3xl p-5 sm:p-6 shadow-card transition-all group">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
@@ -415,6 +594,114 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
               {(scores.duelWins || 0) > 0 ? `${scores.duelWins} Duels Won • Best: ${scores.duelBestWpm} WPM` : 'Unchallenged'}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* AI Intelligence & Narrative Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Weakness Weaver */}
+        <div className="bg-surface border border-border hover:border-fuchsia-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-2xl shadow-inner">
+                🧠
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 text-[10px] font-mono font-bold">
+                ADAPTIVE DRILL
+              </span>
+            </div>
+
+            <h3 className="text-base font-bold text-text-primary group-hover:text-fuchsia-400 transition-colors">
+              Weakness Weaver
+            </h3>
+            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+              Analyzes your statistical bigram and trigram latency hesitations to weave custom drills targeting your exact muscle memory bottlenecks.
+            </p>
+
+            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
+              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">EWMA N-Gram Tracking</span>
+              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-fuchsia-400">Targeted Feedback</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveGame('weakness-weaver')}
+            className="mt-6 w-full py-2.5 bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+            id="play-weakness-weaver-btn"
+          >
+            <Brain className="w-3.5 h-3.5" />
+            <span>Launch Weaver</span>
+          </button>
+        </div>
+
+        {/* Typing Quest RPG */}
+        <div className="bg-surface border border-border hover:border-emerald-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl shadow-inner">
+                🧭
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
+                CYBERPUNK RPG
+              </span>
+            </div>
+
+            <h3 className="text-base font-bold text-text-primary group-hover:text-emerald-400 transition-colors">
+              Typing Quest
+            </h3>
+            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+              An interactive narrative adventure where your keystroke velocity and accuracy determine whether you bypass neural firewalls or trigger sentries.
+            </p>
+
+            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
+              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Branching Routes</span>
+              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-emerald-400">Inventory & Vitality</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveGame('typing-quest')}
+            className="mt-6 w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+            id="play-typing-quest-btn"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>Embark on Quest</span>
+          </button>
+        </div>
+
+        {/* Adaptive Boss Fight */}
+        <div className="bg-surface border border-border hover:border-purple-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center text-2xl shadow-inner">
+                👑
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-mono font-bold">
+                BOSS SHOWDOWN
+              </span>
+            </div>
+
+            <h3 className="text-base font-bold text-text-primary group-hover:text-purple-400 transition-colors">
+              Adaptive Boss Arena
+            </h3>
+            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+              Face the Synthetic Sovereign in a reactive combat arena featuring dynamic trash talk banter and attacks targeting your weakest keys.
+            </p>
+
+            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
+              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Reactive Banter</span>
+              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-purple-400">114 WPM Benchmark</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveGame('adaptive-boss')}
+            className="mt-6 w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+            id="play-adaptive-boss-btn"
+          >
+            <Skull className="w-3.5 h-3.5" />
+            <span>Enter Boss Arena</span>
+          </button>
         </div>
       </div>
 
@@ -557,8 +844,43 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
           </div>
         </div>
 
-        {/* 3-Card Grid for Nitro Racer, Word Blitz, Word Rush */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 4-Card Grid for Nitro Racer, Word Blitz, Word Rush, Boss Gauntlet */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Boss Gauntlet */}
+          <div className="bg-surface border border-border hover:border-red-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center text-2xl shadow-inner">
+                  👹
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono font-bold">
+                  3-STAGE SURVIVAL
+                </span>
+              </div>
+
+              <h3 className="text-base font-bold text-text-primary group-hover:text-red-400 transition-colors">
+                Boss Gauntlet
+              </h3>
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+                Fight through 3 consecutive bosses of escalating speeds with a shared health pool. Deal critical damage through high-accuracy bursts!
+              </p>
+
+              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">3 Boss Stages</span>
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-red-400">Critical Strikes</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveGame('boss-gauntlet')}
+              className="mt-6 w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+              id="play-boss-gauntlet-btn"
+            >
+              <Skull className="w-3.5 h-3.5" />
+              <span>Enter Gauntlet</span>
+            </button>
+          </div>
+
           {/* Nitro Drag Racer */}
           <div className="bg-surface border border-border hover:border-accent-border rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
             <div>
@@ -661,6 +983,131 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
             >
               <Play className="w-3.5 h-3.5 fill-success-foreground" />
               <span>Defend in Word Rush</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION: PRECISION, RHYTHM & ENDURANCE */}
+      <div className="flex flex-col gap-4 mt-2">
+        <div className="flex items-center justify-between border-b border-border pb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <Waves className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-text-primary">Precision, Rhythm & Endurance</h2>
+              <p className="text-xs text-text-muted">
+                Ghost velocity pacing, specialized numeric and symbol drills, and endless ambient flow.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 3-Card Grid for Echo Typing, Numeric Ninja, Zen Marathon */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Echo Typing */}
+          <div className="bg-surface border border-border hover:border-cyan-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl shadow-inner">
+                  👻
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-mono font-bold">
+                  PACER MODE
+                </span>
+              </div>
+
+              <h3 className="text-base font-bold text-text-primary group-hover:text-cyan-400 transition-colors">
+                Echo Typing
+              </h3>
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+                Race against a ghost caret paced at your target velocity or past personal best. Train consistent cadence and eliminate micro-pauses.
+              </p>
+
+              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Custom Target WPM</span>
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-cyan-400">Live Delta Gauge</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveGame('echo-typing')}
+              className="mt-6 w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+              id="play-echo-typing-btn"
+            >
+              <Ghost className="w-3.5 h-3.5" />
+              <span>Launch Echo Pacer</span>
+            </button>
+          </div>
+
+          {/* Numeric & Symbol Ninja */}
+          <div className="bg-surface border border-border hover:border-amber-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-2xl shadow-inner">
+                  🔢
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold">
+                  SPECIALIZED DRILL
+                </span>
+              </div>
+
+              <h3 className="text-base font-bold text-text-primary group-hover:text-amber-400 transition-colors">
+                Numeric & Symbol Ninja
+              </h3>
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+                Master programming brackets, mathematical expressions, financial currencies, and number pad precision without looking down.
+              </p>
+
+              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">4 Focus Categories</span>
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-amber-400">Code Syntax</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveGame('numeric-ninja')}
+              className="mt-6 w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+              id="play-numeric-ninja-btn"
+            >
+              <Binary className="w-3.5 h-3.5" />
+              <span>Train Symbols</span>
+            </button>
+          </div>
+
+          {/* Zen Marathon */}
+          <div className="bg-surface border border-border hover:border-teal-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center text-2xl shadow-inner">
+                  🌊
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-[10px] font-mono font-bold">
+                  FLOW STATE
+                </span>
+              </div>
+
+              <h3 className="text-base font-bold text-text-primary group-hover:text-teal-400 transition-colors">
+                Zen Marathon
+              </h3>
+              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+                Zero timers, zero countdowns, zero pressure. Stream endless literature and philosophy passages with gentle rhythm flow tracking.
+              </p>
+
+              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Infinite Text Stream</span>
+                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-teal-400">Flow Rating</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveGame('zen-marathon')}
+              className="mt-6 w-full py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+              id="play-zen-marathon-btn"
+            >
+              <Waves className="w-3.5 h-3.5" />
+              <span>Enter Zen Flow</span>
             </button>
           </div>
         </div>

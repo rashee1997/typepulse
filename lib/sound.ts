@@ -58,6 +58,11 @@ class SoundSynthesizer {
     }
   }
 
+  // Convenient alias for key click
+  public playKeypress() {
+    this.playKeyClick();
+  }
+
   // Soft low error warning
   public playError() {
     if (!this.enabled || this.volume <= 0) return;
@@ -110,6 +115,10 @@ class SoundSynthesizer {
     } catch {}
   }
 
+  public playStreak() {
+    this.playCombo();
+  }
+
   // Level up / Victory fanfare
   public playSuccess() {
     if (!this.enabled || this.volume <= 0) return;
@@ -138,6 +147,10 @@ class SoundSynthesizer {
         osc.stop(now + idx * 0.08 + 0.28);
       });
     } catch {}
+  }
+
+  public playVictory() {
+    this.playSuccess();
   }
 }
 

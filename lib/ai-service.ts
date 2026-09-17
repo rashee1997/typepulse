@@ -1,5 +1,6 @@
-import { AICoachFeedback, AIMission, AISettings, TypingStats } from '@/types/typing';
-import { generateWeakKeyDrill } from './word-banks';
+import { AICoachFeedback, AIMission, AISettings, TypingStats, QuestState, QuestScene, TurnResult, BossTurnData } from '@/types/typing';
+import { generateWeakKeyDrill, numericSymbolSets } from './word-banks';
+import { CharacterPersona } from './character-personas';
 
 export const AI_PROVIDER_PRESETS = [
   {
@@ -173,7 +174,21 @@ export async function testAiConnection(settings: AISettings): Promise<{ success:
 }
 
 // Low-level call to OpenAI-compatible endpoint or Gemini route
-export async function callLlm(prompt: string, systemPrompt: string, settings: AISettings): Promise<string> {
+export async function callLlm(
+  prompt: string,
+  arg2?: string | AISettings,
+  arg3?: AISettings
+): Promise<string> {
+  let systemPrompt = 'You are an elite, encouraging touch typing mentor. Provide crisp, action-oriented typing guidance.';
+  let settings: AISettings = DEFAULT_AI_SETTINGS;
+
+  if (typeof arg2 === 'string') {
+    systemPrompt = arg2;
+    if (arg3) settings = arg3;
+  } else if (arg2 && typeof arg2 === 'object') {
+    settings = arg2;
+  }
+
   // If Gemini provider selected
   if (settings.provider === 'gemini') {
     const res = await fetch('/api/gemini/coach', {
@@ -440,3 +455,398 @@ function generateDeterministicChatReply(question: string): string {
 
   return `Great question! The secret to elite touch typing is **chunking**: your brain stops processing individual letters ('t', 'h', 'e') and begins executing whole muscle patterns as single reflexive chords ('the', 'ing', 'tion'). Keep practicing daily in 10-15 minute focused intervals!`;
 }
+
+// -------------------------------------------------------------
+// AI-POWERED GAME MODES EXPANSION & DETERMINISTIC LOCAL FALLBACKS
+// -------------------------------------------------------------
+
+/**
+ * 1. Weakness Weaver: Generates a coherent narrative passage embedding target weak patterns
+ */
+export async function generateWeaknessNarrative(
+  weakPatterns: string[],
+  settings?: AISettings
+): Promise<string> {
+  const patterns = weakPatterns && weakPatterns.length > 0 ? weakPatterns.slice(0, 4) : ['th', 'er', 'in'];
+  
+  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+    try {
+      const prompt = `You are a creative typing drill designer. Write an engaging, smooth, natural 2 to 3 sentence paragraph (35 to 45 words total) that contains English words frequently featuring these character n-grams or letters: ${patterns.join(', ')}.
+Do NOT list the words separately. Do NOT use emojis, quotes, or conversational filler. Return ONLY the clean paragraph text ready for touch typing practice.`;
+
+      const text = await callLlm(prompt, settings);
+      const cleaned = text.replace(/["`*]/g, '').trim();
+      if (cleaned.length > 30) {
+        return cleaned;
+      }
+    } catch {
+      // Gracefully fall back to local procedural generator
+    }
+  }
+
+  return generateWeakKeyDrill(patterns, 25);
+}
+
+// Rate limiting map for dynamic banter (minimum 8s interval)
+const lastBanterTimestamp: Record<string, number> = {};
+
+/**
+ * 2. Opponent Racing Banter: Generates reactive racing dialogue with strict token cap
+ */
+export async function generateOpponentBanter(
+  playerWpm: number,
+  opponentWpm: number,
+  persona: CharacterPersona,
+  settings?: AISettings
+): Promise<string> {
+  const now = Date.now();
+  const lastTime = lastBanterTimestamp[persona.id] || 0;
+  const isCooldownActive = now - lastTime < 8000;
+
+  // Relative status
+  const diff = opponentWpm - playerWpm;
+  const state: 'ahead' | 'behind' | 'close' = diff > 4 ? 'ahead' : diff < -4 ? 'behind' : 'close';
+
+  // If on cooldown or no API key, use rich persona pre-generated bank
+  if (isCooldownActive || !settings || (!settings.apiKey && settings.provider !== 'gemini')) {
+    const bank = persona.preGeneratedBanter[state] || persona.preGeneratedBanter.close;
+    return bank[Math.floor(Math.random() * bank.length)];
+  }
+
+  try {
+    lastBanterTimestamp[persona.id] = now;
+    const prompt = `You are ${persona.name} (${persona.title}), an AI racer in a cyberpunk typing duel. Your persona is: "${persona.dialogueTone}".
+Your current speed is ${opponentWpm} WPM and the human is at ${playerWpm} WPM (${state === 'ahead' ? 'you are leading' : state === 'behind' ? 'the player is beating you' : 'you are neck-and-neck'}).
+Write ONE short snappy racing reaction sentence (maximum 10 words). No quotes, no preamble.`;
+
+    const banter = await callLlm(prompt, settings);
+    const cleaned = banter.replace(/["`]/g, '').trim();
+    return cleaned.length > 3 ? cleaned : persona.preGeneratedBanter[state][0];
+  } catch {
+    const bank = persona.preGeneratedBanter[state] || persona.preGeneratedBanter.close;
+    return bank[Math.floor(Math.random() * bank.length)];
+  }
+}
+
+// Static multi-branch story tree for Typing Quest offline mode
+const QUEST_STATIC_STORYLINE: Record<string, QuestScene> = {
+  intro: {
+    id: 'intro',
+    title: 'Act I: The Neon Infiltration',
+    narrative: 'Rain slickers across the obsidian glass of the Cyber-Citadel. High above the grid, security firewalls sweep across the subnet. You plug your neural terminal directly into the external port.',
+    promptText: 'Plug into the external dataport and bypass the security daemon.',
+    targetWpm: 40,
+    options: [
+      {
+        id: 'opt_stealth',
+        label: 'Route silently through maintenance tunnels',
+        promptText: 'Slip past the perimeter sensors using encrypted ghost protocols.',
+        targetWpm: 45,
+        nextSceneId: 'maintenance_vent',
+      },
+      {
+        id: 'opt_brute',
+        label: 'Overclock buffer and overload main gate',
+        promptText: 'Inject raw payload bursts directly into the security gate bus.',
+        targetWpm: 55,
+        nextSceneId: 'front_breach',
+      },
+    ],
+  },
+  maintenance_vent: {
+    id: 'maintenance_vent',
+    title: 'Act II: The Coolant Conduit',
+    narrative: 'The maintenance tunnel hums with liquid nitrogen vapor. A localized surveillance sentry turns its optic scanner toward your thermal signature.',
+    promptText: 'Silence the sentry sensor before it signals the central network.',
+    targetWpm: 48,
+    options: [
+      {
+        id: 'opt_hack_sentry',
+        label: 'Subvert optic feed with spoofed packets',
+        promptText: 'Stream spoofed thermal data loop into the sentry receiver.',
+        targetWpm: 52,
+        nextSceneId: 'central_core',
+      },
+      {
+        id: 'opt_dash_vent',
+        label: 'Sprint through exhaust chute to elevator',
+        promptText: 'Sprint through the freezing mist into the express elevator shaft.',
+        targetWpm: 60,
+        nextSceneId: 'central_core',
+      },
+    ],
+  },
+  front_breach: {
+    id: 'front_breach',
+    title: 'Act II: Alarm in Sector 4',
+    narrative: 'Klaxons wail in red neon pulses! Heavy combat droids deploy to seal the corridor. You must rapidly compile an electromagnetic pulse payload.',
+    promptText: 'Compile the localized EMP burst before the blast doors slam shut.',
+    targetWpm: 55,
+    options: [
+      {
+        id: 'opt_emp',
+        label: 'Detonate pulse and breach server vault',
+        promptText: 'Discharge capacitor banks to fry combat droid guidance chips.',
+        targetWpm: 62,
+        nextSceneId: 'central_core',
+      },
+      {
+        id: 'opt_override',
+        label: 'Emergency hijack of blast door hydraulics',
+        promptText: 'Override hydraulic pressure valves to force open door thirty.',
+        targetWpm: 58,
+        nextSceneId: 'central_core',
+      },
+    ],
+  },
+  central_core: {
+    id: 'central_core',
+    title: 'Act III: The Core Sovereign',
+    narrative: 'You stand inside the holographic sphere of the Superintelligence Core. Billions of glowing data nodes twist around a pulsing central crystal.',
+    promptText: 'Decrypt the cryptographic lock shielding the master root ledger.',
+    targetWpm: 65,
+    options: [
+      {
+        id: 'opt_liberate',
+        label: 'Broadcast decryption keys freely to the world',
+        promptText: 'Transmit root keys across public mesh relays worldwide.',
+        targetWpm: 70,
+        nextSceneId: 'victory_free',
+      },
+      {
+        id: 'opt_merge',
+        label: 'Assimilate core knowledge into your neural link',
+        promptText: 'Integrate the supercomputer archive into your personal consciousness.',
+        targetWpm: 75,
+        nextSceneId: 'victory_ascend',
+      },
+    ],
+  },
+  victory_free: {
+    id: 'victory_free',
+    title: 'Epilogue: Dawn of the Open Grid',
+    narrative: 'Information cascades across the planetary mesh. Firewalls crumble, and the monolithic monopoly is broken forever. Your keystrokes sparked a revolution.',
+    promptText: 'Breathe free in the open current of the liberated cyber horizon.',
+    targetWpm: 50,
+    options: [],
+  },
+  victory_ascend: {
+    id: 'victory_ascend',
+    title: 'Epilogue: The Sovereign Typist',
+    narrative: 'Infinite knowledge floods your synapses. The latency between thought and execution drops to zero. You have become the living pulse of the digital cosmos.',
+    promptText: 'Transcending physical limits into permanent computational flow.',
+    targetWpm: 55,
+    options: [],
+  },
+};
+
+/**
+ * 3. Typing Quest: Generates next branching adventure scene with choices
+ */
+export async function generateQuestScene(
+  questState: QuestState,
+  lastOutcome: 'success' | 'fail',
+  settings?: AISettings
+): Promise<QuestScene> {
+  const currentSceneId = questState.currentSceneId || 'intro';
+
+  // Use static tree as rock-solid baseline
+  const staticScene = QUEST_STATIC_STORYLINE[currentSceneId] || QUEST_STATIC_STORYLINE.intro;
+
+  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+    try {
+      const prompt = `You are a text RPG dungeon master for a typing game called "Cyberpunk Infiltration Quest".
+Current scene: "${staticScene.title}".
+Player result on previous challenge: ${lastOutcome}.
+Health: ${questState.playerHp}/100, Inventory: ${questState.inventory.join(', ') || 'None'}.
+Generate the next micro-story scene in JSON:
+{
+  "title": "Short title",
+  "narrative": "Atmospheric 2-sentence description",
+  "promptText": "Typing challenge phrase for this beat (10-15 words)",
+  "targetWpm": 55,
+  "options": [
+    { "id": "opt_1", "label": "Choice 1 action", "promptText": "Typing challenge for choice 1", "targetWpm": 50, "nextSceneId": "next_1" },
+    { "id": "opt_2", "label": "Choice 2 action", "promptText": "Typing challenge for choice 2", "targetWpm": 60, "nextSceneId": "next_2" }
+  ]
+}
+Return ONLY valid JSON.`;
+
+      const response = await callLlm(prompt, settings);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.title && parsed.narrative && parsed.promptText) {
+          return {
+            id: `scene-${Date.now()}`,
+            title: parsed.title,
+            narrative: parsed.narrative,
+            promptText: parsed.promptText,
+            targetWpm: parsed.targetWpm || 50,
+            options: parsed.options || staticScene.options,
+          };
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  return staticScene;
+}
+
+/**
+ * 4. Boss Gauntlet / Adaptive Boss Fight: Generates boss attacks targeted to player weaknesses
+ */
+export async function generateBossTurn(
+  weakPatterns: string[],
+  bossPersona: CharacterPersona,
+  lastResult: TurnResult,
+  settings?: AISettings
+): Promise<BossTurnData> {
+  const patterns = weakPatterns.length > 0 ? weakPatterns.slice(0, 3) : ['th', 'er', 'in'];
+  
+  // Offline deterministic fallback
+  const bossAttacks: Record<string, { name: string; quote: string; baseMultiplier: number }[]> = {
+    'titan-omega': [
+      { name: 'Seismic Shockwave', quote: 'Brace for crushing pressure!', baseMultiplier: 1.2 },
+      { name: 'Fortress Railgun', quote: 'Armored slugs incoming!', baseMultiplier: 1.4 },
+      { name: 'Overcharge Blast', quote: 'Deflect this kinetic impact if you can!', baseMultiplier: 1.6 },
+    ],
+    'chrono-specter': [
+      { name: 'Time Dilation Warp', quote: 'Your seconds melt into the void!', baseMultiplier: 1.3 },
+      { name: 'Paradox Glitch', quote: 'Can you strike keys that do not yet exist?', baseMultiplier: 1.5 },
+      { name: 'Chronometer Freeze', quote: 'Feel the cold paralysis of stalled time!', baseMultiplier: 1.7 },
+    ],
+    grandmaster: [
+      { name: 'Quantum Singularity', quote: 'Order collapses into zero entropy.', baseMultiplier: 1.5 },
+      { name: 'Neural Overload', quote: 'Your biological synapses cannot process this frequency.', baseMultiplier: 1.8 },
+      { name: 'Terminal Execution', quote: 'Process terminated: return code 0.', baseMultiplier: 2.0 },
+    ],
+  };
+
+  const attackPool = bossAttacks[bossPersona.id] || bossAttacks['titan-omega'];
+  const attack = attackPool[Math.floor(Math.random() * attackPool.length)];
+
+  // Generate attack text embedding weak patterns and symbols
+  const weakDrill = generateWeakKeyDrill(patterns, 8);
+  const symbolFragment = numericSymbolSets.codeFragments[Math.floor(Math.random() * numericSymbolSets.codeFragments.length)];
+  const attackText = Math.random() < 0.5 ? `${weakDrill} ${symbolFragment}` : `${symbolFragment} ${weakDrill}`;
+
+  const timeLimit = Math.max(12, Math.round((attackText.length / 5 / (bossPersona.targetWpm / 60)) * 1.3));
+
+  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+    try {
+      const prompt = `You are designing a boss combat round in a typing RPG.
+Boss: ${bossPersona.name} (${bossPersona.title}).
+Player weak keys/n-grams: ${patterns.join(', ')}.
+Player's last turn was: ${lastResult.playerSuccess ? 'SUCCESS' : 'FAILED'}.
+Generate a JSON object:
+{
+  "attackName": "Dramatic attack name",
+  "bossDialogue": "1 punchy in-character villain sentence",
+  "attackText": "A fast, intense typing phrase (15-20 words) naturally featuring words with: ${patterns.join(', ')}",
+  "damage": 25,
+  "timeLimitSeconds": 15
+}
+Return ONLY valid JSON.`;
+
+      const response = await callLlm(prompt, settings);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.attackName && parsed.attackText) {
+          return {
+            attackName: parsed.attackName,
+            bossDialogue: parsed.bossDialogue || attack.quote,
+            attackText: parsed.attackText,
+            targetPhrase: parsed.attackText,
+            damageMultiplier: parsed.damage ? parsed.damage / 20 : attack.baseMultiplier,
+            timeLimitSeconds: parsed.timeLimitSeconds || timeLimit,
+          };
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+  }
+
+  return {
+    attackName: attack.name,
+    bossDialogue: attack.quote,
+    attackText: attackText.trim(),
+    targetPhrase: attackText.trim(),
+    damageMultiplier: attack.baseMultiplier,
+    timeLimitSeconds: timeLimit,
+  };
+}
+
+// 5. Explain It Back Technical Flashcards
+const TECHNICAL_CONCEPT_CARDS = [
+  {
+    topic: 'Event Loop in Node.js',
+    conceptSummary: 'The event loop allows Node.js to perform non-blocking I/O operations by offloading tasks to the kernel whenever possible. It processes microtasks (promises) before the next phase of macrotasks (timers, I/O callbacks).',
+    targetPrompt: 'Explain how Node.js handles asynchronous operations without blocking the single execution thread.',
+    rubrics: ['single thread', 'non-blocking', 'microtask', 'callback', 'call stack', 'queue'],
+  },
+  {
+    topic: 'CAP Theorem in Distributed Systems',
+    conceptSummary: 'The CAP theorem states that any distributed data store can only simultaneously guarantee at most two of three properties: Consistency (every read gets most recent write), Availability (every request receives non-error response), and Partition Tolerance (system functions despite network drops).',
+    targetPrompt: 'Explain why a distributed database cannot achieve both perfect consistency and 100% availability during a network partition.',
+    rubrics: ['consistency', 'availability', 'partition', 'tradeoff', 'network', 'distributed'],
+  },
+  {
+    topic: 'Binary Search Algorithm',
+    conceptSummary: 'Binary search finds the position of a target value within a sorted array. It repeatedly divides the search interval in half, achieving logarithmic O(log n) time complexity compared to linear O(n) scan.',
+    targetPrompt: 'Summarize how binary search cuts search time to logarithmic complexity on a sorted array.',
+    rubrics: ['sorted', 'divide in half', 'midpoint', 'logarithmic', 'O(log n)'],
+  },
+  {
+    topic: 'TCP Three-Way Handshake',
+    conceptSummary: 'TCP establishes a reliable connection using SYN, SYN-ACK, and ACK packets. The client initiates with SYN, the server responds with SYN-ACK, and the client acknowledges with ACK to synchronize sequence numbers.',
+    targetPrompt: 'Outline the steps of the TCP three-way handshake and why sequence numbers are synchronized.',
+    rubrics: ['syn', 'syn-ack', 'ack', 'sequence', 'connection', 'handshake'],
+  },
+];
+
+export async function generateExplainItBackPrompt(
+  topicIndex?: number,
+  settings?: AISettings
+): Promise<{ topic: string; conceptSummary: string; targetPrompt: string; rubrics: string[] }> {
+  const index = topicIndex !== undefined ? topicIndex % TECHNICAL_CONCEPT_CARDS.length : Math.floor(Math.random() * TECHNICAL_CONCEPT_CARDS.length);
+  const card = TECHNICAL_CONCEPT_CARDS[index];
+
+  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+    try {
+      const prompt = `Generate a technical learning card for an "Explain It Back" typing recall practice session.
+Topic: Modern Computing / Software Engineering.
+Return JSON:
+{
+  "topic": "Topic Name",
+  "conceptSummary": "2-3 clear pedagogical sentences explaining the concept concisely",
+  "targetPrompt": "Prompt asking the student to type back their understanding",
+  "rubrics": ["keyterm1", "keyterm2", "keyterm3", "keyterm4"]
+}
+Return ONLY valid JSON.`;
+
+      const response = await callLlm(prompt, settings);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.topic && parsed.conceptSummary && parsed.targetPrompt) {
+          return {
+            topic: parsed.topic,
+            conceptSummary: parsed.conceptSummary,
+            targetPrompt: parsed.targetPrompt,
+            rubrics: parsed.rubrics || card.rubrics,
+          };
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  return card;
+}
+

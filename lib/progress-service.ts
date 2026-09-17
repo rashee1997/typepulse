@@ -45,6 +45,7 @@ export const INITIAL_USER_PROGRESS: UserProgress = {
     totalSessions: 0,
   },
   keyStats: {},
+  patternStats: {},
 };
 
 export function loadUserProgress(): UserProgress {
@@ -58,6 +59,7 @@ export function loadUserProgress(): UserProgress {
       ...parsed,
       highScores: { ...INITIAL_USER_PROGRESS.highScores, ...(parsed.highScores || {}) },
       keyStats: { ...(parsed.keyStats || {}) },
+      patternStats: { ...(parsed.patternStats || {}) },
     };
   } catch {
     return INITIAL_USER_PROGRESS;
@@ -154,6 +156,42 @@ export function processCompletedSession(
     }
   });
 
+  // Update cumulative n-gram pattern stats with EWMA (alpha = 0.25)
+  const EWMA_ALPHA = 0.25;
+  const updatedPatternStats = { ...(prev.patternStats || {}) };
+  if (stats.patternStats) {
+    Object.entries(stats.patternStats).forEach(([pattern, current]) => {
+      const errorRate = current.errors / Math.max(1, current.typed);
+      const latencyDeltaPenalty = Math.max(0, (current.avgLatencyMs - 180) / 10);
+      const sessionPenalty = errorRate * 100 + latencyDeltaPenalty;
+
+      const prevStat = updatedPatternStats[pattern];
+      if (!prevStat) {
+        updatedPatternStats[pattern] = {
+          typed: current.typed,
+          errors: current.errors,
+          totalLatencyMs: current.totalLatencyMs,
+          avgLatencyMs: current.avgLatencyMs,
+          ewmaScore: Math.round(sessionPenalty * 10) / 10,
+        };
+      } else {
+        const totalTyped = prevStat.typed + current.typed;
+        const totalErrors = prevStat.errors + current.errors;
+        const totalLatency = prevStat.totalLatencyMs + current.totalLatencyMs;
+        const avgLatency = Math.round(totalLatency / Math.max(1, totalTyped));
+        const newEwma = (1 - EWMA_ALPHA) * prevStat.ewmaScore + EWMA_ALPHA * sessionPenalty;
+
+        updatedPatternStats[pattern] = {
+          typed: totalTyped,
+          errors: totalErrors,
+          totalLatencyMs: totalLatency,
+          avgLatencyMs: avgLatency,
+          ewmaScore: Math.round(newEwma * 10) / 10,
+        };
+      }
+    });
+  }
+
   // High scores
   const highScores = {
     bestWpm: Math.max(prev.highScores.bestWpm, stats.wpm),
@@ -231,6 +269,7 @@ export function processCompletedSession(
     unlockedAchievements: unlockedAchievementIds,
     highScores,
     keyStats: updatedKeyStats,
+    patternStats: updatedPatternStats,
   };
 
   saveUserProgress(updatedProgress);
@@ -242,4 +281,57 @@ export function processCompletedSession(
     leveledUp,
     newLevel: currentLevel,
   };
+}
+
+/**
+ * Returns ranked problem sequences (unigram, bigram, trigram) based on highest EWMA penalty.
+ */
+export function getWeakestPatterns(
+  limit: number = 5,
+  type: 'all' | 'bigram' | 'trigram' = 'all',
+  progress?: UserProgress
+): string[] {
+  const p = progress || (typeof window !== 'undefined' ? loadUserProgress() : null);
+  if (!p || !p.patternStats || Object.keys(p.patternStats).length === 0) {
+    // If no pattern stats collected yet, extrapolate from keyStats or supply common high-frequency transition targets
+    if (p?.keyStats && Object.keys(p.keyStats).length > 0) {
+      const topKeys = Object.entries(p.keyStats)
+        .sort(([, a], [, b]) => (b.errors / Math.max(1, b.typed)) - (a.errors / Math.max(1, a.typed)))
+        .map(([k]) => k)
+        .filter((k) => k !== ' ');
+      if (topKeys.length > 0) {
+        if (type === 'bigram') {
+          return topKeys.slice(0, limit).map((k) => `${k}e`);
+        }
+        if (type === 'trigram') {
+          return topKeys.slice(0, limit).map((k) => `${k}in`);
+        }
+        return topKeys.slice(0, limit);
+      }
+    }
+    const defaults = type === 'bigram' 
+      ? ['th', 'er', 'in', 'on', 'at', 're'] 
+      : type === 'trigram' 
+      ? ['the', 'ing', 'and', 'ion', 'ent'] 
+      : ['th', 'er', 'the', 'ing', 'on'];
+    return defaults.slice(0, limit);
+  }
+
+  const entries = Object.entries(p.patternStats).filter(([pattern]) => {
+    const len = pattern.length;
+    if (pattern.includes(' ')) return false;
+    if (type === 'bigram') return len === 2;
+    if (type === 'trigram') return len === 3;
+    return len >= 2 && len <= 3;
+  });
+
+  if (entries.length === 0) {
+    const defaults = type === 'bigram' ? ['th', 'er', 'in', 'on'] : ['the', 'ing', 'and'];
+    return defaults.slice(0, limit);
+  }
+
+  return entries
+    .sort(([, a], [, b]) => b.ewmaScore - a.ewmaScore)
+    .slice(0, limit)
+    .map(([pattern]) => pattern);
 }

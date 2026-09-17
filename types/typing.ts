@@ -5,6 +5,8 @@ export type GameMode =
   | 'accuracy-challenge'
   | 'speed-run'
   | 'word-rush'
+  | 'orbital-defense'
+  | 'bomb-defusal'
   | 'daily-challenge'
   | 'ai-mission'
   | 'zen-marathon'

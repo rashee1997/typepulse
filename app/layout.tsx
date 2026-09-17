@@ -9,16 +9,16 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'TypePulse AI - Touch Typing & AI Coach',
-  description: 'Interactive touch typing platform with curriculum lessons, Typing Duel AI combat mode, Word Games section featuring Typing Race and Word Scramble, real-time analytics, and customizable OpenAI-compatible AI coaching.',
+  description: 'Interactive touch typing platform with curriculum lessons, AI pattern drills, streamlined Arcade featuring Grand Prix Speedway, Orbital Laser Defense, Bomb Squad Defusal, and Word Blitz, real-time analytics, and customizable AI coaching.',
   openGraph: {
     title: 'TypePulse AI - Touch Typing & AI Coach',
-    description: 'Interactive touch typing platform with curriculum lessons, Typing Duel AI combat mode, Word Games section featuring Typing Race and Word Scramble, real-time analytics, and customizable OpenAI-compatible AI coaching.',
+    description: 'Interactive touch typing platform with curriculum lessons, AI pattern drills, streamlined Arcade featuring Grand Prix Speedway, Orbital Laser Defense, Bomb Squad Defusal, and Word Blitz, real-time analytics, and customizable AI coaching.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TypePulse AI - Touch Typing & AI Coach',
-    description: 'Interactive touch typing platform with curriculum lessons, Typing Duel AI combat mode, Word Games section featuring Typing Race and Word Scramble, real-time analytics, and customizable OpenAI-compatible AI coaching.',
+    description: 'Interactive touch typing platform with curriculum lessons, AI pattern drills, streamlined Arcade featuring Grand Prix Speedway, Orbital Laser Defense, Bomb Squad Defusal, and Word Blitz, real-time analytics, and customizable AI coaching.',
   },
 };
 

@@ -645,15 +645,16 @@ export default function Home() {
 
             <button
               onClick={() => setCurrentView('word-rush')}
-              title="Arcade & Word Games"
+              title="Arcade Arena"
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
                 currentView === 'word-rush'
                   ? 'bg-accent text-accent-foreground shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
+              id="nav-arcade-btn"
             >
               <Gamepad2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Word Games</span>
+              <span>Arcade</span>
             </button>
 
             <button

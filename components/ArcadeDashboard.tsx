@@ -1,41 +1,37 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { AISettings, UserProgress, TypingStats } from '@/types/typing';
-import { WordRushGame } from '@/components/WordRushGame';
-import { NitroRacerGame } from '@/components/NitroRacerGame';
-import { WordBlitzGame } from '@/components/WordBlitzGame';
-import { TypingDuelGame, DuelStats } from '@/components/TypingDuelGame';
 import { TypingRaceGame } from '@/components/TypingRaceGame';
-import { WordScrambleGame } from '@/components/WordScrambleGame';
+import { OrbitalDefenseGame } from '@/components/OrbitalDefenseGame';
+import { BombDefusalGame } from '@/components/BombDefusalGame';
+import { WordBlitzGame } from '@/components/WordBlitzGame';
 import { DailyChallengeGame } from '@/components/DailyChallengeGame';
-import { ZenMarathonGame } from '@/components/ZenMarathonGame';
+import { TypingDuelGame, DuelStats } from '@/components/TypingDuelGame';
 import { NumericSymbolNinjaGame } from '@/components/NumericSymbolNinjaGame';
-import { EchoTypingGame } from '@/components/EchoTypingGame';
-import { BossGauntletGame } from '@/components/BossGauntletGame';
+import { ZenMarathonGame } from '@/components/ZenMarathonGame';
 import { WeaknessWeaverGame } from '@/components/WeaknessWeaverGame';
-import { TypingQuestGame } from '@/components/TypingQuestGame';
-import { AdaptiveBossFightGame } from '@/components/AdaptiveBossFightGame';
+import { BossGauntletGame } from '@/components/BossGauntletGame';
 import {
-  Award,
-  Binary,
-  Brain,
   Calendar,
   ChevronRight,
-  Compass,
-  Flag,
+  Crosshair,
   Flame,
   Gamepad2,
-  Ghost,
   Play,
-  Puzzle,
   RotateCcw,
-  Skull,
   Sparkles,
   Swords,
   Trophy,
-  Waves,
   Zap,
+  Bomb,
+  Radio,
+  Timer,
+  Brain,
+  Binary,
+  Waves,
+  Skull,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface ArcadeDashboardProps {
@@ -48,35 +44,29 @@ interface ArcadeDashboardProps {
 
 type ActiveGame =
   | 'none'
-  | 'nitro-racer'
-  | 'word-blitz'
-  | 'word-rush'
-  | 'typing-duel'
   | 'typing-race'
-  | 'word-scramble'
+  | 'orbital-defense'
+  | 'bomb-defusal'
+  | 'word-blitz'
   | 'daily-challenge'
-  | 'zen-marathon'
+  | 'typing-duel'
   | 'numeric-ninja'
-  | 'echo-typing'
-  | 'boss-gauntlet'
+  | 'zen-marathon'
   | 'weakness-weaver'
-  | 'typing-quest'
-  | 'adaptive-boss';
+  | 'boss-gauntlet';
 
 interface ArcadeScores {
-  nitroWins: number;
-  nitroBestWpm: number;
-  blitzHighScore: number;
-  blitzMaxMultiplier: number;
-  rushHighScore: number;
-  duelWins: number;
-  duelBestWpm: number;
   raceWins: number;
   racePodiums: number;
   raceBestWpm: number;
-  scrambleHighScore: number;
-  scrambleWordsSolved: number;
-  scrambleBestStreak: number;
+  orbitalHighScore: number;
+  orbitalWordsDestroyed: number;
+  bombDefusalHighScore: number;
+  bombsDefusedTotal: number;
+  blitzHighScore: number;
+  blitzMaxMultiplier: number;
+  duelWins: number;
+  duelBestWpm: number;
   totalGamesPlayed: number;
 }
 
@@ -88,6 +78,8 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   onBackToPractice,
 }) => {
   const [activeGame, setActiveGame] = useState<ActiveGame>('none');
+  const [showSpecializedDrills, setShowSpecializedDrills] = useState(false);
+
   const [scores, setScores] = useState<ArcadeScores>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -96,156 +88,158 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       } catch {}
     }
     return {
-      nitroWins: 0,
-      nitroBestWpm: 0,
-      blitzHighScore: 0,
-      blitzMaxMultiplier: 1,
-      rushHighScore: 0,
-      duelWins: 0,
-      duelBestWpm: 0,
       raceWins: 0,
       racePodiums: 0,
       raceBestWpm: 0,
-      scrambleHighScore: 0,
-      scrambleWordsSolved: 0,
-      scrambleBestStreak: 0,
+      orbitalHighScore: 0,
+      orbitalWordsDestroyed: 0,
+      bombDefusalHighScore: 0,
+      bombsDefusedTotal: 0,
+      blitzHighScore: 0,
+      blitzMaxMultiplier: 1,
+      duelWins: 0,
+      duelBestWpm: 0,
       totalGamesPlayed: 0,
     };
   });
 
-  // Duel Finish Handler
-  const handleDuelFinish = useCallback(
-    (totalXp: number, won: boolean, stats: DuelStats) => {
-      onUpdateXp(totalXp);
-      setScores((prev) => {
-        const updated = {
-          ...prev,
-          duelWins: won ? (prev.duelWins || 0) + 1 : (prev.duelWins || 0),
-          duelBestWpm: Math.max(prev.duelBestWpm || 0, stats.playerWpm),
-          totalGamesPlayed: prev.totalGamesPlayed + 1,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
-    },
-    [onUpdateXp]
-  );
+  const saveScores = (newScores: ArcadeScores) => {
+    setScores(newScores);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('typepulse_arcade_stats', JSON.stringify(newScores));
+      } catch {}
+    }
+  };
 
-  // Typing Race Finish Handler
+  // Grand Prix Race Finish
   const handleRaceFinish = useCallback(
     (totalXp: number, position: number, wpm: number, _accuracy: number) => {
       onUpdateXp(totalXp);
-      setScores((prev) => {
-        const updated = {
-          ...prev,
-          raceWins: position === 1 ? (prev.raceWins || 0) + 1 : (prev.raceWins || 0),
-          racePodiums: position <= 3 ? (prev.racePodiums || 0) + 1 : (prev.racePodiums || 0),
-          raceBestWpm: Math.max(prev.raceBestWpm || 0, wpm),
-          totalGamesPlayed: prev.totalGamesPlayed + 1,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
+      const newScores = {
+        ...scores,
+        raceWins: position === 1 ? (scores.raceWins || 0) + 1 : scores.raceWins || 0,
+        racePodiums: position <= 3 ? (scores.racePodiums || 0) + 1 : scores.racePodiums || 0,
+        raceBestWpm: Math.max(scores.raceBestWpm || 0, wpm),
+        totalGamesPlayed: scores.totalGamesPlayed + 1,
+      };
+      saveScores(newScores);
     },
-    [onUpdateXp]
+    [onUpdateXp, scores]
   );
 
-  // Word Scramble Finish Handler
-  const handleScrambleFinish = useCallback(
-    (totalXp: number, score: number, wordsSolved: number, bestStreak: number) => {
-      onUpdateXp(totalXp);
-      setScores((prev) => {
-        const updated = {
-          ...prev,
-          scrambleHighScore: Math.max(prev.scrambleHighScore || 0, score),
-          scrambleWordsSolved: (prev.scrambleWordsSolved || 0) + wordsSolved,
-          scrambleBestStreak: Math.max(prev.scrambleBestStreak || 0, bestStreak),
-          totalGamesPlayed: prev.totalGamesPlayed + 1,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
-    },
-    [onUpdateXp]
-  );
-
-  const handleNitroFinish = useCallback(
-    (score: number, won: boolean, wpm: number) => {
-      const xp = Math.round(score / 8);
+  // Orbital Laser Defense Finish
+  const handleOrbitalFinish = useCallback(
+    (score: number, wordsDestroyed: number, accuracy: number) => {
+      setActiveGame('none');
+      const xp = Math.max(120, Math.round(score / 8));
       onUpdateXp(xp);
-      setScores((prev) => {
-        const updated = {
-          ...prev,
-          nitroWins: won ? prev.nitroWins + 1 : prev.nitroWins,
-          nitroBestWpm: Math.max(prev.nitroBestWpm, wpm),
-          totalGamesPlayed: prev.totalGamesPlayed + 1,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
+
+      const newScores = {
+        ...scores,
+        orbitalHighScore: Math.max(scores.orbitalHighScore || 0, score),
+        orbitalWordsDestroyed: (scores.orbitalWordsDestroyed || 0) + wordsDestroyed,
+        totalGamesPlayed: scores.totalGamesPlayed + 1,
+      };
+      saveScores(newScores);
+
+      if (onFinishSession) {
+        onFinishSession(
+          {
+            wpm: Math.round(wordsDestroyed * 4.2),
+            rawWpm: Math.round(wordsDestroyed * 4.5),
+            accuracy,
+            correctChars: wordsDestroyed * 5,
+            incorrectChars: Math.round(wordsDestroyed * 5 * ((100 - accuracy) / 100)),
+            correctedErrors: 0,
+            totalKeystrokes: wordsDestroyed * 5,
+            elapsedSeconds: 45,
+            combo: 0,
+            maxCombo: 0,
+            consistency: 90,
+            errorsByChar: {},
+            weakKeys: [],
+            timeline: [],
+          },
+          'orbital-defense'
+        );
+      }
     },
-    [onUpdateXp]
+    [onUpdateXp, onFinishSession, scores]
   );
 
+  // Bomb Defusal Finish
+  const handleBombDefusalFinish = useCallback(
+    (score: number, bombsDefused: number, accuracy: number) => {
+      setActiveGame('none');
+      const xp = Math.max(120, Math.round(score / 7));
+      onUpdateXp(xp);
+
+      const newScores = {
+        ...scores,
+        bombDefusalHighScore: Math.max(scores.bombDefusalHighScore || 0, score),
+        bombsDefusedTotal: (scores.bombsDefusedTotal || 0) + bombsDefused,
+        totalGamesPlayed: scores.totalGamesPlayed + 1,
+      };
+      saveScores(newScores);
+
+      if (onFinishSession) {
+        onFinishSession(
+          {
+            wpm: Math.round(bombsDefused * 7.5),
+            rawWpm: Math.round(bombsDefused * 8),
+            accuracy,
+            correctChars: bombsDefused * 6,
+            incorrectChars: Math.round(bombsDefused * 6 * ((100 - accuracy) / 100)),
+            correctedErrors: 0,
+            totalKeystrokes: bombsDefused * 6,
+            elapsedSeconds: 40,
+            combo: 0,
+            maxCombo: 0,
+            consistency: 92,
+            errorsByChar: {},
+            weakKeys: [],
+            timeline: [],
+          },
+          'bomb-defusal'
+        );
+      }
+    },
+    [onUpdateXp, onFinishSession, scores]
+  );
+
+  // Word Blitz Finish
   const handleBlitzFinish = useCallback(
     (score: number, _words: number, maxMult: number) => {
       const xp = Math.round(score / 15);
       onUpdateXp(xp);
-      setScores((prev) => {
-        const updated = {
-          ...prev,
-          blitzHighScore: Math.max(prev.blitzHighScore, score),
-          blitzMaxMultiplier: Math.max(prev.blitzMaxMultiplier, maxMult),
-          totalGamesPlayed: prev.totalGamesPlayed + 1,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
+      const newScores = {
+        ...scores,
+        blitzHighScore: Math.max(scores.blitzHighScore, score),
+        blitzMaxMultiplier: Math.max(scores.blitzMaxMultiplier, maxMult),
+        totalGamesPlayed: scores.totalGamesPlayed + 1,
+      };
+      saveScores(newScores);
     },
-    [onUpdateXp]
+    [onUpdateXp, scores]
   );
 
-  const handleRushFinish = useCallback(
-    (score: number) => {
-      const xp = Math.round(score / 10);
-      onUpdateXp(xp);
-      setScores((prev) => {
-        const updated = {
-          ...prev,
-          rushHighScore: Math.max(prev.rushHighScore, score),
-          totalGamesPlayed: prev.totalGamesPlayed + 1,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
+  // Typing Duel Finish
+  const handleDuelFinish = useCallback(
+    (totalXp: number, won: boolean, stats: DuelStats) => {
+      onUpdateXp(totalXp);
+      const newScores = {
+        ...scores,
+        duelWins: won ? (scores.duelWins || 0) + 1 : scores.duelWins || 0,
+        duelBestWpm: Math.max(scores.duelBestWpm || 0, stats.playerWpm),
+        totalGamesPlayed: scores.totalGamesPlayed + 1,
+      };
+      saveScores(newScores);
     },
-    [onUpdateXp]
+    [onUpdateXp, scores]
   );
 
+  // Generic Session Finish (for drills & gauntlets)
   const handleGenericSessionFinish = useCallback(
     (stats: TypingStats, mode: string) => {
       const earnedXp = Math.max(35, Math.round(stats.wpm * (stats.accuracy / 100) * 1.5));
@@ -253,23 +247,32 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       if (onFinishSession) {
         onFinishSession(stats, mode);
       }
-      setScores((prev) => {
-        const updated = {
-          ...prev,
-          totalGamesPlayed: prev.totalGamesPlayed + 1,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('typepulse_arcade_stats', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
+      const newScores = {
+        ...scores,
+        totalGamesPlayed: scores.totalGamesPlayed + 1,
+      };
+      saveScores(newScores);
     },
-    [onUpdateXp, onFinishSession]
+    [onUpdateXp, onFinishSession, scores]
   );
 
   // Active Game Render Switches
+  if (activeGame === 'typing-race') {
+    return <TypingRaceGame onFinish={handleRaceFinish} onExit={() => setActiveGame('none')} />;
+  }
+
+  if (activeGame === 'orbital-defense') {
+    return <OrbitalDefenseGame onFinish={handleOrbitalFinish} onExit={() => setActiveGame('none')} />;
+  }
+
+  if (activeGame === 'bomb-defusal') {
+    return <BombDefusalGame onFinish={handleBombDefusalFinish} onExit={() => setActiveGame('none')} />;
+  }
+
+  if (activeGame === 'word-blitz') {
+    return <WordBlitzGame onFinish={handleBlitzFinish} onExit={() => setActiveGame('none')} />;
+  }
+
   if (activeGame === 'daily-challenge') {
     return (
       <DailyChallengeGame
@@ -280,11 +283,12 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
     );
   }
 
-  if (activeGame === 'zen-marathon') {
+  if (activeGame === 'typing-duel') {
     return (
-      <ZenMarathonGame
+      <TypingDuelGame
         userProgress={userProgress}
-        onFinishSession={handleGenericSessionFinish}
+        aiSettings={aiSettings}
+        onFinishDuel={handleDuelFinish}
         onExit={() => setActiveGame('none')}
       />
     );
@@ -300,19 +304,9 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
     );
   }
 
-  if (activeGame === 'echo-typing') {
+  if (activeGame === 'zen-marathon') {
     return (
-      <EchoTypingGame
-        userProgress={userProgress}
-        onFinishSession={handleGenericSessionFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  if (activeGame === 'boss-gauntlet') {
-    return (
-      <BossGauntletGame
+      <ZenMarathonGame
         userProgress={userProgress}
         onFinishSession={handleGenericSessionFinish}
         onExit={() => setActiveGame('none')}
@@ -331,88 +325,19 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
     );
   }
 
-  if (activeGame === 'typing-quest') {
+  if (activeGame === 'boss-gauntlet') {
     return (
-      <TypingQuestGame
+      <BossGauntletGame
         userProgress={userProgress}
-        aiSettings={aiSettings}
         onFinishSession={handleGenericSessionFinish}
         onExit={() => setActiveGame('none')}
       />
     );
   }
 
-  if (activeGame === 'adaptive-boss') {
-    return (
-      <AdaptiveBossFightGame
-        userProgress={userProgress}
-        aiSettings={aiSettings}
-        onFinishSession={handleGenericSessionFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  if (activeGame === 'typing-duel') {
-    return (
-      <TypingDuelGame
-        userProgress={userProgress}
-        aiSettings={aiSettings}
-        onFinishDuel={handleDuelFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  if (activeGame === 'typing-race') {
-    return (
-      <TypingRaceGame
-        onFinish={handleRaceFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  if (activeGame === 'word-scramble') {
-    return (
-      <WordScrambleGame
-        onFinish={handleScrambleFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  if (activeGame === 'nitro-racer') {
-    return (
-      <NitroRacerGame
-        onFinish={handleNitroFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  if (activeGame === 'word-blitz') {
-    return (
-      <WordBlitzGame
-        onFinish={handleBlitzFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  if (activeGame === 'word-rush') {
-    return (
-      <WordRushGame
-        onFinish={handleRushFinish}
-        onExit={() => setActiveGame('none')}
-      />
-    );
-  }
-
-  // Otherwise, render the Arcade Games Dashboard
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 animate-fadeIn" id="arcade-dashboard">
-      {/* Arcade Header Banner */}
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 animate-fadeIn pb-12" id="arcade-arena">
+      {/* Top Banner & Header */}
       <div className="relative w-full bg-surface border border-border rounded-3xl p-6 sm:p-7 shadow-card overflow-hidden">
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -421,35 +346,35 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
                 <Gamepad2 className="w-3 h-3" />
                 ARCADE ARENA
               </span>
-              <span className="text-xs text-text-subtle font-mono">Word Games & Speed Drills</span>
+              <span className="text-xs text-text-subtle font-mono">Curated Typing Action</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">
-              Arcade & Word Games
+              Action Arcade
             </h1>
             <p className="text-xs sm:text-sm text-text-muted mt-1 max-w-xl">
-              Sharpen vocabulary agility, multi-car racing reflexes, and tactical anagram skills with distinct XP progression.
+              High-velocity, confusion-free typing challenges with immediate tactile feedback, crisp audio cues, and XP rewards.
             </p>
           </div>
 
           <button
             onClick={onBackToPractice}
-            className="px-4 py-2 rounded-xl bg-surface-muted hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-semibold border border-border transition-colors shrink-0"
+            className="px-4 py-2 rounded-xl bg-surface-muted hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-semibold border border-border transition-colors shrink-0 cursor-pointer"
           >
             ← Practice Arena
           </button>
         </div>
 
-        {/* Arcade Stats Counter Strip - Comprehensive Tracking */}
+        {/* Global Telemetry Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mt-6 pt-5 border-t border-border text-xs">
           <div className="p-2.5 bg-surface-muted rounded-2xl border border-border">
-            <span className="text-[10px] text-text-subtle block">Total Games</span>
+            <span className="text-[10px] text-text-subtle block">Total Played</span>
             <span className="text-base font-mono font-bold text-text-primary mt-0.5 block">
               {scores.totalGamesPlayed}
             </span>
           </div>
 
           <div className="p-2.5 bg-surface-muted rounded-2xl border border-border">
-            <span className="text-[10px] text-text-subtle block">Typing Race Wins</span>
+            <span className="text-[10px] text-text-subtle block">Grand Prix Wins</span>
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-base font-mono font-bold text-accent">{scores.raceWins || 0}</span>
               {(scores.raceBestWpm || 0) > 0 && (
@@ -459,33 +384,22 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
           </div>
 
           <div className="p-2.5 bg-surface-muted rounded-2xl border border-border">
-            <span className="text-[10px] text-text-subtle block">Scramble Solves</span>
+            <span className="text-[10px] text-text-subtle block">Orbital Defense PB</span>
             <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-base font-mono font-bold text-primary">
-                {scores.scrambleWordsSolved || 0}
+              <span className="text-base font-mono font-bold text-cyan-400">
+                {scores.orbitalHighScore > 0 ? scores.orbitalHighScore.toLocaleString() : '—'}
               </span>
-              {(scores.scrambleHighScore || 0) > 0 && (
-                <span className="text-[10px] text-text-muted font-mono">({scores.scrambleHighScore} pts)</span>
-              )}
             </div>
           </div>
 
           <div className="p-2.5 bg-surface-muted rounded-2xl border border-border">
-            <span className="text-[10px] text-text-subtle block">AI Duel Wins</span>
+            <span className="text-[10px] text-text-subtle block">Bombs Defused</span>
             <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-base font-mono font-bold text-accent">{scores.duelWins || 0}</span>
-              {(scores.duelBestWpm || 0) > 0 && (
-                <span className="text-[10px] text-text-muted font-mono">({scores.duelBestWpm} WPM)</span>
-              )}
-            </div>
-          </div>
-
-          <div className="p-2.5 bg-surface-muted rounded-2xl border border-border">
-            <span className="text-[10px] text-text-subtle block">Nitro Drag Wins</span>
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-base font-mono font-bold text-accent">{scores.nitroWins}</span>
-              {scores.nitroBestWpm > 0 && (
-                <span className="text-[10px] text-text-muted font-mono">({scores.nitroBestWpm} WPM)</span>
+              <span className="text-base font-mono font-bold text-amber-400">
+                {scores.bombsDefusedTotal || 0}
+              </span>
+              {(scores.bombDefusalHighScore || 0) > 0 && (
+                <span className="text-[10px] text-text-muted font-mono">({scores.bombDefusalHighScore} pts)</span>
               )}
             </div>
           </div>
@@ -496,15 +410,22 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
               <span className="text-base font-mono font-bold text-success">
                 {scores.blitzHighScore > 0 ? scores.blitzHighScore.toLocaleString() : '—'}
               </span>
-              {scores.blitzMaxMultiplier > 1 && (
-                <span className="text-[10px] text-accent font-mono">({scores.blitzMaxMultiplier}x)</span>
+            </div>
+          </div>
+
+          <div className="p-2.5 bg-surface-muted rounded-2xl border border-border">
+            <span className="text-[10px] text-text-subtle block">AI Duel Wins</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="text-base font-mono font-bold text-primary">{scores.duelWins || 0}</span>
+              {(scores.duelBestWpm || 0) > 0 && (
+                <span className="text-[10px] text-text-muted font-mono">({scores.duelBestWpm} WPM)</span>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Worldwide Daily Challenge Banner */}
+      {/* Featured Global Synchronized Event: Worldwide Daily Challenge */}
       <div className="bg-gradient-to-r from-amber-500/15 via-indigo-500/10 to-surface border-2 border-amber-500/30 hover:border-amber-500/50 rounded-3xl p-5 sm:p-6 shadow-card transition-all group">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
@@ -517,7 +438,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
                   <Calendar className="w-3 h-3 text-amber-400" />
                   WORLDWIDE DAILY CHALLENGE
                 </span>
-                <span className="text-xs text-text-subtle font-mono">Synchronized Global Passage</span>
+                <span className="text-xs text-text-subtle font-mono">Synchronized Literature Passage</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-text-primary group-hover:text-amber-400 transition-colors">
                 Today&apos;s Daily Challenge
@@ -527,7 +448,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-text-muted font-mono">
                 <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-amber-400 flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-amber-400" /> Daily Streak Protected
+                  <Flame className="w-3 h-3 text-amber-400" /> Streak Protected
                 </span>
                 <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-text-secondary">
                   Accuracy Medal Tiers
@@ -542,7 +463,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
           <div className="flex flex-col items-end gap-2 w-full md:w-auto shrink-0">
             <button
               onClick={() => setActiveGame('daily-challenge')}
-              className="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-sm transition-all shadow-glow-accent-sm hover:scale-105 flex items-center justify-center gap-2"
+              className="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-sm transition-all shadow-glow-accent-sm hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
               id="launch-daily-challenge-btn"
             >
               <Calendar className="w-4 h-4 text-slate-950" />
@@ -552,199 +473,33 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         </div>
       </div>
 
-      {/* Featured Mode: Typing Duel (AI Combat Arena) */}
-      <div className="bg-surface border-2 border-accent-border hover:border-accent rounded-3xl p-5 sm:p-6 shadow-card transition-all group">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-accent-subtle border border-accent-border text-accent flex items-center justify-center text-3xl shadow-glow-accent-sm shrink-0">
-              ⚔️
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1 border border-accent-border">
-                  <Sparkles className="w-3 h-3 text-accent" />
-                  PREMIER AI COMBAT
-                </span>
-                <span className="text-xs text-text-subtle font-mono">Dynamic AI Passages</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-text-primary group-hover:text-accent transition-colors">
-                Typing Duel
-              </h2>
-              <p className="text-xs sm:text-sm text-text-muted mt-1 max-w-xl leading-relaxed">
-                Step into the duel ring against 4 difficulty tiers of AI rivals (from Rookie Drone at 36 WPM to Synthetic Sovereign at 114 WPM) on dynamically generated prose. Outpace your opponent to claim victory and earn massive XP!
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-text-secondary">4 Difficulty Tiers</span>
-                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-accent">Up to +1,100 XP / Win</span>
-                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-primary">Live Pacing Lead Tracker</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end gap-2 w-full md:w-auto shrink-0">
-            <button
-              onClick={() => setActiveGame('typing-duel')}
-              className="w-full md:w-auto px-6 py-3.5 bg-accent hover:bg-accent-hover text-accent-foreground font-black rounded-xl text-sm transition-all shadow-glow-accent-sm hover:scale-105 flex items-center justify-center gap-2"
-              id="launch-typing-duel-btn"
-            >
-              <Swords className="w-4 h-4 fill-accent-foreground" />
-              <span>Enter Typing Duel</span>
-            </button>
-            <span className="text-[10px] text-text-subtle font-mono self-center md:self-end">
-              {(scores.duelWins || 0) > 0 ? `${scores.duelWins} Duels Won • Best: ${scores.duelBestWpm} WPM` : 'Unchallenged'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Intelligence & Narrative Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Weakness Weaver */}
-        <div className="bg-surface border border-border hover:border-fuchsia-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+      {/* The 4 Core Confusion-Free Action Games */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-2xl shadow-inner">
-                🧠
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 text-[10px] font-mono font-bold">
-                ADAPTIVE DRILL
-              </span>
-            </div>
-
-            <h3 className="text-base font-bold text-text-primary group-hover:text-fuchsia-400 transition-colors">
-              Weakness Weaver
-            </h3>
-            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-              Analyzes your statistical bigram and trigram latency hesitations to weave custom drills targeting your exact muscle memory bottlenecks.
-            </p>
-
-            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">EWMA N-Gram Tracking</span>
-              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-fuchsia-400">Targeted Feedback</span>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveGame('weakness-weaver')}
-            className="mt-6 w-full py-2.5 bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-            id="play-weakness-weaver-btn"
-          >
-            <Brain className="w-3.5 h-3.5" />
-            <span>Launch Weaver</span>
-          </button>
-        </div>
-
-        {/* Typing Quest RPG */}
-        <div className="bg-surface border border-border hover:border-emerald-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl shadow-inner">
-                🧭
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
-                CYBERPUNK RPG
-              </span>
-            </div>
-
-            <h3 className="text-base font-bold text-text-primary group-hover:text-emerald-400 transition-colors">
-              Typing Quest
-            </h3>
-            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-              An interactive narrative adventure where your keystroke velocity and accuracy determine whether you bypass neural firewalls or trigger sentries.
-            </p>
-
-            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Branching Routes</span>
-              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-emerald-400">Inventory & Vitality</span>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveGame('typing-quest')}
-            className="mt-6 w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-            id="play-typing-quest-btn"
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>Embark on Quest</span>
-          </button>
-        </div>
-
-        {/* Adaptive Boss Fight */}
-        <div className="bg-surface border border-border hover:border-purple-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center text-2xl shadow-inner">
-                👑
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-mono font-bold">
-                BOSS SHOWDOWN
-              </span>
-            </div>
-
-            <h3 className="text-base font-bold text-text-primary group-hover:text-purple-400 transition-colors">
-              Adaptive Boss Arena
-            </h3>
-            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-              Face the Synthetic Sovereign in a reactive combat arena featuring dynamic trash talk banter and attacks targeting your weakest keys.
-            </p>
-
-            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Reactive Banter</span>
-              <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-purple-400">114 WPM Benchmark</span>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveGame('adaptive-boss')}
-            className="mt-6 w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-            id="play-adaptive-boss-btn"
-          >
-            <Skull className="w-3.5 h-3.5" />
-            <span>Enter Boss Arena</span>
-          </button>
-        </div>
-      </div>
-
-      {/* DEDICATED SECTION: WORD GAMES & INTERACTIVE DRILLS */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between border-b border-border pb-2">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-xl bg-primary-subtle text-primary border border-primary-border">
-              <Puzzle className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-text-primary flex items-center gap-2">
-                Word Games
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-primary-subtle text-primary border border-primary-border">
-                  NEW INTERACTIVE CHALLENGES
-                </span>
-              </h2>
-              <p className="text-xs text-text-muted">
-                Sharpen anagram decryption, 4-car circuit sprints, and vocabulary agility with distinct XP rewards.
-              </p>
-            </div>
+            <h2 className="text-lg font-black text-text-primary tracking-tight">Core Action Games</h2>
+            <p className="text-xs text-text-muted">Direct visual metaphors, zero ambiguous rules, instant feedback.</p>
           </div>
         </div>
 
-        {/* Word Games 2-Column Showcase */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Challenge 1: Typing Race */}
-          <div className="bg-surface border border-border hover:border-accent-border rounded-3xl p-6 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          {/* Game 1: Grand Prix Speedway */}
+          <div className="bg-surface border-2 border-border hover:border-accent rounded-3xl p-5 sm:p-6 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-accent-subtle border border-accent-border text-accent flex items-center justify-center text-2xl shadow-inner">
+                <div className="w-13 h-13 rounded-2xl bg-accent-subtle border border-accent-border text-accent flex items-center justify-center text-2xl shadow-inner">
                   🏎️
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent-border text-accent text-[10px] font-mono font-bold">
-                  4-CAR GRAND PRIX
+                <span className="px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent-border text-accent text-[10px] font-mono font-bold tracking-wider uppercase">
+                  4-CAR CIRCUIT
                 </span>
               </div>
 
-              <h3 className="text-lg font-bold text-text-primary group-hover:text-accent transition-colors">
-                Typing Race
+              <h3 className="text-lg font-black text-text-primary group-hover:text-accent transition-colors">
+                Grand Prix Speedway
               </h3>
               <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Compete on a multi-lane asphalt circuit against 3 AI racers. Hold high typing speed and streak combos to trigger Slipstream turbo drafting and claim the 1st Place Gold Trophy!
+                Compete on a 4-lane track against dynamic AI rivals across 3 division classes (Amateur, Pro, Apex). Clean text passage, smooth lane animations, drafting slipstream turbo, and finish line podiums.
               </p>
 
               <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-2 text-[11px] text-text-muted font-mono">
@@ -752,367 +507,267 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
                   3 Divisions
                 </span>
                 <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-accent">
-                  Up to +550 XP
+                  Drafting Slipstream
                 </span>
-                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-success">
-                  Podium Rewards
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-text-muted">
+                  Podium Trophies
                 </span>
               </div>
             </div>
 
-            <div className="mt-6 pt-2">
-              <button
-                onClick={() => setActiveGame('typing-race')}
-                className="w-full py-3 bg-accent hover:bg-accent-hover text-accent-foreground font-black rounded-xl text-xs transition-all shadow-glow-accent-sm hover:scale-[1.02] flex items-center justify-center gap-2"
-                id="play-typing-race-btn"
-              >
-                <Flag className="w-4 h-4 fill-accent-foreground" />
-                <span>Enter Typing Race</span>
-              </button>
-              <div className="mt-2 text-center text-[11px] text-text-subtle font-mono">
-                {(scores.raceWins || 0) > 0
-                  ? `${scores.raceWins} Gold Wins • ${scores.racePodiums || 0} Podiums • Best: ${scores.raceBestWpm} WPM`
-                  : 'No race records yet'}
-              </div>
-            </div>
+            <button
+              onClick={() => setActiveGame('typing-race')}
+              className="mt-6 w-full py-3 bg-accent hover:bg-accent-hover text-accent-foreground font-black rounded-xl text-xs transition-all shadow-glow-accent-sm flex items-center justify-center gap-2 cursor-pointer"
+              id="play-grand-prix-btn"
+            >
+              <Play className="w-4 h-4 fill-accent-foreground" />
+              <span>Enter Grand Prix</span>
+            </button>
           </div>
 
-          {/* Challenge 2: Word Scramble */}
-          <div className="bg-surface border border-border hover:border-primary-border rounded-3xl p-6 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          {/* Game 2: Orbital Laser Defense */}
+          <div className="bg-surface border-2 border-border hover:border-cyan-400/50 rounded-3xl p-5 sm:p-6 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary-subtle border border-primary-border text-primary flex items-center justify-center text-2xl shadow-inner">
-                  🧩
+                <div className="w-13 h-13 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-2xl shadow-inner">
+                  🚀
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-primary-subtle border border-primary-border text-primary text-[10px] font-mono font-bold">
-                  ANAGRAM DRILL
+                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold tracking-wider uppercase">
+                  ZTYPE DEFENSE
                 </span>
               </div>
 
-              <h3 className="text-lg font-bold text-text-primary group-hover:text-primary transition-colors">
-                Word Scramble
+              <h3 className="text-lg font-black text-text-primary group-hover:text-cyan-400 transition-colors">
+                Orbital Laser Defense
               </h3>
               <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Test your pattern recognition and vocabulary by unscrambling randomized letter tiles. Leverage category clues, letter hints, and consecutive solve multipliers under the clock!
+                Space drones descend toward your perimeter. Type the initial letter to lock targeting lasers onto the nearest enemy, then fire laser bolts on every keystroke. Trigger a screen-clearing EMP blast at 8x streak!
               </p>
 
               <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-cyan-400">
+                  Auto-Target Lock
+                </span>
                 <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-text-secondary">
-                  Sprint & Gauntlet
+                  Laser Bolt Impacts
                 </span>
-                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-primary">
-                  Up to +450 XP
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-amber-400">
+                  EMP Superweapon
                 </span>
-                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-accent">
-                  Streak Multipliers
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-2">
-              <button
-                onClick={() => setActiveGame('word-scramble')}
-                className="w-full py-3 bg-primary hover:bg-primary-hover text-primary-foreground font-black rounded-xl text-xs transition-all shadow-md hover:scale-[1.02] flex items-center justify-center gap-2"
-                id="play-word-scramble-btn"
-              >
-                <Puzzle className="w-4 h-4" />
-                <span>Play Word Scramble</span>
-              </button>
-              <div className="mt-2 text-center text-[11px] text-text-subtle font-mono">
-                {(scores.scrambleWordsSolved || 0) > 0
-                  ? `${scores.scrambleWordsSolved} Words Solved • High Score: ${scores.scrambleHighScore.toLocaleString()} pts`
-                  : 'Unscrambled: 0 words'}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION: SPEED & REFLEX DRILLS */}
-      <div className="flex flex-col gap-4 mt-2">
-        <div className="flex items-center justify-between border-b border-border pb-2">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-xl bg-accent-subtle text-accent border border-accent-border">
-              <Zap className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-text-primary">Speed & Reflex Drills</h2>
-              <p className="text-xs text-text-muted">
-                High-pressure burst typing, time-attack frenzy, and falling word orbital defense.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 4-Card Grid for Nitro Racer, Word Blitz, Word Rush, Boss Gauntlet */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Boss Gauntlet */}
-          <div className="bg-surface border border-border hover:border-red-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center text-2xl shadow-inner">
-                  👹
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono font-bold">
-                  3-STAGE SURVIVAL
-                </span>
-              </div>
-
-              <h3 className="text-base font-bold text-text-primary group-hover:text-red-400 transition-colors">
-                Boss Gauntlet
-              </h3>
-              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Fight through 3 consecutive bosses of escalating speeds with a shared health pool. Deal critical damage through high-accuracy bursts!
-              </p>
-
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">3 Boss Stages</span>
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-red-400">Critical Strikes</span>
               </div>
             </div>
 
             <button
-              onClick={() => setActiveGame('boss-gauntlet')}
-              className="mt-6 w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-              id="play-boss-gauntlet-btn"
+              onClick={() => setActiveGame('orbital-defense')}
+              className="mt-6 w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              id="play-orbital-defense-btn"
             >
-              <Skull className="w-3.5 h-3.5" />
-              <span>Enter Gauntlet</span>
+              <Crosshair className="w-4 h-4" />
+              <span>Engage Defense Systems</span>
             </button>
           </div>
 
-          {/* Nitro Drag Racer */}
-          <div className="bg-surface border border-border hover:border-accent-border rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          {/* Game 3: Bomb Squad Defusal Rush */}
+          <div className="bg-surface border-2 border-border hover:border-amber-500/50 rounded-3xl p-5 sm:p-6 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-accent-subtle border border-accent-border text-accent flex items-center justify-center text-2xl shadow-inner">
-                  🏎️
+                <div className="w-13 h-13 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center text-2xl shadow-inner">
+                  💣
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-accent-subtle border border-accent-border text-accent text-[10px] font-mono font-bold">
-                  HEAD-TO-HEAD
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold tracking-wider uppercase">
+                  COUNTDOWN SURVIVAL
                 </span>
               </div>
 
-              <h3 className="text-base font-bold text-text-primary group-hover:text-accent transition-colors">
-                Nitro Drag Racer
+              <h3 className="text-lg font-black text-text-primary group-hover:text-amber-400 transition-colors">
+                Bomb Squad: Defusal Rush
               </h3>
               <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Sprint along a dual-lane asphalt drag strip against an AI ghost rival. Maintain a 5+ word streak to unleash blistering Nitro speed!
+                One explosive device at a time with a burning fuse countdown. Snip circuit wires with spark effects by typing the code sequence accurately before detonation. 3 battery reserves to keep you in the fight.
               </p>
 
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">3 Difficulties</span>
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-accent">Nitro Boost</span>
+              <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-amber-400">
+                  Burning Fuse Bar
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-text-secondary">
+                  Wire Snip Sparks
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-emerald-400">
+                  3 Battery Reserves
+                </span>
               </div>
             </div>
 
             <button
-              onClick={() => setActiveGame('nitro-racer')}
-              className="mt-6 w-full py-2.5 bg-accent hover:bg-accent-hover text-accent-foreground font-bold rounded-xl text-xs transition-all shadow-glow-accent-sm flex items-center justify-center gap-1.5"
-              id="play-nitro-racer-btn"
+              onClick={() => setActiveGame('bomb-defusal')}
+              className="mt-6 w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              id="play-bomb-defusal-btn"
             >
-              <Play className="w-3.5 h-3.5 fill-accent-foreground" />
-              <span>Play Nitro Racer</span>
+              <Timer className="w-4 h-4" />
+              <span>Initiate Defusal Protocol</span>
             </button>
           </div>
 
-          {/* Word Blitz */}
-          <div className="bg-surface border border-border hover:border-primary-border rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          {/* Game 4: Word Blitz: 60s Frenzy */}
+          <div className="bg-surface border-2 border-border hover:border-emerald-500/50 rounded-3xl p-5 sm:p-6 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary-subtle border border-primary-border text-primary flex items-center justify-center text-2xl shadow-inner">
+                <div className="w-13 h-13 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-2xl shadow-inner">
                   ⚡
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-primary-subtle border border-primary-border text-primary text-[10px] font-mono font-bold">
-                  TIME ATTACK
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold tracking-wider uppercase">
+                  SPEED BURST
                 </span>
               </div>
 
-              <h3 className="text-base font-bold text-text-primary group-hover:text-primary transition-colors">
-                Word Blitz
+              <h3 className="text-lg font-black text-text-primary group-hover:text-emerald-400 transition-colors">
+                Word Blitz: 60s Frenzy
               </h3>
               <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                A high-pressure 45-second reflex test. Stack correct words to escalate your combo multiplier up to 5x FRENZY and claim +3s time extensions.
+                45 to 60-second rapid-fire burst. One clear central word at a time. Consecutive error-free words ramp up your score multiplier up to 5x FRENZY, with +3s time extensions on big streaks.
               </p>
 
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">45s Clock</span>
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-primary">5x Multiplier</span>
+              <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-2 text-[11px] text-text-muted font-mono">
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-emerald-400">
+                  5x Frenzy Multiplier
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-text-secondary">
+                  Time Freeze Extensions
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-surface-muted border border-border text-accent">
+                  Streak Combos
+                </span>
               </div>
             </div>
 
             <button
               onClick={() => setActiveGame('word-blitz')}
-              className="mt-6 w-full py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+              className="mt-6 w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               id="play-word-blitz-btn"
             >
-              <Zap className="w-3.5 h-3.5 fill-white" />
+              <Zap className="w-4 h-4" />
               <span>Launch Word Blitz</span>
-            </button>
-          </div>
-
-          {/* Word Rush */}
-          <div className="bg-surface border border-border hover:border-success-border rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-success-subtle border border-success-border text-success flex items-center justify-center text-2xl shadow-inner">
-                  🚀
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-success-subtle border border-success-border text-success text-[10px] font-mono font-bold">
-                  SURVIVAL DEFENSE
-                </span>
-              </div>
-
-              <h3 className="text-base font-bold text-text-primary group-hover:text-success transition-colors">
-                Word Rush
-              </h3>
-              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Words descend through orbital space toward your defensive perimeter. Target and vaporize them before they breach the red deadline line!
-              </p>
-
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">3 Shield Lives</span>
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-success">Dynamic Velocity</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setActiveGame('word-rush')}
-              className="mt-6 w-full py-2.5 bg-success hover:bg-success/90 text-success-foreground font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-              id="play-word-rush-btn"
-            >
-              <Play className="w-3.5 h-3.5 fill-success-foreground" />
-              <span>Defend in Word Rush</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* SECTION: PRECISION, RHYTHM & ENDURANCE */}
-      <div className="flex flex-col gap-4 mt-2">
-        <div className="flex items-center justify-between border-b border-border pb-2">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Waves className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-text-primary">Precision, Rhythm & Endurance</h2>
-              <p className="text-xs text-text-muted">
-                Ghost velocity pacing, specialized numeric and symbol drills, and endless ambient flow.
-              </p>
-            </div>
+      {/* Collapsible Section: Specialized Training Drills & Showdowns */}
+      <div className="mt-2 pt-6 border-t border-border">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-text-primary">Specialized Drills & AI Duels</h2>
+            <p className="text-xs text-text-muted">Targeted muscle-memory training, AI rival showdowns, and calm zen flow.</p>
           </div>
+          <button
+            onClick={() => setShowSpecializedDrills((prev) => !prev)}
+            className="px-3.5 py-1.5 rounded-xl bg-surface-muted hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-semibold border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>{showSpecializedDrills ? 'Collapse Drills' : 'View All 5 Drills'}</span>
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showSpecializedDrills ? 'rotate-90' : ''}`} />
+          </button>
         </div>
 
-        {/* 3-Card Grid for Echo Typing, Numeric Ninja, Zen Marathon */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Echo Typing */}
-          <div className="bg-surface border border-border hover:border-cyan-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl shadow-inner">
-                  👻
+        {showSpecializedDrills && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 animate-fadeIn">
+            {/* Drill 1: Typing Duel */}
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:border-accent flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="p-1.5 rounded-lg bg-accent-subtle text-accent text-sm">⚔️</span>
+                  <h4 className="font-bold text-sm text-text-primary">Typing Duel</h4>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-mono font-bold">
-                  PACER MODE
-                </span>
+                <p className="text-xs text-text-muted">
+                  1v1 live pacing combat against 4 bot rival personas (36 to 114 WPM) with real-time lead meters.
+                </p>
               </div>
-
-              <h3 className="text-base font-bold text-text-primary group-hover:text-cyan-400 transition-colors">
-                Echo Typing
-              </h3>
-              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Race against a ghost caret paced at your target velocity or past personal best. Train consistent cadence and eliminate micro-pauses.
-              </p>
-
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Custom Target WPM</span>
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-cyan-400">Live Delta Gauge</span>
-              </div>
+              <button
+                onClick={() => setActiveGame('typing-duel')}
+                className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+              >
+                Enter Duel
+              </button>
             </div>
 
-            <button
-              onClick={() => setActiveGame('echo-typing')}
-              className="mt-6 w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-              id="play-echo-typing-btn"
-            >
-              <Ghost className="w-3.5 h-3.5" />
-              <span>Launch Echo Pacer</span>
-            </button>
-          </div>
-
-          {/* Numeric & Symbol Ninja */}
-          <div className="bg-surface border border-border hover:border-amber-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-2xl shadow-inner">
-                  🔢
+            {/* Drill 2: Numeric & Symbol Ninja */}
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:border-primary flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="p-1.5 rounded-lg bg-primary-subtle text-primary text-sm">🔢</span>
+                  <h4 className="font-bold text-sm text-text-primary">Numeric & Symbol Ninja</h4>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold">
-                  SPECIALIZED DRILL
-                </span>
+                <p className="text-xs text-text-muted">
+                  Master the number row, brackets, parentheses, and programming syntax symbols with guided finger cues.
+                </p>
               </div>
-
-              <h3 className="text-base font-bold text-text-primary group-hover:text-amber-400 transition-colors">
-                Numeric & Symbol Ninja
-              </h3>
-              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Master programming brackets, mathematical expressions, financial currencies, and number pad precision without looking down.
-              </p>
-
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">4 Focus Categories</span>
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-amber-400">Code Syntax</span>
-              </div>
+              <button
+                onClick={() => setActiveGame('numeric-ninja')}
+                className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+              >
+                Practice Symbols
+              </button>
             </div>
 
-            <button
-              onClick={() => setActiveGame('numeric-ninja')}
-              className="mt-6 w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-              id="play-numeric-ninja-btn"
-            >
-              <Binary className="w-3.5 h-3.5" />
-              <span>Train Symbols</span>
-            </button>
-          </div>
-
-          {/* Zen Marathon */}
-          <div className="bg-surface border border-border hover:border-teal-500/50 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center text-2xl shadow-inner">
-                  🌊
+            {/* Drill 3: Zen Flow Marathon */}
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:border-cyan-400 flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm">🌊</span>
+                  <h4 className="font-bold text-sm text-text-primary">Zen Flow Marathon</h4>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-[10px] font-mono font-bold">
-                  FLOW STATE
-                </span>
+                <p className="text-xs text-text-muted">
+                  Zero timer, zero penalty, infinite text stream of classical literature and mindful philosophy.
+                </p>
               </div>
-
-              <h3 className="text-base font-bold text-text-primary group-hover:text-teal-400 transition-colors">
-                Zen Marathon
-              </h3>
-              <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-                Zero timers, zero countdowns, zero pressure. Stream endless literature and philosophy passages with gentle rhythm flow tracking.
-              </p>
-
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-text-muted font-mono">
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-text-secondary">Infinite Text Stream</span>
-                <span className="px-2 py-0.5 rounded bg-surface-muted border border-border text-teal-400">Flow Rating</span>
-              </div>
+              <button
+                onClick={() => setActiveGame('zen-marathon')}
+                className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+              >
+                Enter Zen Mode
+              </button>
             </div>
 
-            <button
-              onClick={() => setActiveGame('zen-marathon')}
-              className="mt-6 w-full py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
-              id="play-zen-marathon-btn"
-            >
-              <Waves className="w-3.5 h-3.5" />
-              <span>Enter Zen Flow</span>
-            </button>
+            {/* Drill 4: Weakness Weaver */}
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:border-fuchsia-400 flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="p-1.5 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 text-sm">🧠</span>
+                  <h4 className="font-bold text-sm text-text-primary">Weakness Weaver</h4>
+                </div>
+                <p className="text-xs text-text-muted">
+                  Adaptive AI drills targeting your statistically slowest N-gram letter combinations.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveGame('weakness-weaver')}
+                className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+              >
+                Weave Drill
+              </button>
+            </div>
+
+            {/* Drill 5: Boss Gauntlet */}
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:border-red-400 flex flex-col justify-between transition-all">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="p-1.5 rounded-lg bg-red-500/10 text-red-400 text-sm">👹</span>
+                  <h4 className="font-bold text-sm text-text-primary">Boss Gauntlet</h4>
+                </div>
+                <p className="text-xs text-text-muted">
+                  3-stage critical survival encounter. Deliver high-speed keystroke damage before the turn timer expires.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveGame('boss-gauntlet')}
+                className="mt-3 w-full py-2 bg-surface-muted hover:bg-surface-hover text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+              >
+                Fight Bosses
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
-

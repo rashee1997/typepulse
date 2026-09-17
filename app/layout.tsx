@@ -1,5 +1,11 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css'; // Global styles
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: 'TypePulse AI - Touch Typing & AI Coach',
@@ -40,7 +46,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
           }}
         />
       </head>
-      <body className="bg-background text-foreground min-h-screen antialiased overflow-x-hidden w-full max-w-full" suppressHydrationWarning>
+      <body className="bg-background text-foreground h-dvh antialiased overflow-hidden w-full max-w-full flex flex-col" suppressHydrationWarning>
         {children}
       </body>
     </html>

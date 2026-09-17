@@ -147,6 +147,7 @@ export default function Home() {
   const [sessionState, setSessionState] = useState<SessionState>('ready');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [activeKeyPressed, setActiveKeyPressed] = useState<string>('');
+  const [liveAnnouncement, setLiveAnnouncement] = useState<string>('');
 
   // Synchronize Theme class with document.documentElement
   useEffect(() => {
@@ -267,6 +268,7 @@ export default function Home() {
   const finalizeSession = useCallback(() => {
     setSessionState('completed');
     const stats = engineRef.current.getStats();
+    setLiveAnnouncement(`Test completed. ${stats.wpm} words per minute, ${stats.accuracy}% accuracy.`);
 
     // Sound effect
     if (stats.accuracy >= 95) {
@@ -388,6 +390,7 @@ export default function Home() {
     }
 
     // Handle typing input inside engine
+    const expectedChar = engineRef.current.chars[engineRef.current.currentIndex]?.char;
     const res = engineRef.current.handleInput(key, e.ctrlKey || e.metaKey);
     setEngineChars([...engineRef.current.chars]);
     setEngineIndex(engineRef.current.currentIndex);
@@ -403,8 +406,14 @@ export default function Home() {
         if (engineRef.current.combo > 0 && engineRef.current.combo % 25 === 0) {
           soundFx.playCombo();
         }
+        if (key === ' ') {
+          setLiveAnnouncement('Word correct');
+        }
       } else {
         soundFx.playError();
+        setLiveAnnouncement(
+          `Error: typed ${key === ' ' ? 'space' : key}, expected ${expectedChar === ' ' ? 'space' : expectedChar}`
+        );
       }
 
       // Check for completion
@@ -464,20 +473,11 @@ export default function Home() {
   const currentChar = engineChars[engineIndex]?.char || '';
 
   return (
-    <div className="min-h-screen w-full max-w-full bg-background text-foreground flex flex-col font-sans selection:bg-accent selection:text-accent-foreground overflow-x-hidden">
-      {/* Hidden input to capture keystrokes from any physical or virtual keyboard */}
-      <input
-        ref={inputRef}
-        type="text"
-        className="absolute opacity-0 pointer-events-none -top-40 left-0"
-        onKeyDown={handleKeyDown}
-        autoFocus
-        autoComplete="off"
-        autoCapitalize="off"
-        autoCorrect="off"
-        spellCheck="false"
-        id="accessible-keystroke-capture"
-      />
+    <div className="h-dvh w-full max-w-full bg-background text-foreground flex flex-col font-sans selection:bg-accent selection:text-accent-foreground overflow-hidden">
+      {/* Screen-reader-only status channel for completed words, errors, and session results */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {liveAnnouncement}
+      </div>
 
       {/* TOP GLOBAL NAVBAR - SLEEK RESPONSIVE HEADER WITH ZERO OVERFLOW */}
       <header className="w-full max-w-full border-b border-border bg-surface/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2 shrink-0 shadow-sm overflow-x-clip">
@@ -653,8 +653,10 @@ export default function Home() {
         </div>
       </header>
 
+      {/* SCROLLABLE APP BODY - single scroll container beneath the sticky header */}
+      <div className="flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
       {/* SUB-VIEW CONDITIONAL RENDERING */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-4 flex flex-col justify-start">
+      <main className="max-w-7xl w-full mx-auto px-4 py-4 flex flex-col justify-start">
         {currentView === 'lessons' && (
           <LessonsView
             lessons={LESSONS_CURRICULUM}
@@ -1084,9 +1086,26 @@ export default function Home() {
                 <div
                   onClick={() => inputRef.current?.focus()}
                   ref={textContainerRef}
-                  className="w-full h-56 bg-surface hover:bg-surface-muted/50 p-5 rounded-2xl border border-border shadow-inner overflow-hidden cursor-text flex flex-col justify-start relative select-none transition-colors"
+                  className="w-full h-56 bg-surface hover:bg-surface-muted/50 p-5 rounded-2xl border border-border shadow-inner overflow-hidden cursor-text flex flex-col justify-start relative select-none transition-colors focus-within:ring-2 focus-within:ring-accent/60"
                   id="typing-text-canvas"
                 >
+                  {/* In-flow keystroke capture input - occupies the stage without shifting layout or leaving the viewport */}
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    className="absolute inset-0 size-full opacity-0 cursor-default pointer-events-none caret-transparent"
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                    inputMode="text"
+                    autoCapitalize="off"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    aria-label="Typing input stream"
+                    tabIndex={0}
+                    id="accessible-keystroke-capture"
+                  />
+
                   <div className="text-xl font-mono leading-relaxed tracking-wider break-words">
                     {engineChars.map((charItem, index) => {
                       const isCurrent = index === engineIndex;
@@ -1207,6 +1226,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      </div>
 
       {/* MODALS & DRAWERS */}
       <SettingsModal

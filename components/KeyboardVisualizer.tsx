@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { AnimatedHandsGuide, FINGER_REACH_MAP, FingerType } from './AnimatedHandsGuide';
+import { AnimatedHandsGuide } from './AnimatedHandsGuide';
+import { FingerType, FINGER_REACH_MAP, getKeyFinger } from '@/lib/keyboard-geometry';
 import { Hand, Sparkles } from 'lucide-react';
 
 interface KeyboardVisualizerProps {
@@ -217,6 +218,14 @@ const KEYBOARD_ROWS: KeyDef[][] = [
   ],
 ];
 
+// Keep finger assignment in sync with the shared keyboard geometry module (single source of truth);
+// modifier/control keys absent from the geometry grid keep their explicit fallback above.
+KEYBOARD_ROWS.forEach((row) => {
+  row.forEach((keyDef) => {
+    keyDef.finger = getKeyFinger(keyDef.key, keyDef.finger);
+  });
+});
+
 const FINGER_COLOR_MAP: Record<FingerType, { border: string; bg: string; text: string; label: string }> = {
   'left-pinky': { border: 'border-danger-border', bg: 'bg-danger-subtle', text: 'text-danger', label: 'Left Pinky' },
   'left-ring': { border: 'border-warning-border', bg: 'bg-warning-subtle', text: 'text-warning', label: 'Left Ring' },
@@ -289,7 +298,7 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
     <div className="w-full max-w-full overflow-hidden flex flex-col items-center select-none" id="keyboard-visualizer-container">
       {/* Eye-Level Live Finger Placement Cockpit */}
       {showFingerGuide && (
-        <div className="w-full mb-3 p-3 bg-surface border border-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">
+        <div className="w-full order-1 mb-3 p-3 bg-surface border border-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">
           <div className="flex items-center gap-3 min-w-0">
             {/* Target key badge */}
             <div className="flex items-center gap-1.5 shrink-0">
@@ -350,8 +359,8 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
         </div>
       )}
 
-      {/* Keyboard Bed */}
-      <div className="p-2 sm:p-2.5 bg-surface rounded-2xl border border-border shadow-card backdrop-blur-sm w-full max-w-full overflow-x-auto scrollbar-none">
+      {/* Keyboard Bed - reflowed after the hand/finger cue on mobile so the guide stays in the primary viewport */}
+      <div className="order-3 lg:order-2 p-2 sm:p-2.5 bg-surface rounded-2xl border border-border shadow-card backdrop-blur-sm w-full max-w-full overflow-x-auto scrollbar-none">
         <div className="flex flex-col gap-1 min-w-[560px]">
           {KEYBOARD_ROWS.map((row, rIdx) => (
             <div key={rIdx} className="flex justify-center gap-1">
@@ -424,9 +433,10 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
         </div>
       </div>
 
-      {/* VISUAL ANIMATED HANDS - Active strictly for basic lessons */}
+      {/* VISUAL ANIMATED HANDS - Active strictly for basic lessons. Ordered before the keyboard bed
+          on mobile so the hand cue stays pinned near the typing stage within the primary viewport. */}
       {isBasicLesson && showAnimatedHands !== false && (
-        <div className="w-full mt-3 animate-fadeIn">
+        <div className="w-full order-2 lg:order-3 mt-3 animate-fadeIn">
           <AnimatedHandsGuide
             targetChar={targetChar}
             activeKey={activeKey}
@@ -436,7 +446,7 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
 
       {/* Subtle Finger Zone Legend - Shown when hands guide is not active */}
       {(!isBasicLesson || showAnimatedHands === false) && (
-        <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-[10px] text-text-muted font-medium">
+        <div className="order-4 flex flex-wrap items-center justify-center gap-3 mt-2 text-[10px] text-text-muted font-medium">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-danger-subtle border border-danger-border" />
             <span>Pinky</span>

@@ -373,3 +373,17 @@ body {
 .shadow-dialog {
   box-shadow: 0 16px 50px var(--overlay-shadow);
 }
+
+/* ==========================================================================
+   ACCESSIBILITY: REDUCED MOTION
+   Collapses all animation/transition timing to near-instant for users who
+   have requested reduced motion at the OS level.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -121,6 +121,31 @@ const SPACE_REACH: FingerReachOffset = {
   fingerLabel: 'Thumb',
 };
 
+/** Shifted symbol -> base key it shares a physical position (and finger) with. */
+const SHIFT_ALIASES: Record<string, string> = {
+  '~': '`',
+  '!': '1',
+  '@': '2',
+  '#': '3',
+  '$': '4',
+  '%': '5',
+  '^': '6',
+  '&': '7',
+  '*': '8',
+  '(': '9',
+  ')': '0',
+  _: '-',
+  '+': '=',
+  '{': '[',
+  '}': ']',
+  '|': '\\',
+  ':': ';',
+  '"': "'",
+  '<': ',',
+  '>': '.',
+  '?': '/',
+};
+
 function buildReachOffset(entry: KeyGridEntry): FingerReachOffset {
   const homeCol = HOME_COLUMNS[entry.finger];
   return {
@@ -133,9 +158,14 @@ function buildReachOffset(entry: KeyGridEntry): FingerReachOffset {
   };
 }
 
-/** Fingertip reach target (dx, dy) for every typable character, derived from KEY_GRID. */
+/** Fingertip reach target (dx, dy) for every typable character, derived from KEY_GRID.
+ *  Shifted punctuation (e.g. `!`, `@`, `{`, `:`, `?`) resolves through its base key so
+ *  the hand guide and keyboard visualizer always agree on which finger owns it. */
 export const FINGER_REACH_MAP: Record<string, FingerReachOffset> = {
   ...Object.fromEntries(Object.entries(KEY_GRID).map(([char, entry]) => [char, buildReachOffset(entry)])),
+  ...Object.fromEntries(
+    Object.entries(SHIFT_ALIASES).map(([shifted, base]) => [shifted, buildReachOffset(KEY_GRID[base])])
+  ),
   ' ': SPACE_REACH,
 };
 

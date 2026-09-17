@@ -296,7 +296,7 @@ const JointedFinger: React.FC<JointedFingerProps> = ({
         {/* Intermediate + Distal phalanx group - rotates at the PIP pivot, nested inside the MCP chain */}
         <motion.g
           style={{ transformOrigin: `${f.x}px ${pipPivotY}px` }}
-          animate={{ rotate: isActive || isThumb ? pose.pipCurl : REST_PIP }}
+          animate={{ rotate: isActive ? pose.pipCurl : REST_PIP }}
           transition={transition}
         >
           <rect
@@ -326,7 +326,7 @@ const JointedFinger: React.FC<JointedFingerProps> = ({
           {/* Distal phalanx - rotates at the DIP pivot */}
           <motion.g
             style={{ transformOrigin: `${f.x}px ${dipPivotY}px` }}
-            animate={{ rotate: isActive || isThumb ? pose.dipCurl : REST_DIP }}
+            animate={{ rotate: isActive ? pose.dipCurl : REST_DIP }}
             transition={transition}
           >
             <rect

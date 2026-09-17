@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
+  AIDrillResult,
   AIMission,
   AISettings,
   AppPreferences,
@@ -44,6 +45,7 @@ import { ArcadeDashboard } from '@/components/ArcadeDashboard';
 import { LessonsView } from '@/components/LessonsView';
 import { AnalyticsView } from '@/components/AnalyticsView';
 import { AIMissionBoard } from '@/components/AIMissionBoard';
+import { AIDrillModal } from '@/components/AIDrillModal';
 
 import {
   Activity,
@@ -57,6 +59,7 @@ import {
   Gamepad2,
   Ghost,
   Keyboard,
+  Lock,
   Quote,
   RotateCcw,
   Settings,
@@ -87,6 +90,15 @@ export default function Home() {
   // Active Lesson or Mission
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [activeMission, setActiveMission] = useState<AIMission | null>(null);
+
+  // AI Lesson Practice Drill State
+  const [isAiDrillModalOpen, setIsAiDrillModalOpen] = useState(false);
+  const [drillLesson, setDrillLesson] = useState<Lesson | null>(null);
+
+  const handleOpenAiDrill = useCallback((lesson: Lesson) => {
+    setDrillLesson(lesson);
+    setIsAiDrillModalOpen(true);
+  }, []);
 
   // Settings & Preferences (Loaded from localStorage)
   const [aiSettings, setAiSettings] = useState<AISettings>(() => {
@@ -489,6 +501,20 @@ export default function Home() {
     setupNewTest('lesson', lesson.content, null, lesson);
   };
 
+  // Start an AI-generated lesson practice drill
+  const handleStartAiDrill = (drill: AIDrillResult, lesson: Lesson) => {
+    setIsAiDrillModalOpen(false);
+    activeLessonRef.current = lesson;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'lesson';
+    setActiveLesson(lesson);
+    setActiveMission(null);
+    setGameMode('lesson');
+    setModeTitle(`${lesson.title} (AI Drill - ${drill.style})`);
+    setCurrentView('typing');
+    setupNewTest('lesson', drill.content, null, lesson);
+  };
+
   // Launch an AI Mission
   const handleLaunchMission = (mission: AIMission) => {
     activeMissionRef.current = mission;
@@ -731,6 +757,7 @@ export default function Home() {
             lessonStars={userProgress.lessonStars}
             onSelectLesson={handleSelectLesson}
             onBackToPractice={switchToPractice}
+            onOpenAiDrill={handleOpenAiDrill}
           />
         )}
 
@@ -990,7 +1017,37 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+                  {/* AI Drill Button in Lesson Cockpit: greyed out until student completes lesson */}
+                  {(() => {
+                    const isLessonCompleted = userProgress.completedLessonIds.includes(activeLesson.id);
+                    return (
+                      <button
+                        type="button"
+                        disabled={!isLessonCompleted}
+                        onClick={() => handleOpenAiDrill(activeLesson)}
+                        title={
+                          isLessonCompleted
+                            ? "Practice with AI-generated letter combinations strictly from this lesson"
+                            : "Complete this lesson first to unlock AI-generated practice drills"
+                        }
+                        className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 text-xs transition-all ${
+                          isLessonCompleted
+                            ? 'bg-gradient-to-r from-primary-subtle to-accent-subtle hover:from-primary/20 hover:to-accent/20 text-accent border border-accent-border shadow-xs cursor-pointer'
+                            : 'bg-surface-muted/50 text-text-subtle/50 cursor-not-allowed border border-border/40 opacity-60'
+                        }`}
+                        id="lesson-cockpit-ai-drill-button"
+                      >
+                        {isLessonCompleted ? (
+                          <Sparkles className="w-3.5 h-3.5 text-accent" />
+                        ) : (
+                          <Lock className="w-3.5 h-3.5 text-text-subtle/60" />
+                        )}
+                        <span>AI Drill</span>
+                      </button>
+                    );
+                  })()}
+
                   <button
                     onClick={handleResetCurrent}
                     className="px-3 py-1.5 bg-surface hover:bg-surface-hover text-text-primary text-xs font-semibold rounded-xl border border-border shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -1320,6 +1377,16 @@ export default function Home() {
           setIsResultsOpen(false);
           setCurrentView('lessons');
         }}
+        onOpenAiDrill={handleOpenAiDrill}
+      />
+
+      <AIDrillModal
+        isOpen={isAiDrillModalOpen}
+        onClose={() => setIsAiDrillModalOpen(false)}
+        lesson={drillLesson}
+        userProgress={userProgress}
+        aiSettings={aiSettings}
+        onStartDrill={handleStartAiDrill}
       />
 
       <AICoachChat

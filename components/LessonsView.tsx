@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Lesson } from '@/types/typing';
-import { BookOpen, CheckCircle, ChevronRight, Lock, Star, Trophy, Zap } from 'lucide-react';
+import { BookOpen, CheckCircle, ChevronRight, Lock, Sparkles, Star, Trophy, Zap } from 'lucide-react';
 
 interface LessonsViewProps {
   lessons: Lesson[];
@@ -10,6 +10,7 @@ interface LessonsViewProps {
   lessonStars: Record<string, number>;
   onSelectLesson: (lesson: Lesson) => void;
   onBackToPractice: () => void;
+  onOpenAiDrill?: (lesson: Lesson) => void;
 }
 
 export const LessonsView: React.FC<LessonsViewProps> = ({
@@ -18,6 +19,7 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
   lessonStars,
   onSelectLesson,
   onBackToPractice,
+  onOpenAiDrill,
 }) => {
   const tiers = [1, 2, 3, 4] as const;
 
@@ -155,21 +157,42 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
                           </span>
                         </div>
 
-                        <button
-                          type="button"
-                          disabled={!isLessonUnlocked}
-                          onClick={() => onSelectLesson(lesson)}
-                          className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1 transition-colors text-xs ${
-                            isLessonUnlocked
-                              ? isCompleted
-                                ? 'bg-surface hover:bg-surface-hover text-text-secondary border border-border'
-                                : 'bg-accent hover:bg-accent-hover text-accent-foreground shadow-glow-accent-sm'
-                              : 'bg-surface-muted/50 text-text-subtle cursor-not-allowed border border-border'
-                          }`}
-                        >
-                          <span>{isCompleted ? 'Review' : 'Start'}</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!isCompleted}
+                            onClick={() => onOpenAiDrill?.(lesson)}
+                            title={
+                              isCompleted
+                                ? "Practice with AI-generated letter combinations strictly from this lesson"
+                                : "Complete this lesson first to unlock AI-generated practice drills"
+                            }
+                            className={`px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all text-xs ${
+                              isCompleted
+                                ? 'bg-primary-subtle text-primary hover:bg-primary-hover hover:text-primary-foreground border border-primary-border shadow-xs cursor-pointer'
+                                : 'bg-surface-muted/50 text-text-subtle/50 cursor-not-allowed border border-border/40 opacity-60'
+                            }`}
+                          >
+                            {isCompleted ? <Sparkles className="w-3 h-3 text-accent" /> : <Lock className="w-3 h-3" />}
+                            <span>AI Drill</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={!isLessonUnlocked}
+                            onClick={() => onSelectLesson(lesson)}
+                            className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1 transition-colors text-xs ${
+                              isLessonUnlocked
+                                ? isCompleted
+                                  ? 'bg-surface hover:bg-surface-hover text-text-secondary border border-border'
+                                  : 'bg-accent hover:bg-accent-hover text-accent-foreground shadow-glow-accent-sm'
+                                : 'bg-surface-muted/50 text-text-subtle cursor-not-allowed border border-border'
+                            }`}
+                          >
+                            <span>{isCompleted ? 'Review' : 'Start'}</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

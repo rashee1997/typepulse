@@ -77,6 +77,24 @@ export interface Lesson {
   xpReward: number;
 }
 
+export type AIDrillStyle = 'alternating' | 'repetition' | 'words' | 'weak_keys' | 'flow';
+
+export interface AIDrillOptions {
+  lessonId: string;
+  style: AIDrillStyle;
+  scope: 'target_only' | 'cumulative';
+  length: 15 | 25 | 40;
+}
+
+export interface AIDrillResult {
+  content: string;
+  allowedKeys: string[];
+  style: AIDrillStyle;
+  scope: 'target_only' | 'cumulative';
+  source: 'gemini' | 'openai' | 'procedural';
+  lessonTitle: string;
+}
+
 export type AIMissionType =
   | 'ACCURACY_TARGET'
   | 'WPM_TARGET'

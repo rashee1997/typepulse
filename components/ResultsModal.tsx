@@ -25,6 +25,7 @@ interface ResultsModalProps {
   activeLesson?: Lesson | null;
   onNextLesson?: () => void;
   onReturnToLessons?: () => void;
+  onOpenAiDrill?: (lesson: Lesson) => void;
 }
 
 export const ResultsModal: React.FC<ResultsModalProps> = ({
@@ -44,6 +45,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   activeLesson,
   onNextLesson,
   onReturnToLessons,
+  onOpenAiDrill,
 }) => {
   const [coachFeedback, setCoachFeedback] = useState<AICoachFeedback | null>(null);
   const [loadingCoach, setLoadingCoach] = useState(true);
@@ -171,14 +173,30 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onRestart}
-                className="px-3 py-1.5 bg-surface hover:bg-surface-hover text-text-primary text-xs font-semibold rounded-lg border border-border shadow-sm shrink-0 transition-colors flex items-center gap-1.5"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Re-practice Same Letters</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {activeLesson && onOpenAiDrill && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenAiDrill(activeLesson);
+                    }}
+                    className="px-3 py-1.5 bg-primary-subtle hover:bg-primary/20 text-accent text-xs font-semibold rounded-lg border border-accent-border shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Generate new practice letter patterns strictly for this lesson"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-accent" />
+                    <span>Retry with AI Drill</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onRestart}
+                  className="px-3 py-1.5 bg-surface hover:bg-surface-hover text-text-primary text-xs font-semibold rounded-lg border border-border shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Re-practice Same Letters</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -381,7 +399,22 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
               >
                 ← Return to Academy Curriculum
               </button>
-              <div className="flex items-center gap-2.5 order-1 sm:order-2">
+              <div className="flex items-center gap-2.5 order-1 sm:order-2 flex-wrap">
+                {activeLesson && onOpenAiDrill && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenAiDrill(activeLesson);
+                    }}
+                    className="px-4 py-2 bg-gradient-to-r from-primary-subtle to-accent-subtle hover:from-primary/20 hover:to-accent/20 text-accent text-xs font-bold rounded-xl border border-accent-border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    id="results-ai-drill-button"
+                    title="Practice this lesson with AI-generated letter combinations"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-accent" />
+                    <span>Retry with AI Drill</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onRestart}

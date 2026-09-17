@@ -1,4 +1,6 @@
-import { Lesson } from '@/types/typing';
+import { Lesson, AIDrillStyle } from '@/types/typing';
+import { KEY_GRID } from './keyboard-geometry';
+import { COMMON_WORDS_200 } from './word-banks';
 
 export const LESSONS_CURRICULUM: Lesson[] = [
   // TIER 1: HOME ROW FOUNDATION
@@ -234,3 +236,243 @@ export const LESSONS_CURRICULUM: Lesson[] = [
     xpReward: 500,
   }
 ];
+
+/**
+ * Extracts strictly the individual valid characters for this lesson,
+ * resolving macro identifiers like 'all' or 'Shift'.
+ */
+export function getLessonTargetKeys(lesson: Lesson): string[] {
+  const set = new Set<string>();
+
+  for (const rawKey of lesson.targetKeys) {
+    const k = rawKey.trim();
+    if (k === 'all') {
+      'abcdefghijklmnopqrstuvwxyz'.split('').forEach((c) => set.add(c));
+    } else if (k === 'Shift') {
+      lesson.content.split('').forEach((c) => {
+        if (c !== ' ') set.add(c);
+      });
+    } else if (k.length === 1) {
+      set.add(k.toLowerCase());
+    }
+  }
+
+  // Fallback: if empty, extract non-whitespace characters from lesson content
+  if (set.size === 0) {
+    lesson.content.split('').forEach((c) => {
+      if (c !== ' ') set.add(c.toLowerCase());
+    });
+  }
+
+  return Array.from(set);
+}
+
+/**
+ * Returns all unique keys learned from Lesson 1.1 up to and including the current lesson.
+ */
+export function getCumulativeKeysForLesson(lessonId: string): string[] {
+  const set = new Set<string>();
+  const targetIndex = LESSONS_CURRICULUM.findIndex((l) => l.id === lessonId);
+  const maxIndex = targetIndex >= 0 ? targetIndex : LESSONS_CURRICULUM.length - 1;
+
+  for (let i = 0; i <= maxIndex; i++) {
+    const keys = getLessonTargetKeys(LESSONS_CURRICULUM[i]);
+    keys.forEach((k) => set.add(k));
+  }
+
+  return Array.from(set);
+}
+
+/**
+ * Strictly sanitizes any text to guarantee that NO character outside of allowedKeys can slip through.
+ * Preserves spaces as token separators.
+ */
+export function sanitizePatternToAllowedKeys(rawText: string, allowedKeys: string[]): string {
+  if (!rawText) return '';
+  const allowedSet = new Set<string>();
+  allowedKeys.forEach((k) => {
+    allowedSet.add(k.toLowerCase());
+    allowedSet.add(k);
+  });
+
+  const chars = rawText.split('');
+  const cleaned: string[] = [];
+
+  for (const ch of chars) {
+    if (ch === ' ' || ch === '\n' || ch === '\t' || ch === '\r') {
+      cleaned.push(' ');
+    } else if (allowedSet.has(ch) || allowedSet.has(ch.toLowerCase())) {
+      cleaned.push(ch);
+    }
+    // Any outside character is discarded
+  }
+
+  return cleaned
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Deterministic local drill generator that strictly abides by the allowed character whitelist.
+ * Acts as an instant generator and bulletproof fallback.
+ */
+export function generateDeterministicLessonDrill(
+  lesson: Lesson,
+  style: AIDrillStyle,
+  scope: 'target_only' | 'cumulative',
+  wordCount: number = 25,
+  userWeakKeys: string[] = []
+): string {
+  const allowedKeys = scope === 'target_only'
+    ? getLessonTargetKeys(lesson)
+    : getCumulativeKeysForLesson(lesson.id);
+
+  if (allowedKeys.length === 0) {
+    return lesson.content;
+  }
+
+  const allowedSet = new Set(allowedKeys.map((k) => k.toLowerCase()));
+
+  // Partition keys into Left hand and Right hand
+  const leftKeys: string[] = [];
+  const rightKeys: string[] = [];
+  const neutralKeys: string[] = [];
+
+  allowedKeys.forEach((k) => {
+    const lower = k.toLowerCase();
+    const gridEntry = KEY_GRID[lower] || KEY_GRID[k];
+    if (gridEntry) {
+      if (gridEntry.finger.startsWith('left')) {
+        leftKeys.push(k);
+      } else if (gridEntry.finger.startsWith('right')) {
+        rightKeys.push(k);
+      } else {
+        neutralKeys.push(k);
+      }
+    } else {
+      // Fallback partition for standard English letters
+      if ('qwertasdfgzxcvb'.includes(lower)) {
+        leftKeys.push(k);
+      } else if ('yuiophjklnm'.includes(lower)) {
+        rightKeys.push(k);
+      } else {
+        neutralKeys.push(k);
+      }
+    }
+  });
+
+  // Effective weak keys belonging to this allowed set
+  const validWeakKeys = userWeakKeys.filter((wk) => allowedSet.has(wk.toLowerCase()));
+  const focusKeys = validWeakKeys.length > 0 ? validWeakKeys : allowedKeys.slice(0, Math.min(3, allowedKeys.length));
+
+  const tokens: string[] = [];
+
+  if (style === 'alternating') {
+    // Left-right hand alternation
+    const L = leftKeys.length > 0 ? leftKeys : allowedKeys;
+    const R = rightKeys.length > 0 ? rightKeys : allowedKeys;
+
+    for (let i = 0; i < wordCount; i++) {
+      const l1 = L[Math.floor(Math.random() * L.length)];
+      const r1 = R[Math.floor(Math.random() * R.length)];
+      const l2 = L[Math.floor(Math.random() * L.length)];
+      const r2 = R[Math.floor(Math.random() * R.length)];
+
+      const mode = i % 4;
+      if (mode === 0) {
+        tokens.push(`${l1}${r1}`);
+      } else if (mode === 1) {
+        tokens.push(`${r1}${l1}`);
+      } else if (mode === 2) {
+        tokens.push(`${l1}${r1}${l2}`);
+      } else {
+        tokens.push(`${r1}${l1}${r2}${l2}`);
+      }
+    }
+  } else if (style === 'repetition') {
+    // Muscle-memory doubles, triples, and rolls
+    for (let i = 0; i < wordCount; i++) {
+      const k1 = allowedKeys[Math.floor(Math.random() * allowedKeys.length)];
+      const k2 = allowedKeys[Math.floor(Math.random() * allowedKeys.length)];
+
+      const patternType = i % 5;
+      if (patternType === 0) {
+        tokens.push(`${k1}${k1}${k1}`);
+      } else if (patternType === 1) {
+        tokens.push(`${k1}${k1}${k2}${k2}`);
+      } else if (patternType === 2) {
+        tokens.push(`${k1}${k2}${k1}${k2}`);
+      } else if (patternType === 3) {
+        tokens.push(`${k1}${k1}`);
+      } else {
+        tokens.push(`${k2}${k1}${k2}`);
+      }
+    }
+  } else if (style === 'words') {
+    // Filter real English words that contain ONLY allowed keys
+    const validWords = COMMON_WORDS_200.filter((w) => {
+      const chars = w.toLowerCase().split('');
+      return chars.every((c) => allowedSet.has(c)) && w.length >= 2;
+    });
+
+    // Also include lesson content words if they match
+    const lessonWords = lesson.content
+      .split(' ')
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 2 && w.split('').every((c) => allowedSet.has(c.toLowerCase())));
+
+    const mergedWords = Array.from(new Set([...validWords, ...lessonWords]));
+
+    if (mergedWords.length >= 5) {
+      for (let i = 0; i < wordCount; i++) {
+        const word = mergedWords[Math.floor(Math.random() * mergedWords.length)];
+        tokens.push(word);
+      }
+    } else {
+      // Create pronounceable phonotactic combinations strictly from allowed keys
+      for (let i = 0; i < wordCount; i++) {
+        const len = 2 + (i % 3);
+        let token = '';
+        for (let j = 0; j < len; j++) {
+          token += allowedKeys[Math.floor(Math.random() * allowedKeys.length)];
+        }
+        tokens.push(token);
+      }
+    }
+  } else if (style === 'weak_keys') {
+    // Emphasize the student's weak keys or target keys in combination with anchor keys
+    for (let i = 0; i < wordCount; i++) {
+      const focal = focusKeys[Math.floor(Math.random() * focusKeys.length)];
+      const partner = allowedKeys[Math.floor(Math.random() * allowedKeys.length)];
+      const mode = i % 4;
+
+      if (mode === 0) {
+        tokens.push(`${focal}${focal}${partner}`);
+      } else if (mode === 1) {
+        tokens.push(`${partner}${focal}${partner}`);
+      } else if (mode === 2) {
+        tokens.push(`${focal}${partner}${focal}${partner}`);
+      } else {
+        tokens.push(`${focal}${partner}${focal}`);
+      }
+    }
+  } else {
+    // 'flow' style: rolling digraphs and trigraphs
+    for (let i = 0; i < wordCount; i++) {
+      const k1 = allowedKeys[Math.floor(Math.random() * allowedKeys.length)];
+      const k2 = allowedKeys[Math.floor(Math.random() * allowedKeys.length)];
+      const k3 = allowedKeys[Math.floor(Math.random() * allowedKeys.length)];
+
+      if (i % 2 === 0) {
+        tokens.push(`${k1}${k2}${k3}`);
+      } else {
+        tokens.push(`${k2}${k1}${k3}${k1}`);
+      }
+    }
+  }
+
+  const generated = tokens.slice(0, wordCount).join(' ');
+  return sanitizePatternToAllowedKeys(generated, allowedKeys);
+}
+

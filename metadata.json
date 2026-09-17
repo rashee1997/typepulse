@@ -1,6 +1,6 @@
 {
   "name": "TypePulse AI - Touch Typing & AI Coach",
-  "description": "Interactive touch typing platform with curriculum lessons, Typing Duel AI combat mode, Word Games section featuring Typing Race and Word Scramble, real-time analytics, and customizable OpenAI-compatible AI coaching.",
+  "description": "Interactive touch typing platform with curriculum lessons, context-aware AI practice pattern drills, Typing Duel AI combat mode, Word Games section featuring Typing Race and Word Scramble, real-time analytics, and customizable OpenAI-compatible AI coaching.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

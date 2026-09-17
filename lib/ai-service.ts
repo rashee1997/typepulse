@@ -1,6 +1,7 @@
-import { AICoachFeedback, AIMission, AISettings, TypingStats, QuestState, QuestScene, TurnResult, BossTurnData } from '@/types/typing';
+import { AICoachFeedback, AIMission, AISettings, TypingStats, QuestState, QuestScene, TurnResult, BossTurnData, Lesson, AIDrillOptions, AIDrillResult } from '@/types/typing';
 import { generateWeakKeyDrill, numericSymbolSets } from './word-banks';
 import { CharacterPersona } from './character-personas';
+import { getLessonTargetKeys, getCumulativeKeysForLesson, sanitizePatternToAllowedKeys, generateDeterministicLessonDrill } from './curriculum';
 
 export const AI_PROVIDER_PRESETS = [
   {
@@ -849,4 +850,87 @@ Return ONLY valid JSON.`;
 
   return card;
 }
+
+/**
+ * Generates context-aware AI practice pattern drills for a specific curriculum lesson.
+ * Enforces a strict character boundary guarantee so NO foreign letters outside the lesson can appear.
+ */
+export async function generateLessonAiDrill(
+  lesson: Lesson,
+  options: AIDrillOptions,
+  settings?: AISettings,
+  userWeakKeys: string[] = []
+): Promise<AIDrillResult> {
+  const allowedKeys = options.scope === 'target_only'
+    ? getLessonTargetKeys(lesson)
+    : getCumulativeKeysForLesson(lesson.id);
+
+  const cleanAllowedKeys = allowedKeys.filter((k) => k !== ' ');
+  const length = options.length || 25;
+
+  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+    try {
+      const styleDescriptions: Record<string, string> = {
+        alternating: 'Strict bilateral alternation between left-hand and right-hand keys with cadence and rhythm.',
+        repetition: 'Muscle memory chunks, doubles, triples, and rolls (e.g., fff jjj ffjj jfjf).',
+        words: 'Real English words or pronounceable syllables formed strictly and exclusively from the allowed letters.',
+        weak_keys: `Heavily focus on practicing these struggle keys in rhythmic combinations: ${userWeakKeys.filter((k) => allowedKeys.includes(k.toLowerCase())).join(', ') || cleanAllowedKeys.slice(0, 2).join(', ')}.`,
+        flow: 'Smooth fluid combinations, rolling digraphs, and transition chords.',
+      };
+
+      const prompt = `You are a precision Touch Typing Pedagogy AI Agent.
+Your mission is to generate a custom typing practice drill for the lesson: "${lesson.title}".
+
+CRITICAL SAFETY BOUNDARY (CONTEXT-AWARE WHITELIST):
+Allowed characters: [${cleanAllowedKeys.join(', ')}] and spaces.
+
+ABSOLUTE STRICT RULES:
+1. Every single character in your output MUST be in the allowed characters whitelist or a space.
+2. DO NOT introduce ANY character that is not in the whitelist above.
+3. No numbers, no symbols, no other letters unless they appear in the whitelist.
+4. Output style: ${styleDescriptions[options.style] || styleDescriptions.alternating}
+5. Total length: Exactly ${length} space-separated tokens/words.
+6. Return ONLY the raw space-separated tokens. Do not wrap in markdown, quotes, explanations, or punctuation.
+
+Example output format:
+token1 token2 token3 token4 ...`;
+
+      const response = await callLlm(prompt, settings);
+      const cleaned = sanitizePatternToAllowedKeys(response, allowedKeys);
+      const tokens = cleaned.split(' ').filter((t) => t.length > 0);
+
+      if (tokens.length >= 6) {
+        return {
+          content: tokens.slice(0, length).join(' '),
+          allowedKeys,
+          style: options.style,
+          scope: options.scope,
+          source: settings.provider === 'gemini' ? 'gemini' : 'openai',
+          lessonTitle: lesson.title,
+        };
+      }
+    } catch {
+      // Fallback gracefully to deterministic generator
+    }
+  }
+
+  // Deterministic local generator
+  const proceduralContent = generateDeterministicLessonDrill(
+    lesson,
+    options.style,
+    options.scope,
+    length,
+    userWeakKeys
+  );
+
+  return {
+    content: proceduralContent,
+    allowedKeys,
+    style: options.style,
+    scope: options.scope,
+    source: 'procedural',
+    lessonTitle: lesson.title,
+  };
+}
+
 

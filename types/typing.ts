@@ -151,6 +151,7 @@ export interface AppPreferences {
   soundVolume: number; // 0.0 - 1.0
   showKeyboard: boolean;
   showFingerGuidance: boolean;
+  showAnimatedHandsInLessons?: boolean;
   smoothCaret: boolean;
   showGhostPacer?: boolean;
   targetPacerWpm?: number;

@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { AnimatedHandsGuide, FINGER_REACH_MAP, FingerType } from './AnimatedHandsGuide';
+import { Hand, Sparkles } from 'lucide-react';
 
 interface KeyboardVisualizerProps {
   targetChar?: string;
@@ -9,9 +11,127 @@ interface KeyboardVisualizerProps {
   showFingerGuide?: boolean;
   showHeatmap?: boolean;
   keyStats?: Record<string, { typed: number; errors: number }>;
+  isBasicLesson?: boolean;
+  activeLessonTitle?: string;
+  showAnimatedHands?: boolean;
 }
 
-type FingerType = 'left-pinky' | 'left-ring' | 'left-middle' | 'left-index' | 'thumb' | 'right-index' | 'right-middle' | 'right-ring' | 'right-pinky';
+const MiniHandIndicator: React.FC<{
+  finger: FingerType | null;
+}> = ({ finger }) => {
+  if (!finger) return null;
+  const isLeft = finger.startsWith('left') || finger === 'thumb';
+  const isRight = finger.startsWith('right');
+
+  return (
+    <div
+      className="flex items-center gap-1.5 px-2 py-1 bg-surface-muted rounded-xl border border-border shrink-0 shadow-inner"
+      title={`Assigned finger: ${finger}`}
+    >
+      <svg viewBox="0 0 46 36" className="w-7 h-5 overflow-visible">
+        {/* Palm Base */}
+        <path
+          d="M 8 34 C 8 20, 14 16, 23 16 C 32 16, 38 20, 38 34 Z"
+          className="fill-surface-hover stroke-border"
+          strokeWidth="1"
+        />
+        {/* Left Hand Fingers */}
+        {isLeft && (
+          <g>
+            <rect
+              x="4"
+              y={finger === 'left-pinky' ? '7' : '12'}
+              width="5"
+              height={finger === 'left-pinky' ? '23' : '18'}
+              rx="2.5"
+              className={finger === 'left-pinky' ? 'fill-danger stroke-danger' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="11"
+              y={finger === 'left-ring' ? '4' : '9'}
+              width="5"
+              height={finger === 'left-ring' ? '26' : '21'}
+              rx="2.5"
+              className={finger === 'left-ring' ? 'fill-warning stroke-warning' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="18"
+              y={finger === 'left-middle' ? '1' : '6'}
+              width="5"
+              height={finger === 'left-middle' ? '29' : '24'}
+              rx="2.5"
+              className={finger === 'left-middle' ? 'fill-success stroke-success' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="25"
+              y={finger === 'left-index' ? '4' : '9'}
+              width="5"
+              height={finger === 'left-index' ? '26' : '21'}
+              rx="2.5"
+              className={finger === 'left-index' ? 'fill-info stroke-info' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="32"
+              y={finger === 'thumb' ? '16' : '20'}
+              width="5"
+              height={finger === 'thumb' ? '16' : '12'}
+              rx="2.5"
+              className={finger === 'thumb' ? 'fill-primary stroke-primary' : 'fill-surface stroke-border'}
+            />
+          </g>
+        )}
+        {/* Right Hand Fingers */}
+        {isRight && (
+          <g>
+            <rect
+              x="9"
+              y={finger === 'thumb' ? '16' : '20'}
+              width="5"
+              height={finger === 'thumb' ? '16' : '12'}
+              rx="2.5"
+              className={finger === 'thumb' ? 'fill-primary stroke-primary' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="16"
+              y={finger === 'right-index' ? '4' : '9'}
+              width="5"
+              height={finger === 'right-index' ? '26' : '21'}
+              rx="2.5"
+              className={finger === 'right-index' ? 'fill-info stroke-info' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="23"
+              y={finger === 'right-middle' ? '1' : '6'}
+              width="5"
+              height={finger === 'right-middle' ? '29' : '24'}
+              rx="2.5"
+              className={finger === 'right-middle' ? 'fill-success stroke-success' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="30"
+              y={finger === 'right-ring' ? '4' : '9'}
+              width="5"
+              height={finger === 'right-ring' ? '26' : '21'}
+              rx="2.5"
+              className={finger === 'right-ring' ? 'fill-warning stroke-warning' : 'fill-surface stroke-border'}
+            />
+            <rect
+              x="37"
+              y={finger === 'right-pinky' ? '7' : '12'}
+              width="5"
+              height={finger === 'right-pinky' ? '23' : '18'}
+              rx="2.5"
+              className={finger === 'right-pinky' ? 'fill-danger stroke-danger' : 'fill-surface stroke-border'}
+            />
+          </g>
+        )}
+      </svg>
+      <span className="text-[10px] font-extrabold uppercase tracking-tight text-text-primary">
+        {finger.replace('left-', 'L-').replace('right-', 'R-')}
+      </span>
+    </div>
+  );
+};
 
 interface KeyDef {
   key: string;
@@ -115,6 +235,9 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
   showFingerGuide = true,
   showHeatmap = false,
   keyStats = {},
+  isBasicLesson = false,
+  activeLessonTitle = '',
+  showAnimatedHands = true,
 }) => {
   // Determine if targetChar requires Shift
   const isShiftRequired = (char: string): boolean => {
@@ -124,6 +247,8 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
   };
 
   const needsShift = isShiftRequired(targetChar);
+  const normalizedChar = targetChar.toLowerCase();
+  const reach = FINGER_REACH_MAP[normalizedChar] || null;
 
   // Find finger info for targetChar
   const getTargetFingerInfo = () => {
@@ -137,6 +262,7 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
           return {
             key: k.display || k.key.toUpperCase(),
             finger: fingerConfig.label,
+            fingerKey: k.finger,
             color: fingerConfig.text,
             needsShift,
             shiftHand: k.finger.startsWith('left') ? 'Right Shift' : 'Left Shift',
@@ -153,7 +279,7 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
   // Get intuitive coaching advice based on key/finger
   const getTechniqueHint = () => {
     if (!targetChar) return 'Rest fingers on home row (A S D F — J K L ;)';
-    if (targetChar === ' ') return 'Tap with right or left thumb without leaving the home keys';
+    if (targetChar === ' ') return 'Tap with thumb without leaving the home keys';
     if (targetInfo?.needsShift) return `Use opposite hand for ${targetInfo.shiftHand}, then strike ${targetInfo.key}`;
     if (targetInfo?.key === 'F' || targetInfo?.key === 'J') return 'Home row anchor key — feel the tactile ridge on the key';
     return `Strike with ${targetInfo?.finger} and return to home row`;
@@ -163,7 +289,7 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
     <div className="w-full max-w-full overflow-hidden flex flex-col items-center select-none" id="keyboard-visualizer-container">
       {/* Eye-Level Live Finger Placement Cockpit */}
       {showFingerGuide && (
-        <div className="w-full mb-3 p-3 bg-surface border border-border rounded-2xl flex items-center justify-between gap-3 shadow-card">
+        <div className="w-full mb-3 p-3 bg-surface border border-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">
           <div className="flex items-center gap-3 min-w-0">
             {/* Target key badge */}
             <div className="flex items-center gap-1.5 shrink-0">
@@ -173,41 +299,54 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
               </div>
             </div>
 
-            {/* Assigned Finger & Coaching */}
-            <div className="min-w-0 flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted font-medium">Use Finger:</span>
-                {targetInfo ? (
-                  <span className={cn('text-xs font-bold px-2 py-0.5 rounded-md bg-surface-muted border border-border', targetInfo.color)}>
-                    {targetInfo.finger}
+            {/* Visual Animated Mini-Hand Indicator instead of plain text */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <MiniHandIndicator finger={targetInfo?.fingerKey || null} />
+
+              <div className="min-w-0 flex flex-col">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={cn('text-xs font-bold', targetInfo?.color || 'text-text-primary')}>
+                    {targetInfo ? targetInfo.finger : 'Home Row Rest'}
                   </span>
-                ) : (
-                  <span className="text-xs text-text-muted">Home Row Rest</span>
-                )}
-                {targetInfo?.needsShift && (
-                  <span className="text-[11px] font-bold text-danger bg-danger-subtle px-2 py-0.5 rounded border border-danger-border">
-                    Hold {targetInfo.shiftHand}
-                  </span>
-                )}
+                  {reach && reach.directionLabel && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-muted text-accent font-semibold border border-border">
+                      {reach.directionLabel}
+                    </span>
+                  )}
+                  {targetInfo?.needsShift && (
+                    <span className="text-[10px] font-bold text-danger bg-danger-subtle px-1.5 py-0.5 rounded border border-danger-border">
+                      Hold {targetInfo.shiftHand}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-text-muted truncate mt-0.5">
+                  {getTechniqueHint()}
+                </span>
               </div>
-              <span className="text-[11px] text-text-muted truncate mt-0.5">
-                {getTechniqueHint()}
-              </span>
             </div>
           </div>
 
-          {/* Heatmap Error Toggle */}
-          <button
-            onClick={() => setInternalHeatmap((prev) => !prev)}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-colors shrink-0 ${
-              internalHeatmap
-                ? 'bg-danger-subtle text-danger border border-danger-border'
-                : 'bg-surface-hover text-text-muted hover:text-text-primary border border-border'
-            }`}
-            title="Toggle error frequency heatmap"
-          >
-            {internalHeatmap ? '🔥 Heatmap On' : 'Heatmap'}
-          </button>
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            {isBasicLesson && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-bold bg-accent-subtle text-accent border border-accent-border">
+                <Sparkles className="w-3 h-3" />
+                <span>Foundation Hands Mode</span>
+              </span>
+            )}
+
+            {/* Heatmap Error Toggle */}
+            <button
+              onClick={() => setInternalHeatmap((prev) => !prev)}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-colors shrink-0 cursor-pointer ${
+                internalHeatmap
+                  ? 'bg-danger-subtle text-danger border border-danger-border'
+                  : 'bg-surface-hover text-text-muted hover:text-text-primary border border-border'
+              }`}
+              title="Toggle error frequency heatmap"
+            >
+              {internalHeatmap ? '🔥 Heatmap On' : 'Heatmap'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -255,6 +394,13 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
                       heatmapClass
                     )}
                   >
+                    {/* Animated Finger Pointer in Basic Lessons */}
+                    {isBasicLesson && isTarget && targetInfo && (
+                      <span className="absolute -top-3.5 px-1 py-0.2 rounded-full text-[8px] bg-accent text-accent-foreground font-extrabold uppercase shadow-glow-accent-sm animate-bounce z-20 whitespace-nowrap">
+                        {targetInfo.finger.replace('Left ', 'L-').replace('Right ', 'R-')}
+                      </span>
+                    )}
+
                     {/* Bumps on F and J home row anchor keys */}
                     {(kDef.key === 'f' || kDef.key === 'j') && (
                       <span className="absolute bottom-1 w-2.5 h-0.5 bg-accent rounded-full" />
@@ -278,29 +424,41 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
         </div>
       </div>
 
-      {/* Subtle Finger Zone Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-[10px] text-text-muted font-medium">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-danger-subtle border border-danger-border" />
-          <span>Pinky</span>
+      {/* VISUAL ANIMATED HANDS - Active strictly for basic lessons */}
+      {isBasicLesson && showAnimatedHands !== false && (
+        <div className="w-full mt-3 animate-fadeIn">
+          <AnimatedHandsGuide
+            targetChar={targetChar}
+            activeKey={activeKey}
+          />
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-warning-subtle border border-warning-border" />
-          <span>Ring</span>
+      )}
+
+      {/* Subtle Finger Zone Legend - Shown when hands guide is not active */}
+      {(!isBasicLesson || showAnimatedHands === false) && (
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-[10px] text-text-muted font-medium">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-danger-subtle border border-danger-border" />
+            <span>Pinky</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-warning-subtle border border-warning-border" />
+            <span>Ring</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-success-subtle border border-success-border" />
+            <span>Middle</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-info-subtle border border-info-border" />
+            <span>Index</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-primary-subtle border border-primary-border" />
+            <span>Thumbs (Space)</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-success-subtle border border-success-border" />
-          <span>Middle</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-info-subtle border border-info-border" />
-          <span>Index</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-primary-subtle border border-primary-border" />
-          <span>Thumbs (Space)</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

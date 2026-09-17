@@ -530,6 +530,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
               </div>
 
+              {/* Animated Hands Guide (Basic Lessons) */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-text-primary">Visual Animated Hands (Basic Lessons)</span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Displays animated dual hands and tactile finger reach paths for Tier 1 Foundation lessons.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={prefsData.showAnimatedHandsInLessons !== false}
+                    onChange={(e) => setPrefsData((prev) => ({ ...prev, showAnimatedHandsInLessons: e.target.checked }))}
+                    className="sr-only peer"
+                    id="animated-hands-toggle"
+                  />
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+              </div>
+
               {/* Ghost Pacer Toggle */}
               <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
                 <div>

@@ -82,9 +82,16 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
                     {unlocked ? tier : <Lock className="w-4 h-4" />}
                   </div>
                   <div>
-                    <h3 className="font-bold text-text-primary text-base">
-                      {tierLessons[0]?.tierTitle || `Tier ${tier}`}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-text-primary text-base">
+                        {tierLessons[0]?.tierTitle || `Tier ${tier}`}
+                      </h3>
+                      {tier === 1 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent bg-accent-subtle border border-accent-border px-2 py-0.5 rounded-full">
+                          ✨ Animated Hands Guided
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-text-muted">
                       {completedInTier} of {tierLessons.length} completed ({tierPercent}%)
                     </span>

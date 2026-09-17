@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
-import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
+import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
 import { generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
 import { getXpForNextLevel } from '@/lib/progress-service';
 import confetti from 'canvas-confetti';
@@ -22,6 +22,9 @@ interface ResultsModalProps {
   onStartMission: (mission: AIMission) => void;
   onRestart: () => void;
   onTrainWeakKeys: (weakKeys: string[]) => void;
+  activeLesson?: Lesson | null;
+  onNextLesson?: () => void;
+  onReturnToLessons?: () => void;
 }
 
 export const ResultsModal: React.FC<ResultsModalProps> = ({
@@ -38,6 +41,9 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   onStartMission,
   onRestart,
   onTrainWeakKeys,
+  activeLesson,
+  onNextLesson,
+  onReturnToLessons,
 }) => {
   const [coachFeedback, setCoachFeedback] = useState<AICoachFeedback | null>(null);
   const [loadingCoach, setLoadingCoach] = useState(true);
@@ -137,6 +143,45 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto text-sm">
+          {/* Lesson Mastery Banner (for Academy Lessons) */}
+          {mode === 'lesson' && (
+            <div
+              className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${
+                stats.accuracy >= (activeLesson?.targetAccuracy || 90)
+                  ? 'bg-success-subtle border-success-border text-success'
+                  : 'bg-warning-subtle border-warning-border text-warning'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                {stats.accuracy >= (activeLesson?.targetAccuracy || 90) ? (
+                  <CheckCircle2 className="w-6 h-6 text-success shrink-0" />
+                ) : (
+                  <Target className="w-6 h-6 text-warning shrink-0" />
+                )}
+                <div>
+                  <h4 className="font-bold text-text-primary text-sm">
+                    {stats.accuracy >= (activeLesson?.targetAccuracy || 90)
+                      ? 'Lesson Mastered!'
+                      : 'More Practice Recommended'}
+                  </h4>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Target: ≥{activeLesson?.targetAccuracy || 90}% Accuracy, {activeLesson?.targetWpm || 15} WPM • You achieved{' '}
+                    <span className="font-bold text-text-primary">{stats.accuracy}%</span> at{' '}
+                    <span className="font-bold text-text-primary">{stats.wpm} WPM</span>.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onRestart}
+                className="px-3 py-1.5 bg-surface hover:bg-surface-hover text-text-primary text-xs font-semibold rounded-lg border border-border shadow-sm shrink-0 transition-colors flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Re-practice Same Letters</span>
+              </button>
+            </div>
+          )}
+
           {/* Level Up Banner */}
           {leveledUp && (
             <div className="p-4 bg-accent-subtle border border-accent-border rounded-xl flex items-center gap-3">
@@ -326,25 +371,62 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-border bg-surface-muted flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs text-text-muted hover:text-text-primary font-medium transition-colors"
-          >
-            Close & Review
-          </button>
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={onRestart}
-              className="px-4 py-2 bg-surface-hover hover:bg-surface-active text-text-primary text-xs font-medium rounded-xl border border-border transition-colors flex items-center gap-1.5"
-              id="results-restart-button"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Retry Test (Tab+Enter)</span>
-            </button>
-          </div>
+        <div className="px-6 py-4 border-t border-border bg-surface-muted flex flex-col sm:flex-row items-center justify-between gap-3">
+          {mode === 'lesson' ? (
+            <>
+              <button
+                type="button"
+                onClick={onReturnToLessons || onClose}
+                className="text-xs text-text-muted hover:text-text-primary font-medium transition-colors order-2 sm:order-1"
+              >
+                ← Return to Academy Curriculum
+              </button>
+              <div className="flex items-center gap-2.5 order-1 sm:order-2">
+                <button
+                  type="button"
+                  onClick={onRestart}
+                  className="px-4 py-2 bg-surface-hover hover:bg-surface-active text-text-primary text-xs font-semibold rounded-xl border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+                  id="results-restart-button"
+                  title="Reset with the exact same lesson letters for re-practice"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Re-practice Lesson (Tab)</span>
+                </button>
+                {onNextLesson && (
+                  <button
+                    type="button"
+                    onClick={onNextLesson}
+                    className="px-4 py-2 bg-accent hover:bg-accent-hover text-accent-foreground text-xs font-bold rounded-xl shadow-glow-accent-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                    id="results-next-lesson-button"
+                  >
+                    <span>Next Lesson</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-xs text-text-muted hover:text-text-primary font-medium transition-colors"
+              >
+                Close & Review
+              </button>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={onRestart}
+                  className="px-4 py-2 bg-surface-hover hover:bg-surface-active text-text-primary text-xs font-medium rounded-xl border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+                  id="results-restart-button"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Retry Test (Tab+Enter)</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

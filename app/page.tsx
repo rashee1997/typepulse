@@ -210,8 +210,13 @@ export default function Home() {
         targetText = customText;
       } else if (lessonObj) {
         targetText = lessonObj.content;
+      } else if (mode === 'lesson' && activeLesson) {
+        // PRESERVE exact lesson letters for re-practice! Never bleed random words into lessons
+        targetText = activeLesson.content;
       } else if (missionObj) {
         targetText = missionObj.content;
+      } else if (mode === 'ai-mission' && activeMission) {
+        targetText = activeMission.content;
       } else if (activeCat === 'quotes') {
         targetText = getRandomQuote();
       } else if (activeCat === 'code') {
@@ -227,7 +232,10 @@ export default function Home() {
       setLiveStats(engineRef.current.getStats());
       setSessionState('ready');
 
-      if (customTimeLimit !== undefined) {
+      if (mode === 'lesson') {
+        setTimeLimit(null);
+        setTimeRemaining(null);
+      } else if (customTimeLimit !== undefined) {
         setTimeLimit(customTimeLimit);
         setTimeRemaining(customTimeLimit);
       } else if (timeLimit !== null) {
@@ -241,8 +249,19 @@ export default function Home() {
         inputRef.current?.focus();
       }, 50);
     },
-    [contentCategory, wordCount, includePunctuation, includeNumbers, timeLimit]
+    [contentCategory, wordCount, includePunctuation, includeNumbers, timeLimit, activeLesson, activeMission]
   );
+
+  // Reset the active session with the exact same content (e.g. same lesson letters for re-practice)
+  const handleResetCurrent = useCallback(() => {
+    if (gameMode === 'lesson' && activeLesson) {
+      setupNewTest('lesson', activeLesson.content, null, activeLesson);
+    } else if (gameMode === 'ai-mission' && activeMission) {
+      setupNewTest('ai-mission', activeMission.content, activeMission.durationSeconds || null, undefined, activeMission);
+    } else {
+      setupNewTest('practice');
+    }
+  }, [gameMode, activeLesson, activeMission, setupNewTest]);
 
   // Complete session & calculate progress
   const finalizeSession = useCallback(() => {
@@ -306,9 +325,9 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [sessionState, timeRemaining, finalizeSession]);
 
-  // Real-Time Ghost PB Pacer Effect
+  // Real-Time Ghost PB Pacer Effect (strictly practice mode only)
   useEffect(() => {
-    if (sessionState !== 'playing' || preferences.showGhostPacer === false) {
+    if (sessionState !== 'playing' || preferences.showGhostPacer === false || gameMode !== 'practice') {
       return;
     }
 
@@ -329,6 +348,7 @@ export default function Home() {
     preferences.showGhostPacer,
     preferences.targetPacerWpm,
     userProgress.highScores.bestWpm,
+    gameMode,
   ]);
 
   // Keep active character centered in view
@@ -342,10 +362,10 @@ export default function Home() {
 
   // Handle Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Tab + Enter to restart quickly
+    // Tab to reset current session (in lessons: re-practices same letters)
     if (e.key === 'Tab') {
       e.preventDefault();
-      setupNewTest(gameMode);
+      handleResetCurrent();
       return;
     }
 
@@ -432,6 +452,14 @@ export default function Home() {
       xp: prev.xp + amount,
     }));
   }, []);
+
+  const currentLessonIndex = activeLesson
+    ? LESSONS_CURRICULUM.findIndex((l) => l.id === activeLesson.id)
+    : -1;
+  const nextLesson =
+    currentLessonIndex >= 0 && currentLessonIndex < LESSONS_CURRICULUM.length - 1
+      ? LESSONS_CURRICULUM[currentLessonIndex + 1]
+      : null;
 
   const currentChar = engineChars[engineIndex]?.char || '';
 
@@ -881,30 +909,98 @@ export default function Home() {
               </div>
             )}
 
-            {/* If in Lesson or Mission, show active header */}
-            {gameMode !== 'practice' && (
+            {/* If in Lesson, show dedicated Academy Lesson Cockpit */}
+            {gameMode === 'lesson' && activeLesson && (
+              <div className="w-full p-3.5 bg-surface border border-accent-border/60 bg-gradient-to-r from-surface via-surface to-accent-subtle/25 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shrink-0 shadow-sm">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-extrabold text-accent uppercase tracking-wider px-2 py-0.5 rounded-md bg-accent-subtle border border-accent-border">
+                      {activeLesson.tierTitle || `Tier ${activeLesson.tier}`}
+                    </span>
+                    {activeLesson.tier === 1 && (
+                      <span className="text-[10px] font-bold text-accent bg-accent-subtle border border-accent-border px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <span>👋</span> Hands Guide Active
+                      </span>
+                    )}
+                    <span className="text-[11px] font-mono text-text-subtle">
+                      Target: ≥{activeLesson.targetAccuracy}% Acc • {activeLesson.targetWpm} WPM
+                    </span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-text-primary flex items-center gap-2">
+                    {activeLesson.title}
+                  </h3>
+                  <p className="text-xs text-text-secondary">
+                    {activeLesson.description}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  <button
+                    onClick={handleResetCurrent}
+                    className="px-3 py-1.5 bg-surface hover:bg-surface-hover text-text-primary text-xs font-semibold rounded-xl border border-border shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Reset with the exact same lesson letters to re-practice"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-accent" />
+                    <span>Re-practice Lesson</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('lessons')}
+                    className="px-3 py-1.5 bg-surface-muted hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-medium rounded-xl border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="View all Academy curriculum lessons"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Curriculum</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGameMode('practice');
+                      setModeTitle('Free Practice');
+                      setActiveLesson(null);
+                      setupNewTest('practice');
+                    }}
+                    className="px-2.5 py-1.5 text-text-muted hover:text-text-primary text-xs rounded-xl transition-colors cursor-pointer"
+                    title="Exit to Free Practice"
+                  >
+                    Exit
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* If in AI Mission or other non-practice, non-lesson mode */}
+            {gameMode !== 'practice' && gameMode !== 'lesson' && (
               <div className="w-full px-4 py-2.5 bg-surface border border-border rounded-2xl flex items-center justify-between shrink-0 shadow-sm">
                 <div>
-                  <span className="text-[10px] font-bold text-accent uppercase tracking-wider">
-                    {gameMode === 'lesson' ? 'Academy Lesson' : 'AI Mission'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-accent uppercase tracking-wider">
+                      {gameMode === 'ai-mission' ? 'AI Mission' : modeTitle}
+                    </span>
+                  </div>
                   <h3 className="text-sm font-bold text-text-primary">{modeTitle}</h3>
                   {activeMission && (
                     <p className="text-xs text-primary mt-0.5">{activeMission.reason}</p>
                   )}
                 </div>
-                <button
-                  onClick={() => {
-                    setGameMode('practice');
-                    setModeTitle('Free Practice');
-                    setActiveLesson(null);
-                    setActiveMission(null);
-                    setupNewTest('practice');
-                  }}
-                  className="px-3 py-1 bg-surface-muted hover:bg-surface-hover text-text-secondary text-xs rounded-xl border border-border transition-colors"
-                >
-                  Exit Mode
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleResetCurrent}
+                    className="px-3 py-1 bg-surface hover:bg-surface-hover text-text-primary text-xs rounded-xl border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3 text-accent" />
+                    <span>Reset</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGameMode('practice');
+                      setModeTitle('Free Practice');
+                      setActiveMission(null);
+                      setupNewTest('practice');
+                    }}
+                    className="px-3 py-1 bg-surface-muted hover:bg-surface-hover text-text-secondary text-xs rounded-xl border border-border transition-colors cursor-pointer"
+                  >
+                    Exit Mode
+                  </button>
+                </div>
               </div>
             )}
 
@@ -919,7 +1015,7 @@ export default function Home() {
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] text-text-subtle uppercase tracking-wider font-semibold">Speed</span>
-                        {sessionState === 'playing' && preferences.showGhostPacer !== false && (
+                        {sessionState === 'playing' && gameMode === 'practice' && preferences.showGhostPacer !== false && (
                           <span
                             className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold ${
                               engineIndex >= ghostIndex
@@ -973,12 +1069,13 @@ export default function Home() {
                     )}
 
                     <button
-                      onClick={() => setupNewTest(gameMode)}
-                      className="p-2 text-text-muted hover:text-accent hover:bg-surface-hover rounded-xl transition-colors"
-                      title="Restart Test (Tab)"
+                      onClick={handleResetCurrent}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-text-muted hover:text-accent hover:bg-surface-hover rounded-xl border border-border text-xs font-semibold transition-colors cursor-pointer"
+                      title={gameMode === 'lesson' ? 'Reset current lesson letters for re-practice (Tab)' : 'Restart Test (Tab)'}
                       id="restart-test-button"
                     >
-                      <RotateCcw className="w-4 h-4" />
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{gameMode === 'lesson' ? 'Reset Lesson' : 'Restart'}</span>
                     </button>
                   </div>
                 </div>
@@ -998,6 +1095,7 @@ export default function Home() {
                       const isCorrected = charItem.status === 'corrected';
                       const isGhost =
                         sessionState === 'playing' &&
+                        gameMode === 'practice' &&
                         preferences.showGhostPacer !== false &&
                         index === ghostIndex &&
                         index !== engineIndex;
@@ -1064,6 +1162,9 @@ export default function Home() {
                     activeKey={activeKeyPressed}
                     showFingerGuide={preferences.showFingerGuidance}
                     keyStats={userProgress.keyStats}
+                    isBasicLesson={gameMode === 'lesson' && activeLesson?.tier === 1}
+                    activeLessonTitle={activeLesson?.title}
+                    showAnimatedHands={preferences.showAnimatedHandsInLessons !== false}
                   />
                 ) : (
                   <div className="h-64 rounded-2xl border border-dashed border-border flex flex-col items-center justify-center text-text-muted text-xs p-6 text-center">
@@ -1139,9 +1240,22 @@ export default function Home() {
         onStartMission={handleLaunchMission}
         onRestart={() => {
           setIsResultsOpen(false);
-          setupNewTest(gameMode);
+          handleResetCurrent();
         }}
         onTrainWeakKeys={handleTrainWeakKeys}
+        activeLesson={activeLesson}
+        onNextLesson={
+          nextLesson
+            ? () => {
+                setIsResultsOpen(false);
+                handleSelectLesson(nextLesson);
+              }
+            : undefined
+        }
+        onReturnToLessons={() => {
+          setIsResultsOpen(false);
+          setCurrentView('lessons');
+        }}
       />
 
       <AICoachChat

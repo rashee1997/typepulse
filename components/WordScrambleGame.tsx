@@ -227,19 +227,17 @@ export const WordScrambleGame: React.FC<WordScrambleGameProps> = ({ onFinish, on
   useEffect(() => {
     if (gameState !== 'playing') return;
 
+    if (timeLeft <= 0) {
+      finishGame();
+      return;
+    }
+
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          finishGame();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameState, finishGame]);
+  }, [gameState, timeLeft, finishGame]);
 
   // Re-shuffle scrambled letters
   const handleShuffle = () => {

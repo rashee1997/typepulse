@@ -95,19 +95,18 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          // Player ran out of time: boss hits player!
           soundFx.playError();
-          const bossDamage = 25;
-          setPlayerHp((hp) => {
-            const nextHp = Math.max(0, hp - bossDamage);
-            if (nextHp <= 0) {
-              setRoundState('game_over');
-            } else {
-              // Next turn
-              loadNewTurn({ playerSuccess: false, roundDamageDealt: 0, playerAccuracy: 50, phraseCompleted: false });
-            }
-            return nextHp;
-          });
+          setTimeout(() => {
+            setPlayerHp((hp) => {
+              const nextHp = Math.max(0, hp - 25);
+              if (nextHp <= 0) {
+                setRoundState('game_over');
+              } else {
+                loadNewTurn({ playerSuccess: false, roundDamageDealt: 0, playerAccuracy: 50, phraseCompleted: false });
+              }
+              return nextHp;
+            });
+          }, 0);
           return 0;
         }
         return prev - 1;

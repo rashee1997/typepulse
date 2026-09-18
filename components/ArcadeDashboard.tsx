@@ -132,7 +132,6 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   // Orbital Laser Defense Finish
   const handleOrbitalFinish = useCallback(
     (score: number, wordsDestroyed: number, accuracy: number) => {
-      setActiveGame('none');
       const xp = Math.max(120, Math.round(score / 8));
       onUpdateXp(xp);
 
@@ -176,7 +175,6 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   // Bomb Defusal Finish
   const handleBombDefusalFinish = useCallback(
     (score: number, bombsDefused: number, accuracy: number) => {
-      setActiveGame('none');
       const xp = Math.max(120, Math.round(score / 7));
       onUpdateXp(xp);
 

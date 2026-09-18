@@ -265,7 +265,6 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
 
       setRacers((prev) => {
         let playerFinished = false;
-        let finalPlace = 1;
 
         const updated = prev.map((racer) => {
           if (racer.isPlayer) {
@@ -289,16 +288,14 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
           };
         });
 
-        // Determine rankings
         const { playerRank } = updateRankings(updated);
-        setPlayerPlace(playerRank);
-        finalPlace = playerRank;
-
-        // Check if player crossed finish line
-        if (playerFinished && !hasFinishedRef.current) {
-          const currentAcc = typedChars > 0 ? Math.max(0, Math.round(((typedChars - errorCount) / typedChars) * 100)) : 100;
-          completeRace(finalPlace, playerWpm, currentAcc);
-        }
+        setTimeout(() => {
+          setPlayerPlace(playerRank);
+          if (playerFinished && !hasFinishedRef.current) {
+            const currentAcc = typedChars > 0 ? Math.max(0, Math.round(((typedChars - errorCount) / typedChars) * 100)) : 100;
+            completeRace(playerRank, playerWpm, currentAcc);
+          }
+        }, 0);
 
         return updated;
       });

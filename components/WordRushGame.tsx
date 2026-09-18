@@ -93,32 +93,31 @@ export const WordRushGame: React.FC<WordRushProps> = ({ onFinish, onExit }) => {
       }
 
       // Move words down
-      setWords((prev) => {
-        let missedCount = 0;
-        const nextWords: FallingWord[] = [];
+      let missedCount = 0;
+      const nextWords: FallingWord[] = [];
 
-        for (const w of prev) {
-          const nextY = w.y + w.speed;
-          if (nextY >= 92) {
-            missedCount++;
-          } else {
-            nextWords.push({ ...w, y: nextY });
-          }
+      for (const w of wordsRef.current) {
+        const nextY = w.y + w.speed;
+        if (nextY >= 92) {
+          missedCount++;
+        } else {
+          nextWords.push({ ...w, y: nextY });
         }
+      }
 
-        if (missedCount > 0) {
-          soundFx.playError();
-          setCombo(0);
-          const remainingLives = Math.max(0, livesRef.current - missedCount);
-          livesRef.current = remainingLives;
-          setLives(remainingLives);
-          if (remainingLives <= 0) {
-            handleGameOver();
-          }
+      setWords(nextWords);
+
+      if (missedCount > 0) {
+        soundFx.playError();
+        setCombo(0);
+        const remainingLives = Math.max(0, livesRef.current - missedCount);
+        livesRef.current = remainingLives;
+        setLives(remainingLives);
+        if (remainingLives <= 0) {
+          handleGameOver();
+          return;
         }
-
-        return nextWords;
-      });
+      }
 
       if (!hasEndedRef.current) {
         animId = requestAnimationFrame(gameLoop);

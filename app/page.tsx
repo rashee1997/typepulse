@@ -100,37 +100,36 @@ export default function Home() {
     setIsAiDrillModalOpen(true);
   }, []);
 
-  // Settings & Preferences (Loaded from localStorage)
-  const [aiSettings, setAiSettings] = useState<AISettings>(() => {
-    if (typeof window !== 'undefined') return loadStoredAiSettings();
-    return DEFAULT_AI_SETTINGS;
-  });
+  // Settings & Preferences (Loaded from localStorage on mount to prevent hydration mismatch)
+  const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
 
-  const [preferences, setPreferences] = useState<AppPreferences>(() => {
-    const defaultPrefs: AppPreferences = {
-      soundEnabled: true,
-      soundVolume: 0.35,
-      showKeyboard: true,
-      showFingerGuidance: true,
-      smoothCaret: true,
-      showGhostPacer: true,
-      fontSize: 'medium',
-      theme: 'dark-slate',
-    };
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('typepulse_preferences');
-        if (stored) return { ...defaultPrefs, ...JSON.parse(stored) };
-      } catch {}
-    }
-    return defaultPrefs;
+  const [preferences, setPreferences] = useState<AppPreferences>({
+    soundEnabled: true,
+    soundVolume: 0.35,
+    showKeyboard: true,
+    showFingerGuidance: true,
+    smoothCaret: true,
+    showGhostPacer: true,
+    fontSize: 'medium',
+    theme: 'dark-slate',
   });
 
   // User Progression
-  const [userProgress, setUserProgress] = useState<UserProgress>(() => {
-    if (typeof window !== 'undefined') return loadUserProgress();
-    return INITIAL_USER_PROGRESS;
-  });
+  const [userProgress, setUserProgress] = useState<UserProgress>(INITIAL_USER_PROGRESS);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        setAiSettings(loadStoredAiSettings());
+        const storedPrefs = localStorage.getItem('typepulse_preferences');
+        if (storedPrefs) {
+          setPreferences((prev) => ({ ...prev, ...JSON.parse(storedPrefs) }));
+        }
+        setUserProgress(loadUserProgress());
+      } catch {}
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Modals & Drawers
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);

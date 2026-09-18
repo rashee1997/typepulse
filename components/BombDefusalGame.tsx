@@ -132,32 +132,31 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
     if (gameState !== 'playing') return;
 
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0.1) {
-          // Detonation!
-          soundFx.playError();
-          const newLives = livesRef.current - 1;
-          setLives(newLives);
-          setCombo(0);
-
-          if (newLives <= 0) {
-            clearInterval(timer);
-            handleGameOver();
-            return 0;
-          } else {
-            // Spawn next bomb after detonation
-            const nextRound = bombNumber + 1;
-            setBombNumber(nextRound);
-            spawnNextBomb(nextRound);
-            return maxTime;
-          }
-        }
-        return Math.max(0, prev - 0.1);
-      });
+      setTimeLeft((prev) => Math.max(0, prev - 0.1));
     }, 100);
 
     return () => clearInterval(timer);
-  }, [gameState, bombNumber, maxTime, spawnNextBomb, handleGameOver]);
+  }, [gameState]);
+
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+
+    if (timeLeft <= 0.05) {
+      // Detonation!
+      soundFx.playError();
+      const newLives = livesRef.current - 1;
+      setLives(newLives);
+      setCombo(0);
+
+      if (newLives <= 0) {
+        handleGameOver();
+      } else {
+        const nextRound = bombNumber + 1;
+        setBombNumber(nextRound);
+        spawnNextBomb(nextRound);
+      }
+    }
+  }, [timeLeft, gameState, bombNumber, spawnNextBomb, handleGameOver]);
 
   const startGame = () => {
     hasEndedRef.current = false;

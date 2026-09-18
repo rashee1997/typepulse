@@ -88,22 +88,23 @@ export const EchoTypingGame: React.FC<EchoTypingGameProps> = ({
     setCountdown(3);
     soundFx.playKeypress();
 
+    let count = 3;
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setGameState('racing');
-          const newEngine = new TypingEngine(passageText);
-          setEngine(newEngine);
-          setLiveStats(newEngine.getStats());
-          setGhostIndex(0);
-          raceStartTimeRef.current = Date.now();
-          soundFx.playStreak();
-          return 0;
-        }
+      count -= 1;
+      if (count > 0) {
+        setCountdown(count);
         soundFx.playKeypress();
-        return prev - 1;
-      });
+      } else {
+        clearInterval(interval);
+        setCountdown(0);
+        setGameState('racing');
+        const newEngine = new TypingEngine(passageText);
+        setEngine(newEngine);
+        setLiveStats(newEngine.getStats());
+        setGhostIndex(0);
+        raceStartTimeRef.current = Date.now();
+        soundFx.playStreak();
+      }
     }, 800);
   };
 

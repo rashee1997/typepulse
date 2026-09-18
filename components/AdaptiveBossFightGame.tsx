@@ -107,15 +107,17 @@ export const AdaptiveBossFightGame: React.FC<AdaptiveBossFightGameProps> = ({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           soundFx.playError();
-          setPlayerHp((hp) => {
-            const nextHp = Math.max(0, hp - 25);
-            if (nextHp <= 0) {
-              setCombatState('defeat');
-            } else {
-              loadTurn({ playerSuccess: false, roundDamageDealt: 0, playerAccuracy: 40, phraseCompleted: false });
-            }
-            return nextHp;
-          });
+          setTimeout(() => {
+            setPlayerHp((hp) => {
+              const nextHp = Math.max(0, hp - 25);
+              if (nextHp <= 0) {
+                setCombatState('defeat');
+              } else {
+                loadTurn({ playerSuccess: false, roundDamageDealt: 0, playerAccuracy: 40, phraseCompleted: false });
+              }
+              return nextHp;
+            });
+          }, 0);
           return 0;
         }
         return prev - 1;

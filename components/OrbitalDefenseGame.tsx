@@ -167,7 +167,9 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
       const spawnInterval = Math.max(1100, 2400 - currentWave * 150);
       const maxEnemiesOnScreen = Math.min(6, 3 + Math.floor(currentWave / 2));
 
-      if (now - lastSpawnTime > spawnInterval && enemiesRef.current.length < maxEnemiesOnScreen) {
+      let currentEnemies = enemiesRef.current;
+
+      if (now - lastSpawnTime > spawnInterval && currentEnemies.length < maxEnemiesOnScreen) {
         lastSpawnTime = now;
         const availableWords = COMMON_WORDS_200.filter((w) => w.length >= 3 && w.length <= 7);
         const randomWord = availableWords[Math.floor(Math.random() * availableWords.length)];
@@ -183,40 +185,43 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
           hue: (now % 360),
         };
 
-        setEnemies((prev) => [...prev, newEnemy]);
+        currentEnemies = [...currentEnemies, newEnemy];
+        setEnemies(currentEnemies);
       }
 
       // Update positions of existing ships
-      setEnemies((prev) => {
-        let breachCount = 0;
-        const nextShips: EnemyShip[] = [];
+      let breachCount = 0;
+      let targetLost = false;
+      const nextShips: EnemyShip[] = [];
 
-        for (const ship of prev) {
-          const nextY = ship.y + ship.speed;
+      for (const ship of currentEnemies) {
+        const nextY = ship.y + ship.speed;
 
-          if (nextY >= 86) {
-            // Ship breached the defense perimeter!
-            breachCount++;
-            soundFx.playError();
-            if (lockedIdRef.current === ship.id) {
-              setLockedTargetId(null);
-            }
-          } else {
-            nextShips.push({ ...ship, y: nextY });
+        if (nextY >= 86) {
+          breachCount++;
+          if (lockedIdRef.current === ship.id) {
+            targetLost = true;
           }
+        } else {
+          nextShips.push({ ...ship, y: nextY });
         }
+      }
 
-        if (breachCount > 0) {
-          const newLives = Math.max(0, livesRef.current - breachCount);
-          setLives(newLives);
-          setCombo(0);
-          if (newLives <= 0) {
-            handleGameOver();
-          }
+      setEnemies(nextShips);
+
+      if (breachCount > 0) {
+        soundFx.playError();
+        if (targetLost) {
+          setLockedTargetId(null);
         }
-
-        return nextShips;
-      });
+        const newLives = Math.max(0, livesRef.current - breachCount);
+        setLives(newLives);
+        setCombo(0);
+        if (newLives <= 0) {
+          handleGameOver();
+          return;
+        }
+      }
 
       // Clear expired laser beams
       setLasers((prev) => (prev.length > 0 ? prev.slice(-3) : prev));

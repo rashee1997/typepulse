@@ -67,20 +67,22 @@ export const DailyChallengeGame: React.FC<DailyChallengeGameProps> = ({
     setGameState('countdown');
     setCountdown(3);
     soundFx.playKeypress();
+
+    let count = 3;
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setGameState('playing');
-          const newEngine = new TypingEngine(passage.text);
-          setEngine(newEngine);
-          setLiveStats(newEngine.getStats());
-          soundFx.playStreak();
-          return 0;
-        }
+      count -= 1;
+      if (count > 0) {
+        setCountdown(count);
         soundFx.playKeypress();
-        return prev - 1;
-      });
+      } else {
+        clearInterval(interval);
+        setCountdown(0);
+        setGameState('playing');
+        const newEngine = new TypingEngine(passage.text);
+        setEngine(newEngine);
+        setLiveStats(newEngine.getStats());
+        soundFx.playStreak();
+      }
     }, 800);
   };
 

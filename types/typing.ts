@@ -49,11 +49,51 @@ export interface PatternStat {
 
 export type ErrorMode = 'standard' | 'stop-on-error' | 'confidence';
 
+export type SwitchSoundProfile = 'cherry-blue' | 'gateron-red' | 'holy-panda' | 'topre' | 'classic';
+
 export interface ReplayEvent {
   deltaMs: number;
   key: string;
   isCorrect: boolean;
   index: number;
+}
+
+export interface GhostDuelPayload {
+  version: 1;
+  id: string;
+  targetText: string;
+  wpm: number;
+  accuracy: number;
+  author: string;
+  events: [number, number, boolean][]; // [deltaMs, charIndex, isCorrect]
+}
+
+export interface LiveHesitationSignal {
+  bigram: string;
+  sourceKey: string;
+  targetKey: string;
+  latencyMs: number;
+  baselineMs: number;
+  remediated?: boolean;
+}
+
+export interface MasteryTier {
+  tier: number;
+  requiredXp: number;
+  title: string;
+  reward: string;
+  unlocked: boolean;
+  claimed: boolean;
+  icon: string;
+}
+
+export interface CodeClimberSnippet {
+  id: string;
+  language: 'typescript' | 'python' | 'rust' | 'go';
+  title: string;
+  repoSource: string;
+  code: string;
+  symbols: string[];
 }
 
 export interface ArcadeScores {
@@ -92,6 +132,8 @@ export interface TypingStats {
   confidenceScores?: Record<string, number>;
   confidenceScore?: number;
   replayEvents?: ReplayEvent[];
+  hesitationSignals?: LiveHesitationSignal[];
+  remediatedHesitationCount?: number;
 }
 
 export interface Lesson {
@@ -289,6 +331,10 @@ export interface AppPreferences {
   errorMode?: ErrorMode; // 'standard' | 'stop-on-error' | 'confidence'
   quickWordSkip?: boolean;
   viewportMode?: '3-line' | 'scrolling';
+  switchSoundProfile?: SwitchSoundProfile;
+  ddaEnabled?: boolean;
+  codeAutoIndent?: boolean;
+  codeBracketSkip?: boolean;
 }
 
 export interface AICoachFeedback {

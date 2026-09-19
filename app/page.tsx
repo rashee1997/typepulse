@@ -48,6 +48,11 @@ import { AIMissionBoard } from '@/components/AIMissionBoard';
 import { AIDrillModal } from '@/components/AIDrillModal';
 import { CommandPaletteModal, CommandItem } from '@/components/CommandPaletteModal';
 import { BiometricLatencyHUD } from '@/components/BiometricLatencyHUD';
+import { GhostDuelModal } from '@/components/GhostDuelModal';
+import { MasteryPassModal } from '@/components/MasteryPassModal';
+import { CodeClimberModal } from '@/components/CodeClimberModal';
+import { parseGhostDuelPayload } from '@/lib/typing-engine';
+import { GhostDuelPayload, CodeClimberSnippet, SwitchSoundProfile } from '@/types/typing';
 
 import {
   Activity,
@@ -142,6 +147,29 @@ export default function Home() {
   const [isResultsOpen, setIsResultsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isGhostDuelOpen, setIsGhostDuelOpen] = useState(false);
+  const [isMasteryPassOpen, setIsMasteryPassOpen] = useState(false);
+  const [isCodeClimberOpen, setIsCodeClimberOpen] = useState(false);
+  const [activeGhostDuel, setActiveGhostDuel] = useState<GhostDuelPayload | null>(null);
+  const [currentTargetText, setCurrentTargetText] = useState<string>('');
+
+  // Auto-detect incoming Ghost Duel link from URL query params
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const duelParam = urlParams.get('duel');
+      if (duelParam) {
+        const payload = parseGhostDuelPayload(duelParam);
+        if (payload) {
+          setTimeout(() => {
+            setActiveGhostDuel(payload);
+            setIsGhostDuelOpen(true);
+          }, 0);
+        }
+      }
+    } catch {}
+  }, []);
 
   // Completed Session Result Cache
   const [lastResults, setLastResults] = useState<{
@@ -278,6 +306,7 @@ export default function Home() {
         );
       }
 
+      setCurrentTargetText(targetText);
       engineRef.current.reset(targetText);
       setEngineChars([...engineRef.current.chars]);
       setEngineIndex(0);
@@ -447,13 +476,20 @@ export default function Home() {
     preferences.cadenceMetronomeVolume,
   ]);
 
-  // Keep active character centered in view
+  // Keep active character centered in view with smooth rAF batching to eliminate jank
   useEffect(() => {
+    let animFrame: number;
     if (activeCharRef.current && textContainerRef.current) {
-      const charOffsetTop = activeCharRef.current.offsetTop;
-      const containerHeight = textContainerRef.current.clientHeight;
-      textContainerRef.current.scrollTop = Math.max(0, charOffsetTop - containerHeight / 2 + 20);
+      animFrame = requestAnimationFrame(() => {
+        if (!activeCharRef.current || !textContainerRef.current) return;
+        const charOffsetTop = activeCharRef.current.offsetTop;
+        const containerHeight = textContainerRef.current.clientHeight;
+        textContainerRef.current.scrollTop = Math.max(0, charOffsetTop - containerHeight / 2 + 20);
+      });
     }
+    return () => {
+      if (animFrame) cancelAnimationFrame(animFrame);
+    };
   }, [engineIndex]);
 
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K Command Palette, Shift+Z Zen Mode, Escape)
@@ -494,6 +530,25 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleGlobalKeys);
   }, [isZenMode, isSettingsOpen, isCoachChatOpen, isResultsOpen, isCommandPaletteOpen]);
 
+  // Zero-GC rAF batching for high-frequency typing loop
+  const statsRafIdRef = useRef<number | null>(null);
+
+  const scheduleStatsUpdate = useCallback(() => {
+    if (statsRafIdRef.current !== null) return;
+    statsRafIdRef.current = requestAnimationFrame(() => {
+      statsRafIdRef.current = null;
+      setLiveStats(engineRef.current.getStats());
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (statsRafIdRef.current !== null) {
+        cancelAnimationFrame(statsRafIdRef.current);
+      }
+    };
+  }, []);
+
   // Handle Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Command Palette Trigger (Cmd+K or Ctrl+K)
@@ -533,7 +588,7 @@ export default function Home() {
     const res = engineRef.current.handleInput(key, e.ctrlKey || e.metaKey);
     setEngineChars([...engineRef.current.chars]);
     setEngineIndex(engineRef.current.currentIndex);
-    setLiveStats(engineRef.current.getStats());
+    scheduleStatsUpdate();
 
     if (res.success) {
       if (sessionState === 'ready') {
@@ -557,6 +612,11 @@ export default function Home() {
 
       // Check for completion
       if (res.isFinished) {
+        if (statsRafIdRef.current !== null) {
+          cancelAnimationFrame(statsRafIdRef.current);
+          statsRafIdRef.current = null;
+        }
+        setLiveStats(engineRef.current.getStats());
         finalizeSession();
       }
     }
@@ -649,6 +709,75 @@ export default function Home() {
     },
     [userProgress]
   );
+
+  // Launch Asynchronous Ghost Duel
+  const handleStartGhostDuel = (duel: GhostDuelPayload) => {
+    setIsGhostDuelOpen(false);
+    activeLessonRef.current = null;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'practice';
+    setActiveLesson(null);
+    setActiveMission(null);
+    setGameMode('practice');
+    setModeTitle(`Ghost Duel vs ${duel.author} (${duel.wpm} WPM)`);
+    setCurrentView('typing');
+
+    setCurrentTargetText(duel.targetText);
+    engineRef.current.reset(duel.targetText);
+    engineRef.current.setGhostDuel(duel);
+    setEngineChars([...engineRef.current.chars]);
+    setEngineIndex(0);
+    setGhostIndex(0);
+    setLiveStats(engineRef.current.getStats());
+    setSessionState('ready');
+    setTimeRemaining(null);
+
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  // Launch AST Code Climber
+  const handleStartCodeClimber = (snippet: CodeClimberSnippet) => {
+    setIsCodeClimberOpen(false);
+    activeLessonRef.current = null;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'practice';
+    setActiveLesson(null);
+    setActiveMission(null);
+    setGameMode('practice');
+    setModeTitle(`Code Climber (${snippet.language}): ${snippet.title}`);
+    setCurrentView('typing');
+
+    setCurrentTargetText(snippet.code);
+    engineRef.current.reset(snippet.code);
+    setEngineChars([...engineRef.current.chars]);
+    setEngineIndex(0);
+    setGhostIndex(0);
+    setLiveStats(engineRef.current.getStats());
+    setSessionState('ready');
+    setTimeRemaining(null);
+
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  // Claim Mastery Reward
+  const handleClaimMasteryReward = (tierId: number, reward: { type: string; value: string; title: string }) => {
+    if (reward.type === 'soundpack') {
+      const nextProfile = reward.value as SwitchSoundProfile;
+      setPreferences((prev) => {
+        const updated = { ...prev, switchSoundProfile: nextProfile };
+        try {
+          localStorage.setItem('typepulse_preferences', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+      soundFx.setProfile(nextProfile);
+      soundFx.playKeyClick(nextProfile);
+    }
+  };
 
   const currentLessonIndex = activeLesson
     ? LESSONS_CURRICULUM.findIndex((l) => l.id === activeLesson.id)
@@ -901,6 +1030,30 @@ export default function Home() {
         } catch {}
       },
     },
+    {
+      id: 'open-ghost-duels',
+      title: 'Asynchronous Ghost Duels',
+      subtitle: 'Race against community or friend replay ghosts',
+      category: 'Arenas & Pass',
+      icon: <Ghost className="w-4 h-4 text-purple-400" />,
+      action: () => setIsGhostDuelOpen(true),
+    },
+    {
+      id: 'open-code-climber',
+      title: 'AST-Aware Code Climber',
+      subtitle: 'Climb syntax cliffs across TypeScript, Python, Rust, Go',
+      category: 'Arenas & Pass',
+      icon: <Code className="w-4 h-4 text-blue-400" />,
+      action: () => setIsCodeClimberOpen(true),
+    },
+    {
+      id: 'open-mastery-pass',
+      title: 'Mastery Tier Pass',
+      subtitle: 'Claim acoustic soundpacks & prestigious titles',
+      category: 'Arenas & Pass',
+      icon: <Trophy className="w-4 h-4 text-amber-400" />,
+      action: () => setIsMasteryPassOpen(true),
+    },
   ];
 
   return (
@@ -937,12 +1090,12 @@ export default function Home() {
           </div>
         </header>
       ) : (
-        <header className="w-full max-w-full border-b border-border bg-surface/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2 shrink-0 shadow-sm overflow-x-clip">
-        <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+        <header className="w-full max-w-full border-b border-border bg-surface/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2 shrink-0 shadow-sm">
+        <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-3 min-w-0">
           {/* Brand & Logo */}
           <button
             onClick={switchToPractice}
-            className="flex items-center gap-1.5 sm:gap-2 hover:opacity-90 transition-opacity shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
             id="nav-logo"
           >
             <div className="p-1.5 rounded-xl bg-accent text-accent-foreground font-bold shadow-glow-accent-sm shrink-0">
@@ -954,16 +1107,16 @@ export default function Home() {
             </span>
           </button>
 
-          {/* Center Nav Views - Fully Responsive & Scroll-safe */}
-          <nav className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-border shrink min-w-0 overflow-x-auto scrollbar-none">
+          {/* Center Nav Views - Adaptive Responsive Sizing */}
+          <nav className="flex items-center gap-0.5 sm:gap-1 bg-surface-muted p-1 rounded-xl border border-border shrink-0">
             <button
               onClick={() => {
                 if (currentView !== 'typing' || gameMode !== 'practice') {
                   switchToPractice();
                 }
               }}
-              title="Practice"
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
+              title="Practice Mode"
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'typing' && gameMode === 'practice'
                   ? 'bg-accent text-accent-foreground shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
@@ -976,33 +1129,33 @@ export default function Home() {
             <button
               onClick={() => setCurrentView('lessons')}
               title="Academy Curriculum"
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'lessons'
                   ? 'bg-accent text-accent-foreground shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden md:inline">Academy</span>
+              <span className="hidden xl:inline">Academy</span>
             </button>
 
             <button
               onClick={() => setCurrentView('ai-missions')}
               title="AI Missions"
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'ai-missions'
                   ? 'bg-accent text-accent-foreground shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <Bot className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden md:inline">Missions</span>
+              <span className="hidden xl:inline">Missions</span>
             </button>
 
             <button
               onClick={() => setCurrentView('word-rush')}
               title="Arcade Arena"
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'word-rush'
                   ? 'bg-accent text-accent-foreground shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
@@ -1010,34 +1163,34 @@ export default function Home() {
               id="nav-arcade-btn"
             >
               <Gamepad2 className="w-3.5 h-3.5 shrink-0" />
-              <span>Arcade</span>
+              <span className="hidden lg:inline">Arcade</span>
             </button>
 
             <button
               onClick={() => setCurrentView('analytics')}
               title="Profile & Stats"
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap ${
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'analytics'
                   ? 'bg-accent text-accent-foreground shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
               }`}
             >
               <Activity className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden lg:inline">Stats</span>
+              <span className="hidden xl:inline">Stats</span>
             </button>
           </nav>
 
           {/* Right Action Icons: Rank, Streak, Coach & Settings */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {/* Command Palette Launcher */}
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="px-2 py-1 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover flex items-center gap-1.5 text-xs transition-colors shrink-0 cursor-pointer"
+              className="p-1.5 sm:px-2 sm:py-1 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover flex items-center gap-1.5 text-xs transition-colors shrink-0 cursor-pointer"
               title="Open Command Palette (Cmd+K)"
               id="open-command-palette-btn"
             >
               <Search className="w-3.5 h-3.5 text-accent shrink-0" />
-              <kbd className="hidden sm:inline-block px-1 py-0.2 rounded bg-surface border border-border text-[10px] font-mono text-text-subtle">
+              <kbd className="hidden lg:inline-block px-1 py-0.2 rounded bg-surface border border-border text-[10px] font-mono text-text-subtle">
                 ⌘K
               </kbd>
             </button>
@@ -1054,7 +1207,7 @@ export default function Home() {
             {/* Level & XP Pill */}
             <button
               onClick={() => setCurrentView('analytics')}
-              className="px-2 py-1 rounded-xl bg-surface-muted border border-border hover:border-border-subtle items-center gap-1 text-xs text-text-secondary font-medium transition-colors shrink-0 hidden sm:flex"
+              className="px-2 py-1 rounded-xl bg-surface-muted border border-border hover:border-border-subtle items-center gap-1 text-xs text-text-secondary font-medium transition-colors shrink-0 hidden lg:flex cursor-pointer"
               title={`Level ${userProgress.level} (${userProgress.title})`}
             >
               <Award className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -1064,12 +1217,12 @@ export default function Home() {
             {/* AI Coach Quick Chat Button */}
             <button
               onClick={() => setIsCoachChatOpen(true)}
-              className="px-2.5 py-1 rounded-xl bg-primary-subtle border border-primary-border text-primary hover:bg-primary-subtle/80 flex items-center gap-1.5 text-xs font-semibold transition-colors shrink-0"
+              className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-primary-subtle border border-primary-border text-primary hover:bg-primary-subtle/80 flex items-center gap-1.5 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
               title="Open AI Typing Coach (Sensei)"
               id="open-coach-chat-btn"
             >
               <Bot className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="hidden sm:inline">Sensei</span>
+              <span className="hidden xl:inline">Sensei</span>
             </button>
 
             {/* Audio Toggle */}
@@ -1149,6 +1302,9 @@ export default function Home() {
             onUpdateXp={handleUpdateArcadeXp}
             onFinishSession={handleArcadeSessionFinish}
             onBackToPractice={switchToPractice}
+            onOpenGhostDuel={() => setIsGhostDuelOpen(true)}
+            onOpenMasteryPass={() => setIsMasteryPassOpen(true)}
+            onOpenCodeClimber={() => setIsCodeClimberOpen(true)}
           />
         )}
 
@@ -1797,6 +1953,7 @@ export default function Home() {
           setCurrentView('lessons');
         }}
         onOpenAiDrill={handleOpenAiDrill}
+        targetText={currentTargetText}
       />
 
       <AIDrillModal
@@ -1823,6 +1980,31 @@ export default function Home() {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         commands={commandList}
+      />
+
+      <GhostDuelModal
+        isOpen={isGhostDuelOpen}
+        onClose={() => {
+          setIsGhostDuelOpen(false);
+          setActiveGhostDuel(null);
+        }}
+        initialDuel={activeGhostDuel}
+        onStartDuel={handleStartGhostDuel}
+        userProgress={userProgress}
+      />
+
+      <MasteryPassModal
+        isOpen={isMasteryPassOpen}
+        onClose={() => setIsMasteryPassOpen(false)}
+        userProgress={userProgress}
+        activeProfile={preferences.switchSoundProfile}
+        onClaimReward={handleClaimMasteryReward}
+      />
+
+      <CodeClimberModal
+        isOpen={isCodeClimberOpen}
+        onClose={() => setIsCodeClimberOpen(false)}
+        onStartClimb={handleStartCodeClimber}
       />
     </div>
   );

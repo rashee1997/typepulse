@@ -232,6 +232,39 @@ export const BiometricLatencyHUD: React.FC<BiometricLatencyHUDProps> = ({
               })}
             </div>
           </div>
+
+          {/* Live DDA In-Flow Remediation Signals */}
+          {stats.hesitationSignals && stats.hesitationSignals.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-accent" />
+                  DDA In-Flow Remediation Signals
+                </span>
+                <span className="text-[10px] font-mono text-accent font-semibold">
+                  {stats.remediatedHesitationCount || 0} In-Flow Conquered
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {stats.hesitationSignals.slice(-5).map((sig, idx) => (
+                  <span
+                    key={idx}
+                    className={`px-2 py-1 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 ${
+                      sig.remediated
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    }`}
+                  >
+                    <span>{(sig.targetKey || sig.bigram || '').toUpperCase()}</span>
+                    <span>+{Math.round(sig.latencyMs)}ms</span>
+                    <span className="text-[9px] uppercase font-bold tracking-wider opacity-80">
+                      {sig.remediated ? 'Remediated ✓' : 'Queued'}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

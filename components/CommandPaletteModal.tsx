@@ -26,7 +26,7 @@ export interface CommandItem {
   id: string;
   title: string;
   subtitle?: string;
-  category: 'Mode' | 'Word Count' | 'Time Limit' | 'Views' | 'Settings & Audio' | 'AI & Drills';
+  category: 'Mode' | 'Word Count' | 'Time Limit' | 'Views' | 'Settings & Audio' | 'AI & Drills' | 'Arenas & Pass';
   icon: React.ReactNode;
   shortcut?: string;
   action: () => void;

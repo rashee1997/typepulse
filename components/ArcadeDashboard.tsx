@@ -37,6 +37,8 @@ import {
   ShieldAlert,
   BookOpen,
   Code2,
+  Ghost,
+  Shield,
 } from 'lucide-react';
 
 interface ArcadeDashboardProps {
@@ -45,6 +47,9 @@ interface ArcadeDashboardProps {
   onUpdateXp: (amount: number) => void;
   onFinishSession?: (stats: TypingStats, mode: string) => void;
   onBackToPractice: () => void;
+  onOpenGhostDuel?: () => void;
+  onOpenMasteryPass?: () => void;
+  onOpenCodeClimber?: () => void;
 }
 
 type ActiveGame =
@@ -68,6 +73,9 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   onUpdateXp,
   onFinishSession,
   onBackToPractice,
+  onOpenGhostDuel,
+  onOpenMasteryPass,
+  onOpenCodeClimber,
 }) => {
   const [activeGame, setActiveGame] = useState<ActiveGame>('none');
   const [showSpecializedDrills, setShowSpecializedDrills] = useState(false);
@@ -498,6 +506,111 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
               <Calendar className="w-4 h-4 text-slate-950" />
               <span>Launch Daily Challenge</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Featured Competitive & Developer Arenas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Ghost Duels Card */}
+        <div className="bg-surface border-2 border-purple-500/30 hover:border-purple-500/70 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-11 h-11 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl shadow-inner border border-purple-500/30">
+                👻
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono font-bold uppercase">
+                Zero-Lag Shadow
+              </span>
+            </div>
+            <h3 className="text-base font-black text-text-primary group-hover:text-purple-400 transition-colors">
+              Asynchronous Ghost Duels
+            </h3>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed">
+              Race against timestamped replay ghosts of champions or friends. Zero network jitter, instant shadow pacing.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+            <span className="text-[11px] font-mono text-purple-400">+120 XP / Win</span>
+            {onOpenGhostDuel && (
+              <button
+                type="button"
+                onClick={onOpenGhostDuel}
+                className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                id="arcade-open-ghost-duel-btn"
+              >
+                <Ghost className="w-3.5 h-3.5" />
+                <span>Duel Ghosts</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* AST Code Climber Card */}
+        <div className="bg-surface border-2 border-blue-500/30 hover:border-blue-500/70 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-11 h-11 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl shadow-inner border border-blue-500/30">
+                🧗
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-mono font-bold uppercase">
+                Developer AST
+              </span>
+            </div>
+            <h3 className="text-base font-black text-text-primary group-hover:text-blue-400 transition-colors">
+              Code Climber Ascent
+            </h3>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed">
+              Ascend towering code cliffs in TypeScript, Python, Rust, and Go. Smart auto-indent and delimiter matching.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+            <span className="text-[11px] font-mono text-blue-400">4 Languages</span>
+            {onOpenCodeClimber && (
+              <button
+                type="button"
+                onClick={onOpenCodeClimber}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                id="arcade-open-code-climber-btn"
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                <span>Climb Code</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mastery Pass Card */}
+        <div className="bg-surface border-2 border-amber-500/30 hover:border-amber-500/70 rounded-3xl p-5 shadow-card flex flex-col justify-between transition-all group hover:-translate-y-1">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl shadow-inner border border-amber-500/30">
+                👑
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-mono font-bold uppercase">
+                Seasonal Tiers
+              </span>
+            </div>
+            <h3 className="text-base font-black text-text-primary group-hover:text-amber-400 transition-colors">
+              Mastery Tier Pass
+            </h3>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed">
+              Progress through 10 reward tiers. Claim exclusive acoustic switch soundpacks and prestigious player titles.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+            <span className="text-[11px] font-mono text-amber-400">10 Tiers</span>
+            {onOpenMasteryPass && (
+              <button
+                type="button"
+                onClick={onOpenMasteryPass}
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                id="arcade-open-mastery-pass-btn"
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                <span>View Rewards</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

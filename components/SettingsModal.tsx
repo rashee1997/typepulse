@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AISettings, AppPreferences } from '@/types/typing';
+import { AISettings, AppPreferences, SwitchSoundProfile } from '@/types/typing';
 import { AI_PROVIDER_PRESETS, testAiConnection } from '@/lib/ai-service';
-import { Check, Eye, EyeOff, Loader2, RefreshCw, Server, Shield, Sparkles, Volume2, VolumeX, X, AlertCircle, Sun, Moon, Monitor } from 'lucide-react';
+import { soundFx } from '@/lib/sound';
+import { Check, Eye, EyeOff, Loader2, RefreshCw, Server, Shield, Sparkles, Volume2, VolumeX, X, AlertCircle, Sun, Moon, Monitor, Keyboard, Play, Zap, Code } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -472,22 +473,124 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {prefsData.soundEnabled && (
-                  <div className="space-y-1.5 pt-2">
-                    <div className="flex justify-between text-xs text-text-muted">
-                      <span>Volume</span>
-                      <span>{Math.round(prefsData.soundVolume * 100)}%</span>
+                  <div className="space-y-3 pt-2">
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs text-text-muted">
+                        <span>Volume</span>
+                        <span>{Math.round(prefsData.soundVolume * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={prefsData.soundVolume}
+                        onChange={(e) => setPrefsData((prev) => ({ ...prev, soundVolume: parseFloat(e.target.value) }))}
+                        className="w-full accent-accent cursor-pointer"
+                      />
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={prefsData.soundVolume}
-                      onChange={(e) => setPrefsData((prev) => ({ ...prev, soundVolume: parseFloat(e.target.value) }))}
-                      className="w-full accent-accent cursor-pointer"
-                    />
+
+                    {/* Switch Acoustic Profile Selector */}
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-xs font-semibold text-text-primary">
+                        Switch Acoustic Profile
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { id: 'cherry-blue' as SwitchSoundProfile, name: 'Cherry MX Blue', desc: 'Tactile Clicky' },
+                          { id: 'gateron-red' as SwitchSoundProfile, name: 'Gateron Red', desc: 'Linear Deep Thock' },
+                          { id: 'holy-panda' as SwitchSoundProfile, name: 'Holy Panda', desc: 'Tactile Rounded Thock' },
+                          { id: 'topre' as SwitchSoundProfile, name: 'Topre Dome', desc: 'Electro-Capacitive' },
+                          { id: 'classic' as SwitchSoundProfile, name: 'Classic Click', desc: 'Standard Synth' },
+                        ].map((sw) => {
+                          const isSelected = (prefsData.switchSoundProfile || 'cherry-blue') === sw.id;
+                          return (
+                            <div
+                              key={sw.id}
+                              onClick={() => {
+                                setPrefsData((prev) => ({ ...prev, switchSoundProfile: sw.id }));
+                                soundFx.setProfile(sw.id);
+                                soundFx.playKeyClick(sw.id);
+                              }}
+                              className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-accent bg-accent/10 shadow-xs'
+                                  : 'border-border bg-surface hover:bg-surface-hover'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-text-primary">{sw.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    soundFx.playKeyClick(sw.id);
+                                  }}
+                                  className="p-1 rounded bg-surface border border-border text-accent hover:opacity-80"
+                                  title="Test switch audio"
+                                >
+                                  <Play className="w-2.5 h-2.5 fill-current" />
+                                </button>
+                              </div>
+                              <p className="text-[10px] text-text-muted mt-0.5">{sw.desc}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
+              </div>
+
+              {/* DDA Dynamic Difficulty Adjustment Flow Engine Toggle */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-text-primary flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-accent" />
+                    In-Flow DDA Difficulty Adjustment
+                  </span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Dynamically analyzes inter-key hesitation latency and smoothly injects remediation words into upcoming lines without interrupting your typing flow.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    checked={prefsData.ddaEnabled !== false}
+                    onChange={(e) => setPrefsData((prev) => ({ ...prev, ddaEnabled: e.target.checked }))}
+                    className="sr-only peer"
+                    id="dda-enabled-toggle"
+                  />
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+              </div>
+
+              {/* Developer Code Assist Toggles */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3">
+                <span className="font-medium text-text-primary flex items-center gap-1.5">
+                  <Code className="w-4 h-4 text-blue-400" />
+                  AST Developer Typing Assist
+                </span>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-text-primary">Smart Auto-Indentation</span>
+                      <p className="text-[11px] text-text-muted">
+                        Pressing Enter at line breaks automatically consumes leading spaces on the next line.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={prefsData.codeAutoIndent !== false}
+                        onChange={(e) => setPrefsData((prev) => ({ ...prev, codeAutoIndent: e.target.checked }))}
+                        className="sr-only peer"
+                        id="code-auto-indent-toggle"
+                      />
+                      <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* Keyboard Visualizer Toggle */}

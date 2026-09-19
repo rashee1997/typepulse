@@ -149,3 +149,29 @@ export function generateAdaptivePseudoWords(
 
   return words.join(' ');
 }
+
+/**
+ * Generates immediate, natural remediation words targeting an in-flow bigram hesitation
+ */
+export function generateDdaRemediationWords(
+  signal: { bigram: string; targetKey: string },
+  count: number = 3
+): string[] {
+  const cleanBigram = signal.bigram.toLowerCase().replace(/[^a-z]/g, '');
+  const target = signal.targetKey.toLowerCase().replace(/[^a-z]/g, '') || 'e';
+
+  const results: string[] = [];
+  for (let i = 0; i < count; i++) {
+    if (cleanBigram.length === 2 && Math.random() < 0.75) {
+      // Embed bigram with natural vowel/consonant wrapper
+      const prefix = ['s', 't', 'p', 'b', 'c', 're', 'de', 'un', 'in', ''][Math.floor(Math.random() * 10)];
+      const suffix = ['er', 'ed', 'ing', 'ly', 'est', 'y', 'al', 'en', ''][Math.floor(Math.random() * 9)];
+      results.push(`${prefix}${cleanBigram}${suffix}`);
+    } else {
+      results.push(generateSinglePseudoWord(target));
+    }
+  }
+
+  return results.filter((w) => w.length >= 3 && w.length <= 8);
+}
+

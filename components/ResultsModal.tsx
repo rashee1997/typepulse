@@ -6,7 +6,7 @@ import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, Lesson, 
 import { generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
 import { getXpForNextLevel } from '@/lib/progress-service';
 import confetti from 'canvas-confetti';
-import { Award, Bot, CheckCircle2, ChevronRight, Flame, RotateCcw, Sparkles, Target, Zap, X } from 'lucide-react';
+import { Award, Bot, Check, CheckCircle2, ChevronRight, Copy, Flame, Ghost, Pause, Play, RotateCcw, Share2, Sparkles, Target, Zap, X } from 'lucide-react';
 import { BiometricLatencyHUD } from './BiometricLatencyHUD';
 
 interface ResultsModalProps {
@@ -27,6 +27,7 @@ interface ResultsModalProps {
   onNextLesson?: () => void;
   onReturnToLessons?: () => void;
   onOpenAiDrill?: (lesson: Lesson) => void;
+  targetText?: string;
 }
 
 export const ResultsModal: React.FC<ResultsModalProps> = ({
@@ -47,10 +48,50 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   onNextLesson,
   onReturnToLessons,
   onOpenAiDrill,
+  targetText,
 }) => {
   const [coachFeedback, setCoachFeedback] = useState<AICoachFeedback | null>(null);
   const [loadingCoach, setLoadingCoach] = useState(true);
   const [generatingMission, setGeneratingMission] = useState(false);
+  const [copiedGhost, setCopiedGhost] = useState(false);
+  const [replayIdx, setReplayIdx] = useState<number>(0);
+  const [isReplaying, setIsReplaying] = useState(false);
+
+  const handleShareGhost = () => {
+    if (!stats.replayEvents || stats.replayEvents.length === 0) return;
+    const payload = {
+      version: 1,
+      id: 'ghost_' + Math.random().toString(36).substring(2, 8),
+      targetText: targetText || 'Practice makes permanent keystroke rhythm and tactile flow.',
+      wpm: stats.wpm,
+      accuracy: stats.accuracy,
+      author: userProgress.title || 'Ghost Racer',
+      events: stats.replayEvents.map((e) => [e.deltaMs, e.index, e.isCorrect]),
+    };
+    try {
+      const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+      const url = `${window.location.origin}/?duel=${encoded}`;
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedGhost(true);
+        setTimeout(() => setCopiedGhost(false), 2500);
+      });
+    } catch {}
+  };
+
+  // Replay playhead timer
+  useEffect(() => {
+    if (!isReplaying || !stats.replayEvents || stats.replayEvents.length === 0) return;
+    const interval = setInterval(() => {
+      setReplayIdx((prev) => {
+        if (prev >= (stats.replayEvents?.length || 1) - 1) {
+          setIsReplaying(false);
+          return 0;
+        }
+        return prev + 1;
+      });
+    }, 60);
+    return () => clearInterval(interval);
+  }, [isReplaying, stats.replayEvents]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -336,19 +377,82 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
             </div>
           </div>
 
-          {/* Ghost Replay Notification Banner */}
-          {stats.replayEvents && stats.replayEvents.length > 0 && (
-            <div className="p-3 bg-surface-muted border border-border rounded-xl flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-text-muted">
-                <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
+          {/* DDA Dynamic Difficulty In-Flow Remediation Banner */}
+          {stats.remediatedHesitationCount !== undefined && stats.remediatedHesitationCount > 0 && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>
-                  <strong className="text-text-primary">Ghost PB Replay Recorded:</strong>{' '}
-                  {stats.replayEvents.length} timestamped stroke events saved for asynchronous shadow racing.
+                  <strong className="text-foreground">DDA Flow Remediation:</strong>{' '}
+                  You conquered {stats.remediatedHesitationCount} hesitation{stats.remediatedHesitationCount > 1 ? 's' : ''} in-flow without breaking rhythm!
                 </span>
               </div>
-              <span className="font-mono text-[10px] text-text-subtle px-1.5 py-0.5 rounded bg-surface border border-border">
-                {stats.wpm} WPM Ghost
+              <span className="font-mono text-[10px] text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30 font-bold shrink-0">
+                +{stats.remediatedHesitationCount * 15} XP Bonus
               </span>
+            </div>
+          )}
+
+          {/* Ghost Replay & Asynchronous Duel Card */}
+          {stats.replayEvents && stats.replayEvents.length > 0 && (
+            <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Ghost className="w-4 h-4 text-purple-400" />
+                  <span className="text-xs font-bold text-foreground">
+                    Asynchronous Ghost Duel & Replay Theater
+                  </span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                    {stats.replayEvents.length} Keystrokes
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleShareGhost}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  id="share-ghost-duel-btn"
+                >
+                  {copiedGhost ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Link Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Share Ghost Duel</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Scrubber Controls */}
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsReplaying(!isReplaying)}
+                  className="p-1.5 rounded-lg bg-surface border border-border text-foreground hover:bg-surface-hover transition-colors"
+                  aria-label={isReplaying ? 'Pause replay' : 'Play replay'}
+                >
+                  {isReplaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                </button>
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={stats.replayEvents.length - 1}
+                    value={replayIdx}
+                    onChange={(e) => {
+                      setIsReplaying(false);
+                      setReplayIdx(Number(e.target.value));
+                    }}
+                    className="w-full accent-purple-500 h-1.5 bg-border rounded-lg cursor-pointer"
+                  />
+                  <span className="text-[10px] font-mono text-foreground-muted shrink-0 w-16 text-right">
+                    {stats.replayEvents[replayIdx]?.deltaMs ? `${(stats.replayEvents[replayIdx].deltaMs / 1000).toFixed(1)}s` : '0.0s'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 

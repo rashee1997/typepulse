@@ -1,9 +1,62 @@
-import { Achievement, ArcadeScores, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
+import { Achievement, ArcadeScores, GameMode, Lesson, MasteryTier, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
 import { INITIAL_ACHIEVEMENTS } from './achievements';
 import { calculateKeyConfidence } from './adaptive-engine';
 
 const PROGRESS_STORAGE_KEY = 'typepulse_user_progress';
 const LEGACY_ARCADE_STORAGE_KEY = 'typepulse_arcade_stats';
+const MASTERY_PASS_STORAGE_KEY = 'typepulse_mastery_pass';
+
+export const INITIAL_MASTERY_TIERS: MasteryTier[] = [
+  { tier: 1, requiredXp: 150, title: 'Tactile Initiate', reward: 'Topre Sound Profile', unlocked: false, claimed: false, icon: 'Volume2' },
+  { tier: 2, requiredXp: 500, title: 'Flow Explorer', reward: 'Matrix Emerald Theme', unlocked: false, claimed: false, icon: 'Palette' },
+  { tier: 3, requiredXp: 1000, title: 'Cadence Runner', reward: 'Cherry MX Blue Switchpack', unlocked: false, claimed: false, icon: 'Keyboard' },
+  { tier: 4, requiredXp: 1800, title: 'Ghost Hunter', reward: 'Asynchronous Duelist Badge', unlocked: false, claimed: false, icon: 'Ghost' },
+  { tier: 5, requiredXp: 2800, title: 'Holy Panda Enthusiast', reward: 'Holy Panda Switchpack', unlocked: false, claimed: false, icon: 'Zap' },
+  { tier: 6, requiredXp: 4000, title: 'Code Climber', reward: 'AST Syntax Radar Accent', unlocked: false, claimed: false, icon: 'Code' },
+  { tier: 7, requiredXp: 5500, title: 'Remediation Alchemist', reward: 'DDA Flow Particle Trail', unlocked: false, claimed: false, icon: 'Sparkles' },
+  { tier: 8, requiredXp: 7500, title: 'Hyper-Velocity Scribe', reward: 'Gateron Red Lubricated Pack', unlocked: false, claimed: false, icon: 'Flame' },
+  { tier: 9, requiredXp: 10000, title: 'Cybernetic Master', reward: 'Neon Hologram Caret Style', unlocked: false, claimed: false, icon: 'Terminal' },
+  { tier: 10, requiredXp: 14000, title: 'Grandmaster of the Keys', reward: 'Legendary Sovereign Title', unlocked: false, claimed: false, icon: 'Crown' },
+];
+
+export function loadMasteryTiers(currentXp: number): MasteryTier[] {
+  let claimedTiers: number[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(MASTERY_PASS_STORAGE_KEY);
+      if (stored) {
+        claimedTiers = JSON.parse(stored);
+      }
+    } catch {}
+  }
+
+  return INITIAL_MASTERY_TIERS.map((tier) => ({
+    ...tier,
+    unlocked: currentXp >= tier.requiredXp,
+    claimed: claimedTiers.includes(tier.tier),
+  }));
+}
+
+export function claimMasteryTier(tierNumber: number, currentXp: number): { success: boolean; reward?: string } {
+  const target = INITIAL_MASTERY_TIERS.find((t) => t.tier === tierNumber);
+  if (!target || currentXp < target.requiredXp) {
+    return { success: false };
+  }
+
+  let claimedTiers: number[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(MASTERY_PASS_STORAGE_KEY);
+      if (stored) claimedTiers = JSON.parse(stored);
+      if (!claimedTiers.includes(tierNumber)) {
+        claimedTiers.push(tierNumber);
+        localStorage.setItem(MASTERY_PASS_STORAGE_KEY, JSON.stringify(claimedTiers));
+      }
+      return { success: true, reward: target.reward };
+    } catch {}
+  }
+  return { success: false };
+}
 
 export const LEVEL_TITLES: { minLevel: number; title: string }[] = [
   { minLevel: 1, title: 'Keyboard Novice' },
@@ -348,6 +401,8 @@ export function recordArcadeGameResult(
     wordsDestroyed?: number;
     bombsDefused?: number;
     multiplier?: number;
+    errorsByChar?: Record<string, number>;
+    patternStats?: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }>;
   }
 ): {
   updatedProgress: UserProgress;
@@ -410,6 +465,47 @@ export function recordArcadeGameResult(
     }
   }
 
+  // Update cumulative keyStats & patternStats if telemetry provided
+  const updatedKeyStats = { ...current.keyStats };
+  if (gameStats.errorsByChar) {
+    Object.entries(gameStats.errorsByChar).forEach(([char, count]) => {
+      if (!updatedKeyStats[char]) {
+        updatedKeyStats[char] = { typed: count, errors: count };
+      } else {
+        updatedKeyStats[char].errors += count;
+      }
+    });
+  }
+
+  const updatedPatternStats = { ...(current.patternStats || {}) };
+  if (gameStats.patternStats) {
+    Object.entries(gameStats.patternStats).forEach(([pattern, stat]) => {
+      const prev = updatedPatternStats[pattern];
+      if (!prev) {
+        updatedPatternStats[pattern] = {
+          typed: stat.typed,
+          errors: stat.errors,
+          totalLatencyMs: stat.totalLatencyMs,
+          avgLatencyMs: stat.avgLatencyMs,
+          ewmaScore: Math.round((stat.errors / Math.max(1, stat.typed)) * 100),
+        };
+      } else {
+        const totalTyped = prev.typed + stat.typed;
+        const totalErrors = prev.errors + stat.errors;
+        const totalLatency = prev.totalLatencyMs + stat.totalLatencyMs;
+        updatedPatternStats[pattern] = {
+          typed: totalTyped,
+          errors: totalErrors,
+          totalLatencyMs: totalLatency,
+          avgLatencyMs: Math.round(totalLatency / Math.max(1, totalTyped)),
+          ewmaScore: Math.round(((prev.ewmaScore * 0.75) + ((stat.errors / Math.max(1, stat.typed)) * 100) * 0.25)),
+        };
+      }
+    });
+  }
+
+  const confidenceScores = calculateKeyConfidence(updatedKeyStats, updatedPatternStats);
+
   const sessionSummary: TypingSessionSummary = {
     id: `arcade-${Date.now()}`,
     date: Date.now(),
@@ -439,6 +535,9 @@ export function recordArcadeGameResult(
       totalSessions: current.highScores.totalSessions + 1,
       totalTimePracticedSeconds: current.highScores.totalTimePracticedSeconds + (gameStats.elapsedSeconds || 60),
     },
+    keyStats: updatedKeyStats,
+    patternStats: updatedPatternStats,
+    confidenceScores,
     arcadeStats: updatedArcade,
   };
 

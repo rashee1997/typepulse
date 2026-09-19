@@ -1,5 +1,6 @@
-import { CharState, ErrorMode, ReplayEvent, TypingStats, WpmSample } from '@/types/typing';
-import { calculateKeyConfidence } from './adaptive-engine';
+import { CharState, ErrorMode, GhostDuelPayload, LiveHesitationSignal, ReplayEvent, TypingStats, WpmSample } from '@/types/typing';
+import { calculateKeyConfidence, generateDdaRemediationWords } from './adaptive-engine';
+import { soundFx } from './sound';
 
 export class TypingEngine {
   public text: string = '';
@@ -19,14 +20,29 @@ export class TypingEngine {
   public replayEvents: ReplayEvent[] = [];
   public errorMode: ErrorMode = 'standard';
   public quickWordSkip: boolean = false;
+  public ddaEnabled: boolean = true;
+  public codeAutoIndent: boolean = true;
+  public codeBracketSkip: boolean = true;
+  public hesitationSignals: LiveHesitationSignal[] = [];
+  public remediatedHesitationCount: number = 0;
   private keyIntervals: number[] = [];
   private lastKeyTimestamp: number = 0;
   private previousKey: string | null = null;
   private twoKeysAgo: string | null = null;
 
-  constructor(initialText: string = '', errorMode: ErrorMode = 'standard', quickWordSkip: boolean = false) {
+  constructor(
+    initialText: string = '',
+    errorMode: ErrorMode = 'standard',
+    quickWordSkip: boolean = false,
+    ddaEnabled: boolean = true,
+    codeAutoIndent: boolean = true,
+    codeBracketSkip: boolean = true
+  ) {
     this.errorMode = errorMode;
     this.quickWordSkip = quickWordSkip;
+    this.ddaEnabled = ddaEnabled;
+    this.codeAutoIndent = codeAutoIndent;
+    this.codeBracketSkip = codeBracketSkip;
     this.reset(initialText);
   }
 
@@ -55,6 +71,38 @@ export class TypingEngine {
     this.lastKeyTimestamp = 0;
     this.previousKey = null;
     this.twoKeysAgo = null;
+    this.hesitationSignals = [];
+    this.remediatedHesitationCount = 0;
+  }
+
+  public injectRemediationWords(words: string[]): boolean {
+    if (!words || words.length === 0 || this.currentIndex >= this.chars.length - 15) {
+      return false;
+    }
+    // Locate the word boundary at least 3 words ahead so active line never jumps visually
+    let insertIndex = this.currentIndex;
+    let spacesCount = 0;
+    while (insertIndex < this.chars.length && spacesCount < 3) {
+      if (this.chars[insertIndex].char === ' ') {
+        spacesCount++;
+      }
+      insertIndex++;
+    }
+
+    if (insertIndex >= this.chars.length) return false;
+
+    const insertionText = ' ' + words.join(' ');
+    const newChars: CharState[] = insertionText.split('').map(() => ({
+      char: '',
+      status: 'pending',
+    }));
+    insertionText.split('').forEach((ch, idx) => {
+      newChars[idx].char = ch;
+    });
+
+    this.chars.splice(insertIndex, 0, ...newChars);
+    this.text = this.chars.map((c) => c.char).join('');
+    return true;
   }
 
   public handleInput(key: string, ctrlKey: boolean = false): {
@@ -210,6 +258,38 @@ export class TypingEngine {
       patternsToTrack.push((this.twoKeysAgo + this.previousKey + normKey).toLowerCase());
     }
 
+    // Dynamic Difficulty Adjustment (DDA) monitoring on bigrams
+    if (this.ddaEnabled && this.previousKey && normKey && normKey !== ' ') {
+      const bigram = (this.previousKey + normKey).toLowerCase();
+      const recentIntervals = this.keyIntervals.slice(-12);
+      const baseline = recentIntervals.length >= 4
+        ? recentIntervals.reduce((a, b) => a + b, 0) / recentIntervals.length
+        : 220;
+
+      // 1. Check if an existing hesitation on this bigram has now been smoothly remediated
+      const pendingHesitation = this.hesitationSignals.find(
+        (h) => h.bigram === bigram && !h.remediated
+      );
+      if (pendingHesitation && isCorrect && currentInterval <= baseline * 1.15) {
+        pendingHesitation.remediated = true;
+        this.remediatedHesitationCount++;
+        soundFx.playDdaRemediationChime();
+      } else if ((currentInterval > baseline * 1.85 || !isCorrect) && !pendingHesitation) {
+        // 2. New hesitation detected: flag bigram and inject remediation pseudo-words into upcoming queue
+        const signal: LiveHesitationSignal = {
+          bigram,
+          sourceKey: this.previousKey,
+          targetKey: normKey,
+          latencyMs: currentInterval,
+          baselineMs: Math.round(baseline),
+          remediated: false,
+        };
+        this.hesitationSignals.push(signal);
+        const remediationWords = generateDdaRemediationWords(signal, 2);
+        this.injectRemediationWords(remediationWords);
+      }
+    }
+
     patternsToTrack.forEach((pattern) => {
       if (!this.patternStats[pattern]) {
         this.patternStats[pattern] = {
@@ -232,6 +312,20 @@ export class TypingEngine {
     this.previousKey = normKey;
 
     this.currentIndex++;
+
+    // Code Auto-Indentation & Bracket Matching bypass
+    if (isCorrect && this.codeAutoIndent && (key === '\n' || target.char === '\n')) {
+      // Automatically consume and validate leading spaces of the next indented block
+      let indentIdx = this.currentIndex;
+      while (indentIdx < this.chars.length && this.chars[indentIdx].char === ' ') {
+        this.chars[indentIdx].status = 'correct';
+        this.chars[indentIdx].timestamp = now;
+        this.correctKeystrokes++;
+        this.totalKeystrokes++;
+        indentIdx++;
+      }
+      this.currentIndex = indentIdx;
+    }
 
     // Mark next character as current if within bounds
     if (this.currentIndex < this.chars.length) {
@@ -455,8 +549,68 @@ export class TypingEngine {
       confidenceScores,
       confidenceScore,
       replayEvents: [...this.replayEvents],
+      hesitationSignals: [...this.hesitationSignals],
+      remediatedHesitationCount: this.remediatedHesitationCount,
     };
   }
+
+  public exportGhostPayload(author: string = 'Challenger'): string {
+    const stats = this.getStats();
+    const payload: GhostDuelPayload = {
+      version: 1,
+      id: 'ghost_' + Math.random().toString(36).substring(2, 9),
+      targetText: this.text,
+      wpm: stats.wpm,
+      accuracy: stats.accuracy,
+      author,
+      events: this.replayEvents.map((e) => [e.deltaMs, e.index, e.isCorrect]),
+    };
+    try {
+      if (typeof window !== 'undefined') {
+        return btoa(encodeURIComponent(JSON.stringify(payload)));
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  }
+
+  public activeGhostDuel: GhostDuelPayload | null = null;
+
+  public setGhostDuel(duel: GhostDuelPayload | null): void {
+    this.activeGhostDuel = duel;
+  }
+
+  public getGhostIndexAtTime(elapsedMs: number): number {
+    if (!this.activeGhostDuel || !this.activeGhostDuel.events.length) return 0;
+    let index = 0;
+    for (const [deltaMs, charIdx] of this.activeGhostDuel.events) {
+      if (deltaMs <= elapsedMs) {
+        index = charIdx;
+      } else {
+        break;
+      }
+    }
+    return index;
+  }
+
+  public static parseGhostPayload(raw: string): GhostDuelPayload | null {
+    if (!raw) return null;
+    try {
+      const decoded = decodeURIComponent(atob(raw));
+      const parsed = JSON.parse(decoded);
+      if (parsed && parsed.version === 1 && typeof parsed.targetText === 'string' && Array.isArray(parsed.events)) {
+        return parsed as GhostDuelPayload;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export function parseGhostDuelPayload(raw: string): GhostDuelPayload | null {
+  return TypingEngine.parseGhostPayload(raw);
 }
 
 /**

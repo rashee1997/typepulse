@@ -75,34 +75,10 @@ export class TypingEngine {
     this.remediatedHesitationCount = 0;
   }
 
-  public injectRemediationWords(words: string[]): boolean {
-    if (!words || words.length === 0 || this.currentIndex >= this.chars.length - 15) {
-      return false;
-    }
-    // Locate the word boundary at least 3 words ahead so active line never jumps visually
-    let insertIndex = this.currentIndex;
-    let spacesCount = 0;
-    while (insertIndex < this.chars.length && spacesCount < 3) {
-      if (this.chars[insertIndex].char === ' ') {
-        spacesCount++;
-      }
-      insertIndex++;
-    }
-
-    if (insertIndex >= this.chars.length) return false;
-
-    const insertionText = ' ' + words.join(' ');
-    const newChars: CharState[] = insertionText.split('').map(() => ({
-      char: '',
-      status: 'pending',
-    }));
-    insertionText.split('').forEach((ch, idx) => {
-      newChars[idx].char = ch;
-    });
-
-    this.chars.splice(insertIndex, 0, ...newChars);
-    this.text = this.chars.map((c) => c.char).join('');
-    return true;
+  public injectRemediationWords(_words: string[]): boolean {
+    // Disabled to prevent unwanted text mutations and race conditions during typing.
+    // Active typing sessions must never have their target text altered in-flight.
+    return false;
   }
 
   public handleInput(key: string, ctrlKey: boolean = false): {
@@ -275,7 +251,8 @@ export class TypingEngine {
         this.remediatedHesitationCount++;
         soundFx.playDdaRemediationChime();
       } else if ((currentInterval > baseline * 1.85 || !isCorrect) && !pendingHesitation) {
-        // 2. New hesitation detected: flag bigram and inject remediation pseudo-words into upcoming queue
+        // 2. New hesitation detected: flag bigram for biometrics HUD and post-test analytics
+        // Target text is strictly preserved to prevent visual jump and mixed-up texts
         const signal: LiveHesitationSignal = {
           bigram,
           sourceKey: this.previousKey,
@@ -285,8 +262,6 @@ export class TypingEngine {
           remediated: false,
         };
         this.hesitationSignals.push(signal);
-        const remediationWords = generateDdaRemediationWords(signal, 2);
-        this.injectRemediationWords(remediationWords);
       }
     }
 

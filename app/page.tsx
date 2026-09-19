@@ -35,8 +35,10 @@ import {
   processCompletedSession,
   INITIAL_USER_PROGRESS,
 } from '@/lib/progress-service';
+import { generateKeybrPracticeText, INITIAL_KEYBR_PROGRESSION } from '@/lib/adaptive-engine';
 
 // Components
+import { WordViewport } from '@/components/WordViewport';
 import { KeyboardVisualizer } from '@/components/KeyboardVisualizer';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ResultsModal } from '@/components/ResultsModal';
@@ -95,7 +97,9 @@ export default function Home() {
   const [timeLimit, setTimeLimit] = useState<number | null>(null); // null means word count mode
   const [includePunctuation, setIncludePunctuation] = useState(false);
   const [includeNumbers, setIncludeNumbers] = useState(false);
-  const [contentCategory, setContentCategory] = useState<'words' | 'quotes' | 'code'>('words');
+  const [contentCategory, setContentCategory] = useState<'words' | 'quotes' | 'code' | 'keybr'>('words');
+  const [selectedCodeLanguage, setSelectedCodeLanguage] = useState<string>('all');
+  const [unlockedKeyCelebration, setUnlockedKeyCelebration] = useState<string | null>(null);
 
   // Active Lesson or Mission
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
@@ -242,6 +246,8 @@ export default function Home() {
 
   // Synchronization refs for test configuration to avoid race conditions and stale state
   const contentCategoryRef = useRef(contentCategory);
+  const selectedCodeLanguageRef = useRef(selectedCodeLanguage);
+  const userProgressRef = useRef(userProgress);
   const wordCountRef = useRef(wordCount);
   const includePunctuationRef = useRef(includePunctuation);
   const includeNumbersRef = useRef(includeNumbers);
@@ -249,9 +255,12 @@ export default function Home() {
   const activeLessonRef = useRef<Lesson | null>(activeLesson);
   const activeMissionRef = useRef<AIMission | null>(activeMission);
   const gameModeRef = useRef<GameMode>(gameMode);
+  const currentTargetTextRef = useRef<string>('');
 
   useEffect(() => {
     contentCategoryRef.current = contentCategory;
+    selectedCodeLanguageRef.current = selectedCodeLanguage;
+    userProgressRef.current = userProgress;
     wordCountRef.current = wordCount;
     includePunctuationRef.current = includePunctuation;
     includeNumbersRef.current = includeNumbers;
@@ -261,6 +270,8 @@ export default function Home() {
     gameModeRef.current = gameMode;
   }, [
     contentCategory,
+    selectedCodeLanguage,
+    userProgress,
     wordCount,
     includePunctuation,
     includeNumbers,
@@ -278,8 +289,37 @@ export default function Home() {
       customTimeLimit?: number | null,
       lessonObj?: Lesson,
       missionObj?: AIMission,
-      overrideCategory?: 'words' | 'quotes' | 'code'
+      overrideCategory?: 'words' | 'quotes' | 'code' | 'keybr'
     ) => {
+      gameModeRef.current = mode;
+      setGameMode(mode);
+
+      if (mode === 'lesson') {
+        const resolvedLesson = lessonObj || activeLessonRef.current;
+        activeLessonRef.current = resolvedLesson;
+        setActiveLesson(resolvedLesson);
+        activeMissionRef.current = null;
+        setActiveMission(null);
+        if (resolvedLesson) {
+          setModeTitle(resolvedLesson.title);
+        }
+      } else if (mode === 'ai-mission') {
+        const resolvedMission = missionObj || activeMissionRef.current;
+        activeMissionRef.current = resolvedMission;
+        setActiveMission(resolvedMission);
+        activeLessonRef.current = null;
+        setActiveLesson(null);
+        if (resolvedMission) {
+          setModeTitle(resolvedMission.title);
+        }
+      } else if (mode === 'practice') {
+        activeLessonRef.current = null;
+        setActiveLesson(null);
+        activeMissionRef.current = null;
+        setActiveMission(null);
+        setModeTitle('Free Practice');
+      }
+
       const activeCat = overrideCategory || contentCategoryRef.current;
       let targetText = '';
 
@@ -297,7 +337,12 @@ export default function Home() {
       } else if (activeCat === 'quotes') {
         targetText = getRandomQuote();
       } else if (activeCat === 'code') {
-        targetText = getRandomCodeSnippet();
+        targetText = getRandomCodeSnippet(
+          selectedCodeLanguageRef.current === 'all' ? undefined : selectedCodeLanguageRef.current
+        );
+      } else if (activeCat === 'keybr') {
+        const progression = userProgressRef.current.keybrProgression || INITIAL_KEYBR_PROGRESSION;
+        targetText = generateKeybrPracticeText(progression, wordCountRef.current || 25);
       } else {
         targetText = generateRandomWords(
           wordCountRef.current,
@@ -306,7 +351,9 @@ export default function Home() {
         );
       }
 
+      currentTargetTextRef.current = targetText;
       setCurrentTargetText(targetText);
+      engineRef.current.ddaEnabled = false;
       engineRef.current.reset(targetText);
       setEngineChars([...engineRef.current.chars]);
       setEngineIndex(0);
@@ -352,11 +399,11 @@ export default function Home() {
     const currentLesson = activeLessonRef.current;
     const currentMission = activeMissionRef.current;
     if (gameModeRef.current === 'lesson' && currentLesson) {
-      setupNewTest('lesson', currentLesson.content, null, currentLesson);
+      setupNewTest('lesson', currentTargetTextRef.current || currentLesson.content, null, currentLesson);
     } else if (gameModeRef.current === 'ai-mission' && currentMission) {
-      setupNewTest('ai-mission', currentMission.content, currentMission.durationSeconds || null, undefined, currentMission);
+      setupNewTest('ai-mission', currentTargetTextRef.current || currentMission.content, currentMission.durationSeconds || null, undefined, currentMission);
     } else {
-      setupNewTest('practice');
+      setupNewTest('practice', currentTargetTextRef.current || undefined);
     }
   }, [setupNewTest]);
 
@@ -371,13 +418,18 @@ export default function Home() {
       soundFx.playSuccess();
     }
 
-    const { updatedProgress, sessionSummary, newAchievements, leveledUp } = processCompletedSession(
+    const { updatedProgress, sessionSummary, newAchievements, leveledUp, newlyUnlockedKey } = processCompletedSession(
       userProgress,
       stats,
       gameMode,
       modeTitle,
       activeLesson?.id
     );
+
+    if (newlyUnlockedKey) {
+      setUnlockedKeyCelebration(newlyUnlockedKey);
+      soundFx.playLevelUp();
+    }
 
     setUserProgress(updatedProgress);
     setLastResults({
@@ -565,7 +617,7 @@ export default function Home() {
       return;
     }
 
-    if (isResultsOpen || isSettingsOpen || isCoachChatOpen || isCommandPaletteOpen) return;
+    if (currentView !== 'typing' || isResultsOpen || isSettingsOpen || isCoachChatOpen || isCommandPaletteOpen) return;
 
     const key = e.key;
 
@@ -1371,6 +1423,23 @@ export default function Home() {
                     <Code className="w-3 h-3" />
                     <span>Code</span>
                   </button>
+                  <button
+                    onClick={() => {
+                      setContentCategory('keybr');
+                      setTimeLimit(null);
+                      setTimeRemaining(null);
+                      setupNewTest('practice', undefined, null, undefined, undefined, 'keybr');
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
+                      contentCategory === 'keybr'
+                        ? 'bg-accent text-accent-foreground font-bold shadow-sm'
+                        : 'text-text-muted hover:text-text-primary'
+                    }`}
+                    title="Keybr Adaptive Sequential Progression"
+                  >
+                    <Target className="w-3 h-3" />
+                    <span>Keybr</span>
+                  </button>
                 </div>
 
                 {/* Sub-parameters based on category */}
@@ -1477,16 +1546,51 @@ export default function Home() {
                       </button>
                       <span className="text-[11px] text-text-subtle font-mono hidden sm:inline">Wisdom & Mindset</span>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
+                  ) : contentCategory === 'code' ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1 bg-surface-muted p-0.5 rounded-lg border border-border">
+                        {['all', 'typescript', 'react', 'python', 'sql', 'rust', 'bash'].map((lang) => (
+                          <button
+                            key={lang}
+                            onClick={() => {
+                              setSelectedCodeLanguage(lang);
+                              setupNewTest('practice', undefined, null, undefined, undefined, 'code');
+                            }}
+                            className={`px-2 py-0.5 rounded text-xs capitalize transition-colors ${
+                              selectedCodeLanguage === lang
+                                ? 'bg-surface text-accent font-bold shadow-sm'
+                                : 'hover:text-text-primary text-text-muted'
+                            }`}
+                          >
+                            {lang}
+                          </button>
+                        ))}
+                      </div>
                       <button
                         onClick={() => setupNewTest('practice')}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-surface-muted hover:bg-surface-hover text-accent rounded-lg font-medium border border-border transition-colors"
+                        className="flex items-center gap-1 px-2.5 py-1 bg-surface-muted hover:bg-surface-hover text-accent rounded-lg font-medium border border-border transition-colors text-xs"
                       >
                         <RotateCcw className="w-3 h-3" />
                         <span>Next Snippet</span>
                       </button>
-                      <span className="text-[11px] text-text-subtle font-mono hidden sm:inline">TS · JS · React · SQL · Bash</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="font-mono text-text-subtle">
+                        Active Keys: <strong className="text-accent">{userProgress.keybrProgression?.activeAlphabet.join(', ') || 'e, n, i, t, r, l'}</strong>
+                      </span>
+                      {userProgress.keybrProgression?.currentFocusKey && (
+                        <span className="px-2 py-0.5 rounded bg-warning-subtle text-warning border border-warning/30 font-medium">
+                          Focus Target: <strong className="uppercase">{userProgress.keybrProgression.currentFocusKey}</strong> ({Math.round((userProgress.keybrProgression.confidenceMap[userProgress.keybrProgression.currentFocusKey] || 0.5) * 100)}% confidence)
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setupNewTest('practice')}
+                        className="flex items-center gap-1 px-2 py-0.5 bg-surface-muted hover:bg-surface-hover text-accent rounded-md font-medium border border-border transition-colors ml-1"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Regenerate Drill</span>
+                      </button>
                     </div>
                   )}
 
@@ -1747,12 +1851,35 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* THE TYPING TEXT STAGE */}
-                <div
-                  onClick={() => inputRef.current?.focus()}
-                  ref={textContainerRef}
-                  className="w-full h-56 bg-surface hover:bg-surface-muted/50 p-5 rounded-2xl border border-border shadow-inner overflow-hidden cursor-text flex flex-col justify-start relative select-none transition-colors focus-within:ring-2 focus-within:ring-accent/60"
-                  id="typing-text-canvas"
+                {/* Keybr Unlocked Key Celebration Alert */}
+                {unlockedKeyCelebration && (
+                  <div className="w-full mb-3 p-3 bg-accent-subtle border border-accent/40 rounded-xl flex items-center justify-between animate-fade-in shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🎉</span>
+                      <p className="text-sm font-medium text-accent">
+                        <strong>New Key Mastered & Unlocked: &apos;{unlockedKeyCelebration.toUpperCase()}&apos;!</strong> Added to your active typing alphabet.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setUnlockedKeyCelebration(null)}
+                      className="text-xs text-text-subtle hover:text-text-primary px-2 py-1 rounded cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {/* THE TYPING TEXT STAGE WITH SMOOTH 3-LINE VIRTUALIZED VIEWPORT */}
+                <WordViewport
+                  engineChars={engineChars}
+                  engineIndex={engineIndex}
+                  ghostIndex={ghostIndex}
+                  sessionState={sessionState}
+                  gameMode={gameMode}
+                  showGhostPacer={preferences.showGhostPacer}
+                  viewportMode={preferences.viewportMode || '3-line'}
+                  onContainerClick={() => inputRef.current?.focus()}
+                  activeCharRef={activeCharRef}
                 >
                   {/* In-flow keystroke capture input - occupies the stage without shifting layout or leaving the viewport */}
                   <input
@@ -1760,6 +1887,8 @@ export default function Home() {
                     type="text"
                     className="absolute inset-0 size-full opacity-0 cursor-default pointer-events-none caret-transparent"
                     onKeyDown={handleKeyDown}
+                    value=""
+                    onChange={() => {}}
                     autoFocus
                     inputMode="text"
                     autoCapitalize="off"
@@ -1771,65 +1900,13 @@ export default function Home() {
                     id="accessible-keystroke-capture"
                   />
 
-                  <div className="text-xl font-mono leading-relaxed tracking-wider break-words">
-                    {engineChars.map((charItem, index) => {
-                      const isCurrent = index === engineIndex;
-                      const isCorrect = charItem.status === 'correct';
-                      const isIncorrect = charItem.status === 'incorrect';
-                      const isCorrected = charItem.status === 'corrected';
-                      const isGhost =
-                        sessionState === 'playing' &&
-                        gameMode === 'practice' &&
-                        preferences.showGhostPacer !== false &&
-                        index === ghostIndex &&
-                        index !== engineIndex;
-
-                      return (
-                        <span
-                          key={index}
-                          ref={isCurrent ? activeCharRef : undefined}
-                          className={`relative transition-colors duration-75 ${
-                            isCorrect
-                              ? 'text-text-primary font-medium'
-                              : isIncorrect
-                              ? 'text-error underline decoration-error decoration-2 font-bold bg-error-subtle rounded'
-                              : isCorrected
-                              ? 'text-accent font-medium'
-                              : isCurrent
-                              ? 'text-accent font-bold'
-                              : 'text-text-subtle'
-                          }`}
-                        >
-                          {/* Blinking Caret on Current Character */}
-                          {isCurrent && (
-                            <span className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-accent animate-pulse rounded-full shadow-glow-accent-sm" />
-                          )}
-
-                          {/* Real-Time Ghost Pacer Caret */}
-                          {isGhost && (
-                            <span
-                              className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-primary/90 rounded-full shadow-glow-primary-sm pointer-events-none z-10"
-                              title="Ghost PB Pacer"
-                            >
-                              <span className="absolute -top-3.5 -left-1.5 text-[9px] text-primary font-mono select-none drop-shadow">
-                                👻
-                              </span>
-                            </span>
-                          )}
-
-                          {charItem.char}
-                        </span>
-                      );
-                    })}
-                  </div>
-
                   {/* Ready helper hint */}
                   {sessionState === 'ready' && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-surface-muted/90 rounded-full text-xs text-text-primary border border-border backdrop-blur-sm pointer-events-none shadow-sm">
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-surface-muted/90 rounded-full text-xs text-text-primary border border-border backdrop-blur-sm pointer-events-none shadow-sm z-10">
                       Press any key to start typing
                     </div>
                   )}
-                </div>
+                </WordViewport>
 
                 {/* Quick Hint */}
                 <div className="flex items-center justify-between text-[11px] text-text-subtle px-1 font-mono">
@@ -1920,6 +1997,8 @@ export default function Home() {
             localStorage.setItem('typepulse_preferences', JSON.stringify(newPrefs));
           } catch {}
         }}
+        userProgress={userProgress}
+        onProgressImported={(importedProgress) => setUserProgress(importedProgress)}
       />
 
       <ResultsModal

@@ -64,11 +64,15 @@ export const AdaptiveBossFightGame: React.FC<AdaptiveBossFightGameProps> = ({
     focusInput();
   }, [focusInput, combatState]);
 
+  const turnReqIdRef = useRef(0);
+
   // Load new turn
   const loadTurn = useCallback(
     async (lastResult: TurnResult) => {
+      const thisTurnReq = ++turnReqIdRef.current;
       const patterns = getWeakestPatterns(3, 'all', userProgress);
       const turn = await generateBossTurn(patterns, boss, lastResult, aiSettings);
+      if (turnReqIdRef.current !== thisTurnReq) return;
 
       setAttackName(turn.attackName);
       setBossDialogue(turn.bossDialogue);
@@ -81,12 +85,12 @@ export const AdaptiveBossFightGame: React.FC<AdaptiveBossFightGameProps> = ({
       setCombatState('active');
 
       // Trigger reactive dynamic banter
-      const currentStats = engine.getStats();
+      const currentStats = newEngine.getStats();
       generateOpponentBanter(currentStats.wpm || 50, boss.targetWpm, boss, aiSettings).then((b) => {
-        if (b) setBossDialogue(b);
+        if (b && turnReqIdRef.current === thisTurnReq) setBossDialogue(b);
       });
     },
-    [boss, userProgress, aiSettings, engine]
+    [boss, userProgress, aiSettings]
   );
 
   const startFight = () => {

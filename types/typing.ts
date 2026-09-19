@@ -224,6 +224,23 @@ export interface TypingSessionSummary {
   weakKeys: string[];
 }
 
+export interface KeybrProgressionState {
+  activeAlphabet: string[];   // Starts with ['e', 'n', 'i', 't', 'r', 'l']
+  unlockedKeyQueue: string[]; // Remaining keys: ['s', 'a', 'o', 'u', 'd', 'c', 'h', 'm', 'p', 'g', 'b', 'f', 'y', 'w', 'k', 'v', 'x', 'z', 'j', 'q']
+  currentFocusKey: string;    // The probationary key currently targeted
+  confidenceMap: Record<string, number>; // 0.0 - 1.0 per active key
+  isMastered: boolean;
+  totalKeysUnlocked: number;
+}
+
+export interface TypePulseBackupPackage {
+  schemaVersion: 2;
+  timestamp: number;
+  userProgress: UserProgress;
+  preferences?: AppPreferences;
+  checksum: string;
+}
+
 export interface UserProgress {
   xp: number;
   level: number;
@@ -245,6 +262,7 @@ export interface UserProgress {
   patternStats?: Record<string, PatternStat>;
   confidenceScores?: Record<string, number>; // 0.0 - 1.0 (Keybr confidence metric)
   arcadeStats?: ArcadeScores; // Unified arcade performance metrics
+  keybrProgression?: KeybrProgressionState; // Sequential touch-typing unlock pipeline
 }
 
 export interface QuestOption {

@@ -1,3 +1,5 @@
+import { KeybrProgressionState } from '@/types/typing';
+
 /**
  * Adaptive Touch-Typing Engine (Keybr Algorithm Implementation)
  * 
@@ -173,5 +175,129 @@ export function generateDdaRemediationWords(
   }
 
   return results.filter((w) => w.length >= 3 && w.length <= 8);
+}
+
+export const INITIAL_KEYBR_PROGRESSION: KeybrProgressionState = {
+  activeAlphabet: ['e', 'n', 'i', 't', 'r', 'l'],
+  unlockedKeyQueue: [
+    's', 'a', 'o', 'u', 'd', 'c', 'h', 'm', 'p', 'g', 'b', 'f', 'y', 'w', 'k', 'v', 'x', 'z', 'j', 'q'
+  ],
+  currentFocusKey: 'l',
+  confidenceMap: { e: 0.5, n: 0.5, i: 0.5, t: 0.5, r: 0.5, l: 0.5 },
+  isMastered: false,
+  totalKeysUnlocked: 6,
+};
+
+/**
+ * Checks if the user has mastered all active keys in the current probation set
+ * (Confidence >= 0.80 across at least 15 typed occurrences), and if so,
+ * unlocks the next letter in the queue.
+ */
+export function checkAndUpdateKeybrProgression(
+  current: KeybrProgressionState,
+  confidenceScores: Record<string, number>,
+  keyStats: Record<string, { typed: number; errors: number }>
+): {
+  updated: KeybrProgressionState;
+  newlyUnlockedKey?: string;
+  focusKeyMastered?: boolean;
+} {
+  const activeAlphabet = [...current.activeAlphabet];
+  const unlockedQueue = [...current.unlockedKeyQueue];
+  const confidenceMap = { ...current.confidenceMap };
+
+  // Update confidence map for active keys
+  activeAlphabet.forEach((k) => {
+    confidenceMap[k] = confidenceScores[k] ?? confidenceMap[k] ?? 0.5;
+  });
+
+  // Check if current probationary focus key has reached confidence threshold
+  const focusStat = keyStats[current.currentFocusKey];
+  const focusConfidence = confidenceMap[current.currentFocusKey] || 0.5;
+  const isFocusQualified = focusConfidence >= 0.78 && (focusStat?.typed || 0) >= 12;
+
+  // Check if ALL currently active keys satisfy mastery threshold
+  const allActiveQualified = activeAlphabet.every((k) => {
+    const score = confidenceMap[k] ?? 0.5;
+    const stat = keyStats[k];
+    return score >= 0.76 && (stat?.typed || 0) >= 10;
+  });
+
+  if (allActiveQualified && unlockedQueue.length > 0) {
+    const nextKey = unlockedQueue.shift()!;
+    activeAlphabet.push(nextKey);
+    confidenceMap[nextKey] = 0.5;
+
+    return {
+      updated: {
+        activeAlphabet,
+        unlockedKeyQueue: unlockedQueue,
+        currentFocusKey: nextKey,
+        confidenceMap,
+        isMastered: unlockedQueue.length === 0,
+        totalKeysUnlocked: activeAlphabet.length,
+      },
+      newlyUnlockedKey: nextKey,
+      focusKeyMastered: true,
+    };
+  }
+
+  return {
+    updated: {
+      ...current,
+      confidenceMap,
+    },
+    focusKeyMastered: isFocusQualified,
+  };
+}
+
+/**
+ * Generates custom phonotactic touch-typing text strictly constrained
+ * to the currently unlocked Keybr alphabet, with 65-75% focus on the probationary key.
+ */
+export function generateKeybrPracticeText(
+  progression: KeybrProgressionState,
+  wordCount: number = 25
+): string {
+  const allowedSet = new Set(progression.activeAlphabet.map((k) => k.toLowerCase()));
+  const focusKey = progression.currentFocusKey.toLowerCase();
+
+  const words: string[] = [];
+  const maxAttempts = 60;
+
+  for (let i = 0; i < wordCount; i++) {
+    const shouldTargetFocus = Math.random() < 0.7;
+    let chosenWord = '';
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const candidate = generateSinglePseudoWord(shouldTargetFocus ? focusKey : undefined);
+      // Check if all letters in candidate are in allowedSet
+      const isCompliant = candidate.split('').every((char) => allowedSet.has(char));
+      if (isCompliant && (!shouldTargetFocus || candidate.includes(focusKey))) {
+        chosenWord = candidate;
+        break;
+      }
+    }
+
+    if (!chosenWord) {
+      // Fallback: build a simple pronounceable combination from active alphabet
+      const vowels = progression.activeAlphabet.filter((k) => ['a', 'e', 'i', 'o', 'u'].includes(k));
+      const consonants = progression.activeAlphabet.filter((k) => !['a', 'e', 'i', 'o', 'u'].includes(k));
+
+      const v = vowels.length > 0 ? vowels[Math.floor(Math.random() * vowels.length)] : 'e';
+      const c1 = consonants.length > 0 ? consonants[Math.floor(Math.random() * consonants.length)] : 't';
+      const c2 = consonants.length > 0 ? consonants[Math.floor(Math.random() * consonants.length)] : 'n';
+
+      if (shouldTargetFocus && focusKey) {
+        chosenWord = `${c1}${v}${focusKey}`;
+      } else {
+        chosenWord = `${c1}${v}${c2}`;
+      }
+    }
+
+    words.push(chosenWord);
+  }
+
+  return words.join(' ');
 }
 

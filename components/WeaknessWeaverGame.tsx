@@ -66,9 +66,12 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
     focusInput();
   }, [focusInput, drillText, gameState]);
 
+  const reqSeqRef = useRef(0);
+
   // Load drill text
   const loadDrill = useCallback(
     async (patterns: string[]) => {
+      const thisSeq = ++reqSeqRef.current;
       setIsLoading(true);
       try {
         let text = prefetchedPassageRef.current;
@@ -76,6 +79,7 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
           text = await generateWeaknessNarrative(patterns, aiSettings);
         }
         prefetchedPassageRef.current = null;
+        if (reqSeqRef.current !== thisSeq) return;
         setDrillText(text);
 
         const newEngine = new TypingEngine(text);
@@ -88,45 +92,22 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
           prefetchedPassageRef.current = next;
         });
       } finally {
-        setIsLoading(false);
+        if (reqSeqRef.current === thisSeq) {
+          setIsLoading(false);
+        }
       }
     },
     [aiSettings]
   );
 
-  // Load drill text on mount and pattern updates
+  // Load drill text on initial mount strictly once to prevent race condition
+  const hasInitDrillRef = useRef(false);
   useEffect(() => {
-    let active = true;
-    const initDrill = async () => {
-      try {
-        let text = prefetchedPassageRef.current;
-        if (!text) {
-          text = await generateWeaknessNarrative(weakPatterns, aiSettings);
-        }
-        prefetchedPassageRef.current = null;
-        if (!active) return;
-        setDrillText(text);
-
-        const newEngine = new TypingEngine(text);
-        setEngine(newEngine);
-        setLiveStats(newEngine.getStats());
-        setGameState('playing');
-
-        generateWeaknessNarrative(weakPatterns, aiSettings).then((next) => {
-          prefetchedPassageRef.current = next;
-        });
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initDrill();
-    return () => {
-      active = false;
-    };
-  }, [weakPatterns, aiSettings]);
+    if (!hasInitDrillRef.current) {
+      hasInitDrillRef.current = true;
+      loadDrill(weakPatterns);
+    }
+  }, [loadDrill, weakPatterns]);
 
   const restartRound = () => {
     injectionsCountRef.current = 0;
@@ -175,8 +156,6 @@ export const WeaknessWeaverGame: React.FC<WeaknessWeaverGameProps> = ({
 
           if (recentErrorPatternRef.current.count >= 2) {
             injectionsCountRef.current += 1;
-            const clause = generateAdaptiveMicroClause(targetPattern);
-            engine.appendText(' ' + clause);
             setActiveReinforcement(targetPattern);
             soundFx.playComboMilestone();
             setTimeout(() => setActiveReinforcement(null), 4500);

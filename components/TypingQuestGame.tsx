@@ -57,20 +57,27 @@ export const TypingQuestGame: React.FC<TypingQuestGameProps> = ({
     focusInput();
   }, [focusInput, currentScene, selectedOption]);
 
-  // Load scene when quest scene ID changes
+  const questReqIdRef = useRef(0);
+  const questStateRef = useRef(questState);
+  useEffect(() => {
+    questStateRef.current = questState;
+  }, [questState]);
+
+  // Load scene only when quest scene ID changes
   useEffect(() => {
     let active = true;
+    const thisReq = ++questReqIdRef.current;
     const fetchScene = async () => {
       try {
-        const scene = await generateQuestScene(questState, 'success', aiSettings);
-        if (!active) return;
+        const scene = await generateQuestScene(questStateRef.current, 'success', aiSettings);
+        if (!active || questReqIdRef.current !== thisReq) return;
         setCurrentScene(scene);
         setSelectedOption(null);
         const newEngine = new TypingEngine(scene.promptText);
         setEngine(newEngine);
         setLiveStats(newEngine.getStats());
       } finally {
-        if (active) {
+        if (active && questReqIdRef.current === thisReq) {
           setIsLoading(false);
         }
       }
@@ -80,7 +87,7 @@ export const TypingQuestGame: React.FC<TypingQuestGameProps> = ({
     return () => {
       active = false;
     };
-  }, [questState, aiSettings]);
+  }, [questState.currentSceneId, aiSettings]);
 
   // Start typing a choice option
   const chooseOption = (opt: QuestOption) => {

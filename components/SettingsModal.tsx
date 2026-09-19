@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AISettings, AppPreferences, SwitchSoundProfile } from '@/types/typing';
+import { AISettings, AppPreferences, SwitchSoundProfile, UserProgress } from '@/types/typing';
 import { AI_PROVIDER_PRESETS, testAiConnection } from '@/lib/ai-service';
 import { soundFx } from '@/lib/sound';
-import { Check, Eye, EyeOff, Loader2, RefreshCw, Server, Shield, Sparkles, Volume2, VolumeX, X, AlertCircle, Sun, Moon, Monitor, Keyboard, Play, Zap, Code } from 'lucide-react';
+import { exportBackupPackage, exportSyncToken, importBackupPackage } from '@/lib/progress-service';
+import { Check, Eye, EyeOff, Loader2, RefreshCw, Server, Shield, Sparkles, Volume2, VolumeX, X, AlertCircle, Sun, Moon, Monitor, Keyboard, Play, Zap, Code, Database, Download, Upload, Copy, CheckCircle2, FileJson, Layers } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,6 +14,8 @@ interface SettingsModalProps {
   onSaveAiSettings: (settings: AISettings) => void;
   preferences: AppPreferences;
   onSavePreferences: (prefs: AppPreferences) => void;
+  userProgress?: UserProgress;
+  onProgressImported?: (newProgress: UserProgress) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -22,11 +25,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveAiSettings,
   preferences,
   onSavePreferences,
+  userProgress,
+  onProgressImported,
 }) => {
-  const [activeTab, setActiveTab] = useState<'ai' | 'preferences'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'preferences' | 'data'>('ai');
   const [formData, setFormData] = useState<AISettings>({ ...aiSettings });
   const [prefsData, setPrefsData] = useState<AppPreferences>({ ...preferences });
   const [showApiKey, setShowApiKey] = useState(false);
+  const [importInput, setImportInput] = useState('');
+  const [importResult, setImportResult] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
   const [testState, setTestState] = useState<{
     loading: boolean;
     success?: boolean;
@@ -158,6 +166,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <Volume2 className="w-4 h-4" />
             <span>Audio & Visuals</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('data')}
+            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'data'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-text-muted hover:text-text-primary'
+            }`}
+            id="tab-data-portability"
+          >
+            <Database className="w-4 h-4" />
+            <span>Data & Backup</span>
           </button>
         </div>
 
@@ -854,6 +874,190 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                   <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                 </label>
+              </div>
+
+              {/* Viewport Ergonomics (Monkeytype 3-Line Centered vs Multi-line) */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-accent" />
+                    <span className="font-medium text-text-primary">3-Line Centered Viewport Mode</span>
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Restricts typing arena to a fixed 3-line viewport with smooth line-centering transitions, avoiding jarring vertical eye jumps.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={prefsData.viewportMode === '3-line' || prefsData.viewportMode === undefined}
+                    onChange={(e) =>
+                      setPrefsData((prev) => ({
+                        ...prev,
+                        viewportMode: e.target.checked ? '3-line' : 'scrolling',
+                      }))
+                    }
+                    className="sr-only peer"
+                    id="viewport-mode-toggle"
+                  />
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Data & Backup Tab */}
+          {activeTab === 'data' && (
+            <div className="space-y-5">
+              {/* Security Banner */}
+              <div className="flex items-start gap-3 p-3.5 bg-accent-subtle border border-accent-border rounded-xl text-xs text-accent">
+                <Shield className="w-4 h-4 mt-0.5 text-accent shrink-0" />
+                <p>
+                  <strong className="font-semibold text-text-primary">Complete Data Ownership:</strong> All player levels, daily streaks, session histories, key latencies, and achievements can be archived into an offline JSON ledger or transferred across devices via a portable sync token.
+                </p>
+              </div>
+
+              {/* Export Section */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                      <Download className="w-4 h-4 text-accent" />
+                      Export Player Ledger
+                    </h4>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      Download your entire training history, high scores, confidence scores, and custom preferences.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!userProgress) return;
+                      const json = exportBackupPackage(userProgress, prefsData);
+                      const blob = new Blob([json], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `typepulse-backup-${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-surface border border-border hover:bg-surface-hover hover:border-accent text-text-primary text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                    id="export-json-button"
+                  >
+                    <FileJson className="w-4 h-4 text-accent" />
+                    <span>Download JSON Backup</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!userProgress) return;
+                      const token = exportSyncToken(userProgress, prefsData);
+                      navigator.clipboard.writeText(token).then(() => {
+                        setCopiedToken(true);
+                        setTimeout(() => setCopiedToken(false), 2500);
+                      });
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-surface border border-border hover:bg-surface-hover hover:border-accent text-text-primary text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                    id="copy-sync-token-button"
+                  >
+                    {copiedToken ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span className="text-emerald-400">Sync Token Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-accent" />
+                        <span>Copy Portable Sync Token</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Import / Restore Section */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl space-y-3">
+                <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-accent" />
+                  Restore or Sync Progress
+                </h4>
+                <p className="text-xs text-text-muted">
+                  Paste a base64 Sync Token or raw JSON package below to restore your progress. Merging is non-destructive (higher levels and session counts are preserved).
+                </p>
+
+                <textarea
+                  value={importInput}
+                  onChange={(e) => setImportInput(e.target.value)}
+                  placeholder="Paste JSON backup or Sync Token string here..."
+                  rows={3}
+                  className="w-full p-2.5 bg-surface border border-border rounded-lg text-xs font-mono text-text-primary focus:outline-none focus:border-accent resize-none"
+                  id="import-backup-input"
+                />
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <label className="px-3 py-1.5 rounded-lg bg-surface border border-border hover:bg-surface-hover text-text-secondary hover:text-text-primary text-xs font-medium cursor-pointer flex items-center gap-2">
+                    <FileJson className="w-3.5 h-3.5 text-accent" />
+                    <span>Load from .JSON File</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const content = event.target?.result as string;
+                          if (content) setImportInput(content);
+                        };
+                        reader.readAsText(file);
+                      }}
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    disabled={!importInput.trim()}
+                    onClick={() => {
+                      const res = importBackupPackage(importInput);
+                      setImportResult({ success: res.success, message: res.message });
+                      if (res.success && res.updatedProgress) {
+                        onProgressImported?.(res.updatedProgress);
+                        if (res.restoredPreferences) {
+                          setPrefsData(res.restoredPreferences);
+                          onSavePreferences(res.restoredPreferences);
+                        }
+                        setImportInput('');
+                      }
+                    }}
+                    className="px-4 py-1.5 rounded-lg bg-accent text-accent-foreground hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                    id="restore-backup-button"
+                  >
+                    Restore Data
+                  </button>
+                </div>
+
+                {importResult && (
+                  <div
+                    className={`p-3 rounded-lg border text-xs flex items-center gap-2 mt-2 ${
+                      importResult.success
+                        ? 'bg-success-subtle text-success border-success-border'
+                        : 'bg-error-subtle text-error border-error-border'
+                    }`}
+                  >
+                    {importResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>{importResult.message}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

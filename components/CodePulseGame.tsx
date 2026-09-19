@@ -66,12 +66,16 @@ export const CodePulseGame: React.FC<CodePulseGameProps> = ({
     }
   }, []);
 
+  const reqIdRef = useRef(0);
+
   const loadDrill = useCallback(
     async (lang: SupportedLanguage, comp: Complexity) => {
+      const thisReqId = ++reqIdRef.current;
       setIsLoading(true);
       setIsCompleted(false);
       try {
         const drill = await generateCodePulseDrill(lang, comp, aiSettings);
+        if (reqIdRef.current !== thisReqId) return;
         setCodeSnippet(drill.code);
         setDescription(drill.description);
         setTargetSymbols(drill.targetSymbols);
@@ -80,6 +84,7 @@ export const CodePulseGame: React.FC<CodePulseGameProps> = ({
         setEngine(newEngine);
         setLiveStats(newEngine.getStats());
       } catch {
+        if (reqIdRef.current !== thisReqId) return;
         const fallback = 'const calc = (items: number[]): number => items.reduce((a, b) => a + b, 0);';
         setCodeSnippet(fallback);
         setDescription('Array Reduction with Typed Parameter');
@@ -88,18 +93,24 @@ export const CodePulseGame: React.FC<CodePulseGameProps> = ({
         setEngine(newEngine);
         setLiveStats(newEngine.getStats());
       } finally {
-        setIsLoading(false);
-        setTimeout(focusInput, 50);
+        if (reqIdRef.current === thisReqId) {
+          setIsLoading(false);
+          setTimeout(focusInput, 50);
+        }
       }
     },
     [aiSettings, preferences?.errorMode, focusInput]
   );
 
+  const hasLoadedRef = useRef(false);
+  const prevLangCompRef = useRef(`${selectedLanguage}-${complexity}`);
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const key = `${selectedLanguage}-${complexity}`;
+    if (!hasLoadedRef.current || prevLangCompRef.current !== key) {
+      hasLoadedRef.current = true;
+      prevLangCompRef.current = key;
       loadDrill(selectedLanguage, complexity);
-    }, 0);
-    return () => clearTimeout(timer);
+    }
   }, [loadDrill, selectedLanguage, complexity]);
 
   useEffect(() => {
@@ -171,6 +182,8 @@ export const CodePulseGame: React.FC<CodePulseGameProps> = ({
         type="text"
         className="sr-only"
         onKeyDown={handleKeyDown}
+        value=""
+        onChange={() => {}}
         autoFocus
       />
 

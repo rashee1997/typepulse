@@ -273,6 +273,10 @@ class SoundSynthesizer {
     this.playSuccess();
   }
 
+  public playLevelUp() {
+    this.playSuccess();
+  }
+
   // Cadence metronome pacer tick (organic woodblock pulse for steady rhythm)
   public playMetronomeTick(accent: boolean = false, customVolume?: number) {
     if (!this.enabled) return;

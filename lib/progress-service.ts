@@ -1,6 +1,6 @@
-import { Achievement, ArcadeScores, GameMode, Lesson, MasteryTier, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
+import { Achievement, ArcadeScores, GameMode, Lesson, MasteryTier, TypingSessionSummary, TypingStats, UserProgress, AppPreferences } from '@/types/typing';
 import { INITIAL_ACHIEVEMENTS } from './achievements';
-import { calculateKeyConfidence } from './adaptive-engine';
+import { calculateKeyConfidence, checkAndUpdateKeybrProgression, INITIAL_KEYBR_PROGRESSION } from './adaptive-engine';
 
 const PROGRESS_STORAGE_KEY = 'typepulse_user_progress';
 const LEGACY_ARCADE_STORAGE_KEY = 'typepulse_arcade_stats';
@@ -118,6 +118,7 @@ export const INITIAL_USER_PROGRESS: UserProgress = {
   patternStats: {},
   confidenceScores: {},
   arcadeStats: { ...INITIAL_ARCADE_SCORES },
+  keybrProgression: { ...INITIAL_KEYBR_PROGRESSION },
 };
 
 export function loadUserProgress(): UserProgress {
@@ -136,12 +137,14 @@ export function loadUserProgress(): UserProgress {
       return {
         ...INITIAL_USER_PROGRESS,
         arcadeStats: { ...INITIAL_ARCADE_SCORES, ...legacyArcade },
+        keybrProgression: { ...INITIAL_KEYBR_PROGRESSION },
       };
     }
     const parsed = JSON.parse(raw);
     const keyStats = { ...(parsed.keyStats || {}) };
     const patternStats = { ...(parsed.patternStats || {}) };
     const confidenceScores = parsed.confidenceScores || calculateKeyConfidence(keyStats, patternStats);
+    const keybrProgression = parsed.keybrProgression || { ...INITIAL_KEYBR_PROGRESSION };
 
     const mergedArcadeStats: ArcadeScores = {
       ...INITIAL_ARCADE_SCORES,
@@ -157,6 +160,7 @@ export function loadUserProgress(): UserProgress {
       patternStats,
       confidenceScores,
       arcadeStats: mergedArcadeStats,
+      keybrProgression,
     };
   } catch {
     return INITIAL_USER_PROGRESS;
@@ -214,6 +218,7 @@ export function processCompletedSession(
   newAchievements: Achievement[];
   leveledUp: boolean;
   newLevel: number;
+  newlyUnlockedKey?: string;
 } {
   const today = new Date().toISOString().split('T')[0];
   let newStreak = prev.dailyStreak;
@@ -356,6 +361,14 @@ export function processCompletedSession(
 
   const confidenceScores = calculateKeyConfidence(updatedKeyStats, updatedPatternStats);
 
+  // Update Keybr adaptive character progression pipeline
+  const currentKeybr = prev.keybrProgression || { ...INITIAL_KEYBR_PROGRESSION };
+  const { updated: updatedKeybr, newlyUnlockedKey } = checkAndUpdateKeybrProgression(
+    currentKeybr,
+    confidenceScores,
+    updatedKeyStats
+  );
+
   const updatedProgress: UserProgress = {
     xp: totalXp,
     level: currentLevel,
@@ -371,6 +384,7 @@ export function processCompletedSession(
     patternStats: updatedPatternStats,
     confidenceScores,
     arcadeStats: prev.arcadeStats || { ...INITIAL_ARCADE_SCORES },
+    keybrProgression: updatedKeybr,
   };
 
   saveUserProgress(updatedProgress);
@@ -381,6 +395,7 @@ export function processCompletedSession(
     newAchievements,
     leveledUp,
     newLevel: currentLevel,
+    newlyUnlockedKey,
   };
 }
 
@@ -609,3 +624,129 @@ export function getWeakestPatterns(
     .slice(0, limit)
     .map(([pattern]) => pattern);
 }
+
+/**
+ * Generates an integer checksum for payload integrity verification
+ */
+export function generateChecksum(data: string): string {
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(16);
+}
+
+/**
+ * Exports complete player ledger, achievements, history, and preferences as valid JSON
+ */
+export function exportBackupPackage(userProgress: UserProgress, preferences?: AppPreferences): string {
+  const payload = {
+    schemaVersion: 2 as const,
+    timestamp: Date.now(),
+    userProgress,
+    preferences,
+    checksum: '',
+  };
+  payload.checksum = generateChecksum(JSON.stringify({ p: userProgress, pr: preferences }));
+  return JSON.stringify(payload, null, 2);
+}
+
+/**
+ * Encodes backup package into a portable base64 sync token for seamless clipboard transfers
+ */
+export function exportSyncToken(userProgress: UserProgress, preferences?: AppPreferences): string {
+  const json = exportBackupPackage(userProgress, preferences);
+  if (typeof window !== 'undefined') {
+    return btoa(encodeURIComponent(json));
+  }
+  return Buffer.from(json).toString('base64');
+}
+
+/**
+ * Non-destructively imports and merges user progress and preferences from JSON or base64 token
+ */
+export function importBackupPackage(rawJsonOrToken: string): {
+  success: boolean;
+  message: string;
+  updatedProgress?: UserProgress;
+  restoredPreferences?: AppPreferences;
+} {
+  try {
+    let cleanJson = rawJsonOrToken.trim();
+    if (!cleanJson) {
+      return { success: false, message: 'Empty input provided.' };
+    }
+
+    // Decode base64 token if not plain JSON
+    if (!cleanJson.startsWith('{')) {
+      try {
+        cleanJson = decodeURIComponent(atob(cleanJson));
+      } catch {
+        return { success: false, message: 'Invalid or corrupted sync token format.' };
+      }
+    }
+
+    const parsed = JSON.parse(cleanJson);
+    if (!parsed || typeof parsed !== 'object') {
+      return { success: false, message: 'Invalid data payload structure.' };
+    }
+
+    const importedProgress = (parsed.userProgress || parsed) as Partial<UserProgress>;
+    if (typeof importedProgress.xp !== 'number' || typeof importedProgress.level !== 'number') {
+      return { success: false, message: 'Missing essential user progress fields (xp, level).' };
+    }
+
+    const current = loadUserProgress();
+    const merged: UserProgress = {
+      ...current,
+      ...importedProgress,
+      xp: Math.max(current.xp, importedProgress.xp || 0),
+      level: Math.max(current.level, importedProgress.level || 1),
+      dailyStreak: Math.max(current.dailyStreak, importedProgress.dailyStreak || 1),
+      completedLessonIds: Array.from(
+        new Set([...(current.completedLessonIds || []), ...(importedProgress.completedLessonIds || [])])
+      ),
+      unlockedAchievements: Array.from(
+        new Set([...(current.unlockedAchievements || []), ...(importedProgress.unlockedAchievements || [])])
+      ),
+      highScores: {
+        bestWpm: Math.max(current.highScores.bestWpm, importedProgress.highScores?.bestWpm || 0),
+        bestAccuracy: Math.max(current.highScores.bestAccuracy, importedProgress.highScores?.bestAccuracy || 0),
+        highestCombo: Math.max(current.highScores.highestCombo, importedProgress.highScores?.highestCombo || 0),
+        totalTimePracticedSeconds:
+          (current.highScores.totalTimePracticedSeconds || 0) +
+          (importedProgress.highScores?.totalTimePracticedSeconds || 0),
+        totalSessions: (current.highScores.totalSessions || 0) + (importedProgress.highScores?.totalSessions || 0),
+      },
+      keyStats: { ...(current.keyStats || {}), ...(importedProgress.keyStats || {}) },
+      confidenceScores: { ...(current.confidenceScores || {}), ...(importedProgress.confidenceScores || {}) },
+      arcadeStats: {
+        ...(current.arcadeStats || INITIAL_USER_PROGRESS.arcadeStats!),
+        ...(importedProgress.arcadeStats || {}),
+      },
+      keybrProgression: importedProgress.keybrProgression || current.keybrProgression || { ...INITIAL_KEYBR_PROGRESSION },
+    };
+
+    saveUserProgress(merged);
+
+    let restoredPreferences: AppPreferences | undefined;
+    if (parsed.preferences && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('typepulse_preferences', JSON.stringify(parsed.preferences));
+        restoredPreferences = parsed.preferences;
+      } catch {}
+    }
+
+    return {
+      success: true,
+      message: `Restored progress: Level ${merged.level} (${merged.highScores.totalSessions} sessions, ${merged.unlockedAchievements.length} achievements).`,
+      updatedProgress: merged,
+      restoredPreferences,
+    };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Failed to import backup package.' };
+  }
+}
+

@@ -19,27 +19,57 @@ export const COMMON_WORDS_200 = [
   "silent", "silver", "solace", "spirit", "stream", "stride", "summit", "thrive", "vision", "zenith"
 ];
 
+export const LANGUAGE_CODE_SNIPPETS: Record<string, string[]> = {
+  typescript: [
+    "type DeepReadonly<T> = { readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P] };",
+    "export const filterById = <T extends { id: string }>(items: T[], id: string): T | undefined => items.find(i => i.id === id);",
+    "interface TypingState { readonly text: string; readonly index: number; readonly errors: number; }",
+    "const result: Promise<Result<T, E>> = async () => ({ ok: true, data: await fetchPayload() });",
+    "export type EventCallback<T extends keyof WindowEventMap> = (ev: WindowEventMap[T]) => void;",
+  ],
+  react: [
+    "const [state, setState] = useState<TypingStats>(() => calculateInitialStats());",
+    "useEffect(() => { const timer = setInterval(() => tick(), 1000); return () => clearInterval(timer); }, []);",
+    "const handleKey = useCallback((e: React.KeyboardEvent) => { if (e.key === 'Tab') e.preventDefault(); }, []);",
+    "const memoizedValue = useMemo(() => computeExpensiveMatrix(data, factor), [data, factor]);",
+    "export function Component({ children, className = '' }: PropsWithChildren<{ className?: string }>) { return <div className={className}>{children}</div>; }",
+  ],
+  python: [
+    "def quick_sort(arr: list[int]) -> list[int]: return [x for x in arr[1:] if x < arr[0]] + [arr[0]] if arr else []",
+    "@dataclass(frozen=True)\nclass PlayerProfile:\n    username: str\n    peak_wpm: float = 0.0\n    streak: int = 1",
+    "async def fetch_leaderboard(db: AsyncSession) -> list[dict]: return await db.execute(select(User).limit(10))",
+    "squares = {x: x ** 2 for x in range(1, 20) if x % 2 == 0}",
+    "with open('dataset.json', mode='r', encoding='utf-8') as f: data = json.load(f)",
+  ],
+  sql: [
+    "SELECT u.id, u.username, MAX(s.wpm) AS peak_wpm FROM users u JOIN sessions s ON u.id = s.user_id GROUP BY u.id HAVING peak_wpm >= 100;",
+    "WITH ranked_scores AS (SELECT user_id, wpm, DENSE_RANK() OVER (PARTITION BY mode ORDER BY wpm DESC) as rnk FROM typing_history) SELECT * FROM ranked_scores WHERE rnk <= 3;",
+    "CREATE INDEX CONCURRENTLY idx_sessions_user_created ON sessions(user_id, created_at DESC);",
+    "UPDATE player_stats SET total_xp = total_xp + 150, streak = streak + 1 WHERE id = $1 RETURNING *;",
+  ],
+  rust: [
+    "fn fibonacci(n: u64) -> u64 { match n { 0 => 0, 1 => 1, _ => fibonacci(n - 1) + fibonacci(n - 2) } }",
+    "pub fn process_event<E: std::error::Error>(payload: &[u8]) -> Result<ProcessedPacket, E> { todo!() }",
+    "let mut scores: HashMap<String, u32> = HashMap::with_capacity(64);",
+    "impl<'a, T: Clone> Iterator for CustomWindowIter<'a, T> { type Item = &'a [T]; fn next(&mut self) -> Option<Self::Item> { None } }",
+  ],
+  bash: [
+    "git checkout -b feature/adaptive-coach && git commit -m 'feat: neural key diagnosis' && git push origin main",
+    "docker run -d --name typepulse-redis -p 6379:6379 -v redis-data:/data redis:7-alpine --appendonly yes",
+    "find ./src -type f -name '*.tsx' | xargs grep -n 'processCompletedSession'",
+    "curl -sSL https://install.typepulse.dev | bash -s -- --release v2.0",
+  ],
+};
+
 export const TECH_CODE_SNIPPETS = [
+  ...Object.values(LANGUAGE_CODE_SNIPPETS).flat(),
   "const calculateWpm = (chars: number, seconds: number): number => Math.round((chars / 5) / (seconds / 60));",
   "export function useTypingEngine(config: EngineOptions) { const [state, dispatch] = useReducer(reducer, initial); }",
   "async function fetchAiCoachRecommendation(userId: string): Promise<AIMission> { return await api.get('/coach'); }",
   "const filteredKeys = Object.entries(errorStats).sort(([, a], [, b]) => b - a).map(([key]) => key);",
   "function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) { let timer: NodeJS.Timeout; }",
-  "import { useState, useEffect, useCallback, useMemo } from 'react'; export default function App() {}",
-  "git checkout -b feature/adaptive-coach && git commit -m 'feat: neural key diagnosis' && git push origin main",
-  "interface PlayerStats { totalKeystrokes: number; accuracy: number; comboStreak: number; currentTier: number; }",
-  "const user = await prisma.user.findUnique({ where: { id }, include: { profile: true, sessions: true } });",
-  "docker run -d --name typepulse-redis -p 6379:6379 -v redis-data:/data redis:7-alpine --appendonly yes",
   "export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));",
-  "const [data, setData] = useState<UserSession | null>(() => loadInitialFromCache());",
-  "SELECT u.id, u.username, MAX(s.wpm) AS peak_wpm FROM users u JOIN sessions s ON u.id = s.user_id GROUP BY u.id;",
-  "def quick_sort(arr: list[int]) -> list[int]: return [x for x in arr[1:] if x < arr[0]] + [arr[0]] if arr else []",
-  "const response = await fetch('/api/ai/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' } });",
-  "fn fibonacci(n: u64) -> u64 { match n { 0 => 0, 1 => 1, _ => fibonacci(n - 1) + fibonacci(n - 2) } }",
-  "curl -X POST https://api.openai.com/v1/chat/completions -H 'Authorization: Bearer $OPENAI_API_KEY'",
-  "const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Enter' && e.ctrlKey) submitForm(); };",
-  "type DeepPartial<T> = { [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P] };",
-  "npm install @tanstack/react-query zustand lucide-react framer-motion tailwind-merge"
+  "npm install @tanstack/react-query zustand lucide-react framer-motion tailwind-merge",
 ];
 
 export const INSPIRATIONAL_QUOTES = [
@@ -57,7 +87,11 @@ export const INSPIRATIONAL_QUOTES = [
   "Stay hungry, stay foolish. Dedicate yourself to deep focus and let distraction fade into silence."
 ];
 
-export function getRandomCodeSnippet(): string {
+export function getRandomCodeSnippet(language?: string): string {
+  if (language && language in LANGUAGE_CODE_SNIPPETS) {
+    const list = LANGUAGE_CODE_SNIPPETS[language];
+    return list[Math.floor(Math.random() * list.length)];
+  }
   return TECH_CODE_SNIPPETS[Math.floor(Math.random() * TECH_CODE_SNIPPETS.length)];
 }
 

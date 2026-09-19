@@ -56,6 +56,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   const [copiedGhost, setCopiedGhost] = useState(false);
   const [replayIdx, setReplayIdx] = useState<number>(0);
   const [isReplaying, setIsReplaying] = useState(false);
+  const [replaySpeed, setReplaySpeed] = useState<number>(1);
 
   const handleShareGhost = () => {
     if (!stats.replayEvents || stats.replayEvents.length === 0) return;
@@ -78,9 +79,10 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     } catch {}
   };
 
-  // Replay playhead timer
+  // Replay playhead timer with adjustable speed
   useEffect(() => {
     if (!isReplaying || !stats.replayEvents || stats.replayEvents.length === 0) return;
+    const tickMs = Math.max(16, Math.round(55 / replaySpeed));
     const interval = setInterval(() => {
       setReplayIdx((prev) => {
         if (prev >= (stats.replayEvents?.length || 1) - 1) {
@@ -89,9 +91,9 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
         }
         return prev + 1;
       });
-    }, 60);
+    }, tickMs);
     return () => clearInterval(interval);
-  }, [isReplaying, stats.replayEvents]);
+  }, [isReplaying, stats.replayEvents, replaySpeed]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -180,19 +182,27 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   const xpNeeded = getXpForNextLevel(userProgress.level);
   const xpPercent = Math.min(100, Math.round((userProgress.xp / xpNeeded) * 100));
 
-  // Build SVG Points for WPM Timeline
+  // Build SVG Points for Dual-Curve WPM Timeline (Net WPM + Raw WPM + Error Markers)
   const timelinePoints = stats.timeline;
   const maxTimelineWpm = Math.max(30, ...timelinePoints.map((p) => Math.max(p.wpm, p.rawWpm)));
-  const svgWidth = 460;
-  const svgHeight = 100;
+  const svgWidth = 540;
+  const svgHeight = 110;
 
-  const getSvgCoordinates = (sample: { time: number; wpm: number }, index: number) => {
+  const getSvgPoint = (val: number, index: number) => {
     const x = timelinePoints.length > 1 ? (index / (timelinePoints.length - 1)) * svgWidth : svgWidth / 2;
-    const y = svgHeight - (sample.wpm / maxTimelineWpm) * (svgHeight - 20) - 10;
-    return `${x},${y}`;
+    const y = svgHeight - (val / maxTimelineWpm) * (svgHeight - 24) - 12;
+    return { x, y, str: `${x},${y}` };
   };
 
-  const polylinePoints = timelinePoints.map(getSvgCoordinates).join(' ');
+  const netPolylinePoints = timelinePoints.map((s, i) => getSvgPoint(s.wpm, i).str).join(' ');
+  const rawPolylinePoints = timelinePoints.map((s, i) => getSvgPoint(s.rawWpm, i).str).join(' ');
+  const errorMarkers = timelinePoints
+    .map((s, i) => {
+      if (s.errors <= 0) return null;
+      const pt = getSvgPoint(s.wpm, i);
+      return { x: pt.x, y: pt.y, errors: s.errors, time: s.time };
+    })
+    .filter(Boolean) as { x: number; y: number; errors: number; time: number }[];
 
   return (
     <div
@@ -426,59 +436,195 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
                 </button>
               </div>
 
-              {/* Scrubber Controls */}
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsReplaying(!isReplaying)}
-                  className="p-1.5 rounded-lg bg-surface border border-border text-foreground hover:bg-surface-hover transition-colors"
-                  aria-label={isReplaying ? 'Pause replay' : 'Play replay'}
-                >
-                  {isReplaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                </button>
-                <div className="flex-1 flex items-center gap-2">
-                  <input
-                    type="range"
-                    min={0}
-                    max={stats.replayEvents.length - 1}
-                    value={replayIdx}
-                    onChange={(e) => {
-                      setIsReplaying(false);
-                      setReplayIdx(Number(e.target.value));
-                    }}
-                    className="w-full accent-purple-500 h-1.5 bg-border rounded-lg cursor-pointer"
-                  />
-                  <span className="text-[10px] font-mono text-foreground-muted shrink-0 w-16 text-right">
-                    {stats.replayEvents[replayIdx]?.deltaMs ? `${(stats.replayEvents[replayIdx].deltaMs / 1000).toFixed(1)}s` : '0.0s'}
-                  </span>
+              {/* Scrubber Controls & Speed Selector */}
+              <div className="flex flex-col gap-2.5 pt-1">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsReplaying(!isReplaying)}
+                    className="p-1.5 rounded-lg bg-surface border border-border text-foreground hover:bg-surface-hover transition-colors"
+                    aria-label={isReplaying ? 'Pause replay' : 'Play replay'}
+                  >
+                    {isReplaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                  </button>
+
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={stats.replayEvents.length - 1}
+                      value={replayIdx}
+                      onChange={(e) => {
+                        setIsReplaying(false);
+                        setReplayIdx(Number(e.target.value));
+                      }}
+                      className="w-full accent-purple-500 h-1.5 bg-border rounded-lg cursor-pointer"
+                    />
+                    <span className="text-[10px] font-mono text-foreground-muted shrink-0 w-14 text-right">
+                      {stats.replayEvents[replayIdx]?.deltaMs ? `${(stats.replayEvents[replayIdx].deltaMs / 1000).toFixed(1)}s` : '0.0s'}
+                    </span>
+                  </div>
+
+                  {/* Playback speed selector */}
+                  <div className="flex items-center gap-1 bg-surface border border-border rounded-lg p-0.5 shrink-0">
+                    {[0.5, 1, 1.5, 2].map((spd) => (
+                      <button
+                        key={spd}
+                        type="button"
+                        onClick={() => setReplaySpeed(spd)}
+                        className={`px-1.5 py-0.5 text-[10px] font-mono rounded font-semibold transition-colors ${
+                          replaySpeed === spd
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'text-text-muted hover:text-text-primary'
+                        }`}
+                      >
+                        {spd}x
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Instantaneous Event Indicator */}
+                {stats.replayEvents?.[replayIdx] && (
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-surface rounded-lg border border-border/80 text-[11px] font-mono">
+                    <div className="flex items-center gap-2">
+                      <span className="text-text-muted">Key:</span>
+                      <span className="font-bold text-text-primary px-1.5 py-0.5 bg-surface-muted rounded border border-border">
+                        {stats.replayEvents[replayIdx].key === ' ' ? '␣ Space' : stats.replayEvents[replayIdx].key}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-text-muted">
+                        Frame: #{replayIdx + 1}/{stats.replayEvents.length}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          stats.replayEvents[replayIdx].isCorrect
+                            ? 'bg-success-subtle text-success border border-success-border'
+                            : 'bg-error-subtle text-error border border-error-border'
+                        }`}
+                      >
+                        {stats.replayEvents[replayIdx].isCorrect ? 'Clean' : 'Error'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Replay Text Stage */}
+                {targetText && (
+                  <div className="p-3 bg-surface rounded-lg border border-border/70 font-mono text-xs max-h-24 overflow-y-auto leading-relaxed select-none">
+                    {targetText.slice(0, 180).split('').map((char, idx) => {
+                      const events = stats.replayEvents || [];
+                      const currentEventIdx = events[replayIdx]?.index ?? -1;
+                      const hasBeenTyped = idx <= currentEventIdx;
+                      const isCurrentCaret = idx === currentEventIdx;
+                      const pastEvent = events.slice(0, replayIdx + 1).find((e) => e.index === idx);
+                      const isErr = pastEvent && !pastEvent.isCorrect;
+
+                      return (
+                        <span
+                          key={idx}
+                          className={`relative ${
+                            isCurrentCaret
+                              ? 'text-purple-400 font-bold underline decoration-purple-400 decoration-2'
+                              : isErr
+                              ? 'text-error font-bold bg-error-subtle rounded'
+                              : hasBeenTyped
+                              ? 'text-text-primary font-medium'
+                              : 'text-text-subtle/50'
+                          }`}
+                        >
+                          {char}
+                        </span>
+                      );
+                    })}
+                    {targetText.length > 180 && <span className="text-text-subtle">...</span>}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* WPM Timeline Graph */}
+          {/* Multi-Layered WPM Timeline Graph (Net WPM, Raw WPM, Error Markers) */}
           {timelinePoints.length > 2 && (
             <div className="p-4 bg-surface-muted border border-border rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-accent" />
-                  Speed Trajectory
-                </span>
-                <span className="text-[11px] text-text-subtle font-mono">Peak: {maxTimelineWpm} WPM</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-accent" />
+                    Biometric Speed Trajectory
+                  </span>
+                  <div className="flex items-center gap-3 text-[10px] font-mono ml-2">
+                    <span className="flex items-center gap-1 text-accent">
+                      <span className="w-2.5 h-0.5 bg-accent rounded"></span>
+                      Net WPM
+                    </span>
+                    <span className="flex items-center gap-1 text-text-muted">
+                      <span className="w-2.5 h-0.5 border-b border-dashed border-text-muted"></span>
+                      Raw WPM
+                    </span>
+                    {errorMarkers.length > 0 && (
+                      <span className="flex items-center gap-1 text-error">
+                        <span className="size-1.5 rounded-full bg-error"></span>
+                        Errors ({errorMarkers.reduce((acc, e) => acc + e.errors, 0)})
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-text-subtle font-mono">
+                  <span>Avg: {stats.wpm} WPM</span>
+                  <span className="font-bold text-text-primary">Peak: {maxTimelineWpm} WPM</span>
+                </div>
               </div>
               <div className="w-full overflow-hidden">
-                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-24 stroke-accent fill-none overflow-visible">
-                  {/* Grid baseline */}
-                  <line x1="0" y1={svgHeight - 10} x2={svgWidth} y2={svgHeight - 10} stroke="var(--border)" strokeDasharray="3 3" />
-                  {/* Polyline */}
+                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-28 overflow-visible">
+                  {/* Grid Lines */}
+                  <line x1="0" y1={svgHeight - 12} x2={svgWidth} y2={svgHeight - 12} stroke="var(--border)" strokeDasharray="3 3" />
+                  <line x1="0" y1={svgHeight / 2} x2={svgWidth} y2={svgHeight / 2} stroke="var(--border)" strokeDasharray="2 4" opacity="0.6" />
+
+                  {/* Raw WPM Dashed Curve */}
+                  <polyline
+                    fill="none"
+                    stroke="var(--text-muted)"
+                    strokeWidth="1.75"
+                    strokeDasharray="4 3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    points={rawPolylinePoints}
+                    opacity="0.8"
+                  />
+
+                  {/* Net WPM Solid Accent Curve */}
                   <polyline
                     fill="none"
                     stroke="var(--accent)"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    points={polylinePoints}
+                    points={netPolylinePoints}
                   />
+
+                  {/* Error Markers Scatter Plot */}
+                  {errorMarkers.map((em, idx) => (
+                    <g key={idx}>
+                      <circle
+                        cx={em.x}
+                        cy={em.y}
+                        r="4"
+                        className="fill-error stroke-surface"
+                        strokeWidth="1.5"
+                      />
+                      <line
+                        x1={em.x}
+                        y1={em.y + 4}
+                        x2={em.x}
+                        y2={svgHeight - 12}
+                        stroke="var(--error)"
+                        strokeDasharray="2 2"
+                        opacity="0.5"
+                      />
+                    </g>
+                  ))}
                 </svg>
               </div>
             </div>

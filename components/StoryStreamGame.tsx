@@ -60,12 +60,14 @@ export const StoryStreamGame: React.FC<StoryStreamGameProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Extract weak keys
-  const weakKeys = Object.entries(userProgress.keyStats)
-    .filter(([char]) => char !== ' ')
-    .sort(([, a], [, b]) => b.errors - a.errors)
-    .slice(0, 4)
-    .map(([char]) => char);
+  // Extract weak keys stably
+  const weakKeys = React.useMemo(() => {
+    return Object.entries(userProgress.keyStats || {})
+      .filter(([char]) => char !== ' ')
+      .sort(([, a], [, b]) => b.errors - a.errors)
+      .slice(0, 4)
+      .map(([char]) => char);
+  }, [userProgress.keyStats]);
 
   const focusInput = useCallback(() => {
     if (inputRef.current) {
@@ -73,39 +75,50 @@ export const StoryStreamGame: React.FC<StoryStreamGameProps> = ({
     }
   }, []);
 
+  const requestIdRef = useRef(0);
+
   // Fetch or generate the next story chapter
   const loadChapter = useCallback(
     async (genre: string, previousContext?: string) => {
+      const thisReqId = ++requestIdRef.current;
       setIsLoading(true);
       setIsBranching(false);
       try {
         const seg = await generateStoryStreamSegment(genre, weakKeys, previousContext, aiSettings);
+        if (requestIdRef.current !== thisReqId) return;
         setCurrentText(seg.paragraph);
         setTargetWeakKeys(seg.weakKeys);
-        
+
         const newEngine = new TypingEngine(seg.paragraph, preferences?.errorMode || 'standard');
         setEngine(newEngine);
         setLiveStats(newEngine.getStats());
       } catch {
+        if (requestIdRef.current !== thisReqId) return;
         const fallback = 'Neon rain poured across the dark pavement as the runner accelerated through the alleyway, gripping the neural terminal with fierce concentration and steady hands.';
         setCurrentText(fallback);
         const newEngine = new TypingEngine(fallback);
         setEngine(newEngine);
         setLiveStats(newEngine.getStats());
       } finally {
-        setIsLoading(false);
-        setTimeout(focusInput, 50);
+        if (requestIdRef.current === thisReqId) {
+          setIsLoading(false);
+          setTimeout(focusInput, 50);
+        }
       }
     },
     [aiSettings, preferences?.errorMode, focusInput, weakKeys]
   );
 
+  // Load chapter on mount or genre switch only
+  const hasInitRef = useRef(false);
+  const currentGenreRef = useRef(selectedGenre);
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (!hasInitRef.current || currentGenreRef.current !== selectedGenre) {
+      hasInitRef.current = true;
+      currentGenreRef.current = selectedGenre;
       loadChapter(selectedGenre);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [loadChapter, selectedGenre]);
+    }
+  }, [selectedGenre, loadChapter]);
 
   useEffect(() => {
     focusInput();
@@ -201,6 +214,8 @@ export const StoryStreamGame: React.FC<StoryStreamGameProps> = ({
         type="text"
         className="sr-only"
         onKeyDown={handleKeyDown}
+        value=""
+        onChange={() => {}}
         autoFocus
       />
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { UserProgress, TypingStats } from '@/types/typing';
+import { UserProgress, TypingStats, CharState } from '@/types/typing';
 import { generateRandomWords } from '@/lib/word-banks';
 import { TypingEngine, calculateGhostPacerIndex } from '@/lib/typing-engine';
 import { soundFx } from '@/lib/sound';
@@ -37,6 +37,7 @@ export const EchoTypingGame: React.FC<EchoTypingGameProps> = ({
 
   const [passageText, setPassageText] = useState<string>(() => generateRandomWords(32, true, false));
   const [engine, setEngine] = useState<TypingEngine>(() => new TypingEngine(passageText));
+  const [currentChars, setCurrentChars] = useState<CharState[]>(() => new TypingEngine(passageText).getCharsSnapshot());
   const [gameState, setGameState] = useState<'ready' | 'countdown' | 'racing' | 'completed'>('ready');
   const [countdown, setCountdown] = useState(3);
   const [ghostIndex, setGhostIndex] = useState(0);
@@ -100,6 +101,7 @@ export const EchoTypingGame: React.FC<EchoTypingGameProps> = ({
         setGameState('racing');
         const newEngine = new TypingEngine(passageText);
         setEngine(newEngine);
+        setCurrentChars(newEngine.getCharsSnapshot());
         setLiveStats(newEngine.getStats());
         setGhostIndex(0);
         raceStartTimeRef.current = Date.now();
@@ -124,7 +126,17 @@ export const EchoTypingGame: React.FC<EchoTypingGameProps> = ({
     }
 
     if (e.key.length === 1 || e.key === 'Backspace') {
-      const res = engine.handleInput(e.key, e.ctrlKey);
+      e.preventDefault();
+      if (e.repeat && e.key !== 'Backspace') return;
+
+      const res = engine.handleInput(e.key, {
+        ctrlKey: e.ctrlKey || e.metaKey,
+        repeat: e.repeat,
+      });
+
+      if (res.ignored) return;
+
+      setCurrentChars(engine.getCharsSnapshot());
       setLiveStats(engine.getStats());
 
       if (res.isCorrect) {
@@ -142,7 +154,6 @@ export const EchoTypingGame: React.FC<EchoTypingGameProps> = ({
     }
   };
 
-  const currentChars = engine.chars;
   const playerPercent = Math.min(100, Math.round((engine.currentIndex / Math.max(1, engine.text.length)) * 100));
   const ghostPercent = Math.min(100, Math.round((ghostIndex / Math.max(1, engine.text.length)) * 100));
   const deltaChars = engine.currentIndex - ghostIndex;

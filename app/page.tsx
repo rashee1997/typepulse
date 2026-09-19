@@ -357,7 +357,7 @@ export default function Home() {
       setCurrentTargetText(targetText);
       engineRef.current.ddaEnabled = false;
       engineRef.current.reset(targetText);
-      setEngineChars([...engineRef.current.chars]);
+      setEngineChars(engineRef.current.getCharsSnapshot());
       setEngineIndex(0);
       setGhostIndex(0);
       setLiveStats(engineRef.current.getStats());
@@ -587,57 +587,6 @@ export default function Home() {
     };
   }, []);
 
-  // Handle Input Changes (Mobile virtual keyboard, IME, and autocomplete fallback)
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (!val || isResultsOpen || isSettingsOpen || isCoachChatOpen || isCommandPaletteOpen) {
-      if (inputRef.current) inputRef.current.value = '';
-      return;
-    }
-
-    const lastChar = val[val.length - 1];
-    if (lastChar && currentView === 'typing') {
-      const expectedChar = engineRef.current.chars[engineRef.current.currentIndex]?.char;
-      const res = engineRef.current.handleInput(lastChar);
-      setEngineChars([...engineRef.current.chars]);
-      setEngineIndex(engineRef.current.currentIndex);
-      scheduleStatsUpdate();
-
-      if (res.success) {
-        if (sessionState === 'ready') {
-          setSessionState('playing');
-        }
-        if (res.isCorrect) {
-          soundFx.playKeyClick();
-          if (engineRef.current.combo > 0 && engineRef.current.combo % 25 === 0) {
-            soundFx.playCombo();
-          }
-          if (lastChar === ' ') {
-            setLiveAnnouncement('Word correct');
-          }
-        } else {
-          soundFx.playError();
-          setLiveAnnouncement(
-            `Error: typed ${lastChar === ' ' ? 'space' : lastChar}, expected ${expectedChar === ' ' ? 'space' : expectedChar}`
-          );
-        }
-
-        if (res.isFinished) {
-          if (statsRafIdRef.current !== null) {
-            cancelAnimationFrame(statsRafIdRef.current);
-            statsRafIdRef.current = null;
-          }
-          setLiveStats(engineRef.current.getStats());
-          finalizeSession();
-        }
-      }
-    }
-
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
-  };
-
   // Reset Keybr progression back to the initial probationary set
   const handleResetKeybr = () => {
     const resetProgression = { ...INITIAL_KEYBR_PROGRESSION };
@@ -668,10 +617,26 @@ export default function Home() {
 
     if (currentView !== 'typing' || isResultsOpen || isSettingsOpen || isCoachChatOpen || isCommandPaletteOpen) return;
 
+    // Ignore composition / IME dead keys
+    if (e.nativeEvent.isComposing || e.key === 'Process') {
+      return;
+    }
+
     const key = e.key;
 
-    // Prevent default scrolling for Space
-    if (key === ' ') {
+    // Prevent auto-repeat double-typing on printable characters
+    if (e.repeat && key !== 'Backspace') {
+      e.preventDefault();
+      return;
+    }
+
+    // Prevent default browser behavior on handled typing keys to prevent duplicate input,
+    // browser back navigation on backspace, page scroll on space, and input field mutation.
+    if (
+      key === ' ' ||
+      key === 'Backspace' ||
+      (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey)
+    ) {
       e.preventDefault();
     }
 
@@ -684,10 +649,18 @@ export default function Home() {
       soundFx.playKeyClick();
     }
 
-    // Handle typing input inside engine
+    // Handle typing input inside engine with strict index tracking and options
     const expectedChar = engineRef.current.chars[engineRef.current.currentIndex]?.char;
-    const res = engineRef.current.handleInput(key, e.ctrlKey || e.metaKey);
-    setEngineChars([...engineRef.current.chars]);
+    const res = engineRef.current.handleInput(key, {
+      ctrlKey: e.ctrlKey || e.metaKey,
+      repeat: e.repeat,
+    });
+
+    if (res.ignored) {
+      return;
+    }
+
+    setEngineChars(engineRef.current.getCharsSnapshot());
     setEngineIndex(engineRef.current.currentIndex);
     scheduleStatsUpdate();
 
@@ -1984,7 +1957,7 @@ export default function Home() {
                     className="absolute inset-0 size-full opacity-0 cursor-text pointer-events-auto caret-transparent z-10"
                     onKeyDown={handleKeyDown}
                     value=""
-                    onChange={handleInputChange}
+                    onChange={() => {}}
                     autoFocus
                     inputMode="text"
                     autoCapitalize="off"

@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
     });
 
     const data = await response.json();

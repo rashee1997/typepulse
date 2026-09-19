@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { UserProgress, TypingStats } from '@/types/typing';
+import { UserProgress, TypingStats, CharState } from '@/types/typing';
 import { getDailyPassage, DailyPassageData } from '@/lib/word-banks';
 import { TypingEngine } from '@/lib/typing-engine';
 import { soundFx } from '@/lib/sound';
@@ -32,6 +32,7 @@ export const DailyChallengeGame: React.FC<DailyChallengeGameProps> = ({
 }) => {
   const [passage, setPassage] = useState<DailyPassageData>(() => getDailyPassage());
   const [engine, setEngine] = useState<TypingEngine>(() => new TypingEngine(getDailyPassage().text));
+  const [currentChars, setCurrentChars] = useState<CharState[]>(() => new TypingEngine(getDailyPassage().text).getCharsSnapshot());
   const [gameState, setGameState] = useState<'ready' | 'countdown' | 'playing' | 'completed'>('ready');
   const [countdown, setCountdown] = useState(3);
   const [liveStats, setLiveStats] = useState<TypingStats>(() => engine.getStats());
@@ -80,6 +81,7 @@ export const DailyChallengeGame: React.FC<DailyChallengeGameProps> = ({
         setGameState('playing');
         const newEngine = new TypingEngine(passage.text);
         setEngine(newEngine);
+        setCurrentChars(newEngine.getCharsSnapshot());
         setLiveStats(newEngine.getStats());
         soundFx.playStreak();
       }
@@ -103,7 +105,17 @@ export const DailyChallengeGame: React.FC<DailyChallengeGameProps> = ({
 
     // Process character in TypingEngine
     if (e.key.length === 1 || e.key === 'Backspace') {
-      const res = engine.handleInput(e.key, e.ctrlKey);
+      e.preventDefault();
+      if (e.repeat && e.key !== 'Backspace') return;
+
+      const res = engine.handleInput(e.key, {
+        ctrlKey: e.ctrlKey || e.metaKey,
+        repeat: e.repeat,
+      });
+
+      if (res.ignored) return;
+
+      setCurrentChars(engine.getCharsSnapshot());
       setLiveStats(engine.getStats());
 
       if (res.isCorrect) {
@@ -135,7 +147,6 @@ export const DailyChallengeGame: React.FC<DailyChallengeGameProps> = ({
     }
   };
 
-  const currentChars = engine.chars;
   const progressPercent = Math.min(100, Math.round((engine.currentIndex / Math.max(1, engine.text.length)) * 100));
 
   // Determine Daily Medal

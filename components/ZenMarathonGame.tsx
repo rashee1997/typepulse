@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { UserProgress, TypingStats } from '@/types/typing';
+import { UserProgress, TypingStats, CharState } from '@/types/typing';
 import { INSPIRATIONAL_QUOTES, COMMON_WORDS_200 } from '@/lib/word-banks';
 import { TypingEngine } from '@/lib/typing-engine';
 import { soundFx } from '@/lib/sound';
@@ -37,6 +37,7 @@ export const ZenMarathonGame: React.FC<ZenMarathonGameProps> = ({
   };
 
   const [engine] = useState<TypingEngine>(() => new TypingEngine(generateZenBatch()));
+  const [currentChars, setCurrentChars] = useState<CharState[]>(() => engine.getCharsSnapshot());
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [liveStats, setLiveStats] = useState<TypingStats>(() => engine.getStats());
@@ -70,10 +71,21 @@ export const ZenMarathonGame: React.FC<ZenMarathonGameProps> = ({
     }
 
     if (e.key.length === 1 || e.key === 'Backspace') {
-      const res = engine.handleInput(e.key, e.ctrlKey);
+      e.preventDefault();
+      if (e.repeat && e.key !== 'Backspace') return;
+
+      const res = engine.handleInput(e.key, {
+        ctrlKey: e.ctrlKey || e.metaKey,
+        repeat: e.repeat,
+      });
+
+      if (res.ignored) return;
+
       if (engine.currentIndex > engine.text.length - 80) {
         engine.appendText(' ' + generateZenBatch());
       }
+
+      setCurrentChars(engine.getCharsSnapshot());
       setLiveStats(engine.getStats());
 
       if (soundEnabled) {
@@ -96,7 +108,6 @@ export const ZenMarathonGame: React.FC<ZenMarathonGameProps> = ({
     onExit();
   };
 
-  const currentChars = engine.chars;
   // Sliding window around currentIndex for clean view
   const visibleStart = Math.max(0, engine.currentIndex - 45);
   const visibleChars = currentChars.slice(visibleStart, visibleStart + 160);

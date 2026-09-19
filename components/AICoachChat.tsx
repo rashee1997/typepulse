@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import { AISettings, UserProgress } from '@/types/typing';
 import { askAiCoachQuestion } from '@/lib/ai-service';
@@ -34,6 +34,18 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -82,6 +94,9 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
       <div
         className="w-full sm:w-[480px] max-h-[55vh] h-[480px] bg-surface border border-primary-border sm:rounded-2xl rounded-t-2xl shadow-modal flex flex-col overflow-hidden backdrop-blur-md"
         id="ai-coach-chatbox"
+        role="dialog"
+        aria-modal="false"
+        aria-label="AI Coach Sensei Chat"
       >
         {/* Sleek Sensei Header */}
         <div className="px-4 py-3 border-b border-border bg-surface-muted flex items-center justify-between shrink-0">
@@ -95,11 +110,11 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-bold text-text-primary text-xs tracking-wide">Sensei KeyPulse</h3>
-                <span className="px-1.5 py-0.2 rounded bg-primary-subtle border border-primary-border text-[9px] font-mono text-primary font-semibold">
+                <span className="px-1.5 py-0.5 rounded bg-primary-subtle border border-primary-border text-[11px] font-mono text-primary font-semibold">
                   COACH
                 </span>
               </div>
-              <p className="text-[10px] text-text-muted">
+              <p className="text-xs text-text-muted">
                 {aiSettings.provider === 'gemini' ? 'Gemini 2.5 Flash' : aiSettings.model || 'Neural Sensei'} • Half-docked
               </p>
             </div>
@@ -108,7 +123,7 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="px-2 py-1 text-[11px] font-medium text-text-muted hover:text-accent rounded-lg hover:bg-surface-hover transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-text-muted hover:text-accent rounded-lg hover:bg-surface-hover transition-colors"
               title="Configure API Endpoint"
             >
               Settings
@@ -116,8 +131,9 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-text-muted hover:text-text-primary rounded-lg hover:bg-surface-hover transition-colors"
-              title="Close Sensei"
+              className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
+              title="Close Sensei (Esc)"
+              aria-label="Close Sensei Chat"
             >
               <X className="w-4 h-4" />
             </button>

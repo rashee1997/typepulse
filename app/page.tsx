@@ -46,6 +46,8 @@ import { LessonsView } from '@/components/LessonsView';
 import { AnalyticsView } from '@/components/AnalyticsView';
 import { AIMissionBoard } from '@/components/AIMissionBoard';
 import { AIDrillModal } from '@/components/AIDrillModal';
+import { CommandPaletteModal, CommandItem } from '@/components/CommandPaletteModal';
+import { BiometricLatencyHUD } from '@/components/BiometricLatencyHUD';
 
 import {
   Activity,
@@ -60,8 +62,12 @@ import {
   Ghost,
   Keyboard,
   Lock,
+  Maximize2,
+  Minimize2,
+  Moon,
   Quote,
   RotateCcw,
+  Search,
   Settings,
   Shield,
   Sparkles,
@@ -70,7 +76,6 @@ import {
   Trophy,
   Volume2,
   VolumeX,
-  Moon,
   Zap,
 } from 'lucide-react';
 
@@ -135,6 +140,8 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCoachChatOpen, setIsCoachChatOpen] = useState(false);
   const [isResultsOpen, setIsResultsOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
 
   // Completed Session Result Cache
   const [lastResults, setLastResults] = useState<{
@@ -449,8 +456,53 @@ export default function Home() {
     }
   }, [engineIndex]);
 
+  // Global Keyboard Shortcuts (Cmd+K / Ctrl+K Command Palette, Shift+Z Zen Mode, Escape)
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+      // Cmd+K or Ctrl+K opens Command Palette
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+      // Shift+Z toggles Zen Mode (when not typing inside an active typing test)
+      if (
+        e.shiftKey &&
+        e.key.toLowerCase() === 'z' &&
+        document.activeElement !== inputRef.current
+      ) {
+        e.preventDefault();
+        setIsZenMode((prev) => !prev);
+        return;
+      }
+      // Escape in Zen mode exits Zen mode if no dialogs are open
+      if (
+        e.key === 'Escape' &&
+        isZenMode &&
+        !isSettingsOpen &&
+        !isCoachChatOpen &&
+        !isResultsOpen &&
+        !isCommandPaletteOpen
+      ) {
+        e.preventDefault();
+        setIsZenMode(false);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [isZenMode, isSettingsOpen, isCoachChatOpen, isResultsOpen, isCommandPaletteOpen]);
+
   // Handle Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Command Palette Trigger (Cmd+K or Ctrl+K)
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      setIsCommandPaletteOpen(true);
+      return;
+    }
+
     // Tab to reset current session (in lessons: re-practices same letters)
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -458,7 +510,7 @@ export default function Home() {
       return;
     }
 
-    if (isResultsOpen || isSettingsOpen || isCoachChatOpen) return;
+    if (isResultsOpen || isSettingsOpen || isCoachChatOpen || isCommandPaletteOpen) return;
 
     const key = e.key;
 
@@ -608,6 +660,249 @@ export default function Home() {
 
   const currentChar = engineChars[engineIndex]?.char || '';
 
+  // Commands list for CommandPaletteModal
+  const commandList: CommandItem[] = [
+    {
+      id: 'mode-words-15',
+      title: 'Words: 15 Words',
+      subtitle: 'Quick high-speed sprint',
+      category: 'Word Count',
+      icon: <Zap className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('words');
+        setTimeLimit(null);
+        setTimeRemaining(null);
+        setWordCount(15);
+        setupNewTest('practice', undefined, null);
+      },
+    },
+    {
+      id: 'mode-words-25',
+      title: 'Words: 25 Words',
+      subtitle: 'Standard benchmark test',
+      category: 'Word Count',
+      icon: <Zap className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('words');
+        setTimeLimit(null);
+        setTimeRemaining(null);
+        setWordCount(25);
+        setupNewTest('practice', undefined, null);
+      },
+    },
+    {
+      id: 'mode-words-50',
+      title: 'Words: 50 Words',
+      subtitle: 'Endurance and consistency run',
+      category: 'Word Count',
+      icon: <Zap className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('words');
+        setTimeLimit(null);
+        setTimeRemaining(null);
+        setWordCount(50);
+        setupNewTest('practice', undefined, null);
+      },
+    },
+    {
+      id: 'mode-words-100',
+      title: 'Words: 100 Words',
+      subtitle: 'Full marathon discipline',
+      category: 'Word Count',
+      icon: <Zap className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('words');
+        setTimeLimit(null);
+        setTimeRemaining(null);
+        setWordCount(100);
+        setupNewTest('practice', undefined, null);
+      },
+    },
+    {
+      id: 'mode-time-15',
+      title: 'Time: 15 Seconds',
+      subtitle: 'High intensity blitz test',
+      category: 'Time Limit',
+      icon: <Clock className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('words');
+        setTimeLimit(15);
+        setTimeRemaining(15);
+        setupNewTest('practice', undefined, 15);
+      },
+    },
+    {
+      id: 'mode-time-30',
+      title: 'Time: 30 Seconds',
+      subtitle: 'Standard timed benchmark',
+      category: 'Time Limit',
+      icon: <Clock className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('words');
+        setTimeLimit(30);
+        setTimeRemaining(30);
+        setupNewTest('practice', undefined, 30);
+      },
+    },
+    {
+      id: 'mode-time-60',
+      title: 'Time: 60 Seconds',
+      subtitle: 'Official 1-minute certification trial',
+      category: 'Time Limit',
+      icon: <Clock className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('words');
+        setTimeLimit(60);
+        setTimeRemaining(60);
+        setupNewTest('practice', undefined, 60);
+      },
+    },
+    {
+      id: 'category-quotes',
+      title: 'Quotes: Famous Wisdom',
+      subtitle: 'Punctuation-rich prose and philosophy',
+      category: 'Mode',
+      icon: <Quote className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('quotes');
+        setTimeLimit(null);
+        setTimeRemaining(null);
+        setupNewTest('practice', undefined, null, undefined, undefined, 'quotes');
+      },
+    },
+    {
+      id: 'category-code',
+      title: 'Code: Real Syntax Snippets',
+      subtitle: 'TypeScript, React, SQL & Bash symbols',
+      category: 'Mode',
+      icon: <Code className="w-4 h-4" />,
+      action: () => {
+        setContentCategory('code');
+        setTimeLimit(null);
+        setTimeRemaining(null);
+        setupNewTest('practice', undefined, null, undefined, undefined, 'code');
+      },
+    },
+    {
+      id: 'toggle-zen-mode',
+      title: isZenMode ? 'Exit Zen Mode' : 'Enter Zen Mode',
+      subtitle: isZenMode ? 'Restore header and HUD controls' : 'Distraction-free minimalist typing stage',
+      category: 'Mode',
+      icon: isZenMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />,
+      shortcut: 'Shift+Z',
+      action: () => setIsZenMode((prev) => !prev),
+    },
+    {
+      id: 'view-academy',
+      title: 'Go to Academy Curriculum',
+      subtitle: 'Tier 1 to 4 structured touch typing lessons',
+      category: 'Views',
+      icon: <BookOpen className="w-4 h-4" />,
+      action: () => setCurrentView('lessons'),
+    },
+    {
+      id: 'view-ai-missions',
+      title: 'Go to AI Missions Board',
+      subtitle: 'Adaptive daily quests and challenges',
+      category: 'Views',
+      icon: <Bot className="w-4 h-4" />,
+      action: () => setCurrentView('ai-missions'),
+    },
+    {
+      id: 'view-arcade',
+      title: 'Go to Arcade Arena',
+      subtitle: 'Nitro Racer, Orbital Defense, Bomb Defusal & more',
+      category: 'Views',
+      icon: <Gamepad2 className="w-4 h-4" />,
+      action: () => setCurrentView('word-rush'),
+    },
+    {
+      id: 'view-analytics',
+      title: 'Go to Analytics & Heatmap',
+      subtitle: 'Speed trends, accuracy charts, and finger confidence',
+      category: 'Views',
+      icon: <Activity className="w-4 h-4" />,
+      action: () => setCurrentView('analytics'),
+    },
+    {
+      id: 'action-drill-weak',
+      title: 'AI Drill: Target Weak Keys',
+      subtitle: 'Target your slowest or most error-prone letters',
+      category: 'AI & Drills',
+      icon: <Sparkles className="w-4 h-4" />,
+      action: () => {
+        const errorKeys = Object.entries(userProgress.keyStats || {})
+          .filter(([_, s]) => s.errors > 0 && s.typed > 2)
+          .sort((a, b) => b[1].errors / b[1].typed - a[1].errors / a[1].typed)
+          .map(([k]) => k)
+          .slice(0, 4);
+
+        if (errorKeys.length > 0) {
+          handleTrainWeakKeys(errorKeys);
+        } else {
+          setupNewTest('practice');
+        }
+      },
+    },
+    {
+      id: 'action-coach-chat',
+      title: 'Open Sensei AI Coach',
+      subtitle: 'Ask for ergonomics and rhythm guidance',
+      category: 'AI & Drills',
+      icon: <Bot className="w-4 h-4" />,
+      action: () => setIsCoachChatOpen(true),
+    },
+    {
+      id: 'toggle-theme',
+      title: isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme',
+      subtitle: 'Daylight or Twilight palette',
+      category: 'Settings & Audio',
+      icon: isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />,
+      action: toggleTheme,
+    },
+    {
+      id: 'toggle-audio',
+      title: preferences.soundEnabled ? 'Mute Mechanical Audio' : 'Enable Mechanical Audio',
+      subtitle: 'Auditory feedback clicks and combos',
+      category: 'Settings & Audio',
+      icon: preferences.soundEnabled ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />,
+      action: () => {
+        const nextSound = !preferences.soundEnabled;
+        setPreferences((p) => ({ ...p, soundEnabled: nextSound }));
+        soundFx.setConfig(nextSound, preferences.soundVolume);
+      },
+    },
+    {
+      id: 'toggle-ghost',
+      title: preferences.showGhostPacer !== false ? 'Disable Ghost PB Pacer' : 'Enable Ghost PB Pacer',
+      subtitle: 'Real-time race against your personal best',
+      category: 'Settings & Audio',
+      icon: <Ghost className="w-4 h-4" />,
+      action: () => {
+        const nextState = preferences.showGhostPacer === false ? true : false;
+        const updated: AppPreferences = { ...preferences, showGhostPacer: nextState };
+        setPreferences(updated);
+        try {
+          localStorage.setItem('typepulse_preferences', JSON.stringify(updated));
+        } catch {}
+      },
+    },
+    {
+      id: 'toggle-keyboard',
+      title: preferences.showKeyboard ? 'Hide Virtual Keyboard' : 'Show Virtual Keyboard',
+      subtitle: 'Visual finger placement and reach guide',
+      category: 'Settings & Audio',
+      icon: <Keyboard className="w-4 h-4" />,
+      action: () => {
+        const updated: AppPreferences = { ...preferences, showKeyboard: !preferences.showKeyboard };
+        setPreferences(updated);
+        try {
+          localStorage.setItem('typepulse_preferences', JSON.stringify(updated));
+        } catch {}
+      },
+    },
+  ];
+
   return (
     <div className="h-dvh w-full max-w-full bg-background text-foreground flex flex-col font-sans selection:bg-accent selection:text-accent-foreground overflow-hidden">
       {/* Screen-reader-only status channel for completed words, errors, and session results */}
@@ -616,7 +911,33 @@ export default function Home() {
       </div>
 
       {/* TOP GLOBAL NAVBAR - SLEEK RESPONSIVE HEADER WITH ZERO OVERFLOW */}
-      <header className="w-full max-w-full border-b border-border bg-surface/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2 shrink-0 shadow-sm overflow-x-clip">
+      {isZenMode ? (
+        <header className="w-full max-w-7xl mx-auto px-4 py-3 flex items-center justify-between shrink-0 bg-transparent z-40">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+            <span className="text-xs font-mono text-text-subtle">Zen Focus Mode</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsCommandPaletteOpen(true)}
+              className="px-2.5 py-1 rounded-xl bg-surface/70 hover:bg-surface border border-border text-xs text-text-muted hover:text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Command Palette (Cmd+K)"
+            >
+              <Search className="w-3.5 h-3.5 text-accent" />
+              <span className="font-mono text-[10px]">⌘K</span>
+            </button>
+            <button
+              onClick={() => setIsZenMode(false)}
+              className="px-3 py-1 rounded-xl bg-surface/80 hover:bg-surface border border-border text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Exit Zen Mode (Esc)"
+            >
+              <Minimize2 className="w-3.5 h-3.5 text-accent" />
+              <span>Exit Zen (Esc)</span>
+            </button>
+          </div>
+        </header>
+      ) : (
+        <header className="w-full max-w-full border-b border-border bg-surface/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2 shrink-0 shadow-sm overflow-x-clip">
         <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3 min-w-0">
           {/* Brand & Logo */}
           <button
@@ -708,6 +1029,19 @@ export default function Home() {
 
           {/* Right Action Icons: Rank, Streak, Coach & Settings */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Command Palette Launcher */}
+            <button
+              onClick={() => setIsCommandPaletteOpen(true)}
+              className="px-2 py-1 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover flex items-center gap-1.5 text-xs transition-colors shrink-0 cursor-pointer"
+              title="Open Command Palette (Cmd+K)"
+              id="open-command-palette-btn"
+            >
+              <Search className="w-3.5 h-3.5 text-accent shrink-0" />
+              <kbd className="hidden sm:inline-block px-1 py-0.2 rounded bg-surface border border-border text-[10px] font-mono text-text-subtle">
+                ⌘K
+              </kbd>
+            </button>
+
             {/* Daily Streak Pill */}
             <div
               className="px-2 sm:px-2.5 py-1 rounded-xl bg-surface-muted border border-border flex items-center gap-1 text-xs text-accent font-bold font-mono shrink-0"
@@ -781,6 +1115,7 @@ export default function Home() {
           </div>
         </div>
       </header>
+      )}
 
       {/* SCROLLABLE APP BODY - single scroll container beneath the sticky header */}
       <div className="flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
@@ -1026,6 +1361,26 @@ export default function Home() {
                       />
                     </button>
                   </div>
+
+                  {/* Zen Flow Mode Quick Toggle */}
+                  <div className="border-l border-border pl-2">
+                    <button
+                      onClick={() => setIsZenMode((z) => !z)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        isZenMode
+                          ? 'bg-accent text-accent-foreground border border-accent-border font-bold shadow-sm'
+                          : 'text-text-muted hover:text-text-primary border border-transparent'
+                      }`}
+                      title="Toggle Minimalist Zen Flow Mode (Shift+Z)"
+                      id="zen-mode-toggle-btn"
+                    >
+                      {isZenMode ? <Minimize2 className="w-3.5 h-3.5 text-accent" /> : <Maximize2 className="w-3.5 h-3.5 text-accent" />}
+                      <span>Zen</span>
+                      <kbd className="hidden sm:inline-block px-1 rounded bg-surface border border-border text-[9px] font-mono text-text-subtle">
+                        Shift+Z
+                      </kbd>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1145,10 +1500,16 @@ export default function Home() {
               </div>
             )}
 
-            {/* DUAL-COLUMN DESKTOP WORKSPACE */}
-            <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            {/* DUAL-COLUMN DESKTOP WORKSPACE / MINIMALIST ZEN FLOW */}
+            <div
+              className={`w-full ${
+                isZenMode
+                  ? 'max-w-3xl mx-auto flex flex-col gap-4 items-center justify-center py-4'
+                  : 'grid grid-cols-1 lg:grid-cols-12 gap-4 items-start'
+              }`}
+            >
               {/* LEFT COLUMN: LIVE METRICS & TYPING STAGE */}
-              <div className="lg:col-span-6 flex flex-col gap-3">
+              <div className={`${isZenMode ? 'w-full' : 'lg:col-span-6'} flex flex-col gap-3`}>
                 {/* LIVE METRICS HUD */}
                 <div className="w-full flex items-center justify-between px-5 py-2.5 bg-surface rounded-2xl border border-border shadow-sm">
                   <div className="flex items-center gap-5">
@@ -1321,31 +1682,41 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: EYE-LEVEL FINGER HUD & KEYBOARD VISUALIZER */}
-              <div className="lg:col-span-6 flex flex-col gap-2">
-                {preferences.showKeyboard ? (
-                  <KeyboardVisualizer
-                    targetChar={currentChar}
-                    activeKey={activeKeyPressed}
-                    showFingerGuide={preferences.showFingerGuidance}
-                    keyStats={userProgress.keyStats}
-                    confidenceScores={userProgress.confidenceScores}
-                    isBasicLesson={gameMode === 'lesson' && activeLesson?.tier === 1}
-                    activeLessonTitle={activeLesson?.title}
-                    showAnimatedHands={preferences.showAnimatedHandsInLessons !== false}
+              {/* RIGHT COLUMN: EYE-LEVEL FINGER HUD, KEYBOARD VISUALIZER & BIOMETRIC LATENCY */}
+              {!isZenMode && (
+                <div className="lg:col-span-6 flex flex-col gap-3">
+                  {preferences.showKeyboard ? (
+                    <KeyboardVisualizer
+                      targetChar={currentChar}
+                      activeKey={activeKeyPressed}
+                      showFingerGuide={preferences.showFingerGuidance}
+                      keyStats={userProgress.keyStats}
+                      confidenceScores={userProgress.confidenceScores}
+                      isBasicLesson={gameMode === 'lesson' && activeLesson?.tier === 1}
+                      activeLessonTitle={activeLesson?.title}
+                      showAnimatedHands={preferences.showAnimatedHandsInLessons !== false}
+                    />
+                  ) : (
+                    <div className="h-64 rounded-2xl border border-dashed border-border flex flex-col items-center justify-center text-text-muted text-xs p-6 text-center">
+                      <p>Virtual keyboard visualizer is turned off.</p>
+                      <button
+                        onClick={() => setPreferences((p) => ({ ...p, showKeyboard: true }))}
+                        className="mt-2 text-accent hover:underline"
+                      >
+                        Enable Keyboard Visualizer
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Real-Time Biometric Keystroke Latency HUD */}
+                  <BiometricLatencyHUD
+                    stats={liveStats}
+                    userProgress={userProgress}
+                    onDrillKey={(k) => handleTrainWeakKeys([k])}
+                    defaultExpanded={false}
                   />
-                ) : (
-                  <div className="h-64 rounded-2xl border border-dashed border-border flex flex-col items-center justify-center text-text-muted text-xs p-6 text-center">
-                    <p>Virtual keyboard visualizer is turned off.</p>
-                    <button
-                      onClick={() => setPreferences((p) => ({ ...p, showKeyboard: true }))}
-                      className="mt-2 text-accent hover:underline"
-                    >
-                      Enable Keyboard Visualizer
-                    </button>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1446,6 +1817,12 @@ export default function Home() {
           setIsCoachChatOpen(false);
           setIsSettingsOpen(true);
         }}
+      />
+
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        commands={commandList}
       />
     </div>
   );

@@ -6,7 +6,8 @@ import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, Lesson, 
 import { generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
 import { getXpForNextLevel } from '@/lib/progress-service';
 import confetti from 'canvas-confetti';
-import { Award, Bot, CheckCircle2, ChevronRight, Flame, RotateCcw, Sparkles, Target, Zap } from 'lucide-react';
+import { Award, Bot, CheckCircle2, ChevronRight, Flame, RotateCcw, Sparkles, Target, Zap, X } from 'lucide-react';
+import { BiometricLatencyHUD } from './BiometricLatencyHUD';
 
 interface ResultsModalProps {
   isOpen: boolean;
@@ -110,6 +111,18 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     };
   }, [isOpen, stats, modeTitle, userProgress.level, userProgress.highScores.bestWpm, aiSettings, leveledUp, newAchievements.length]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleCreateMission = async () => {
@@ -141,19 +154,37 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   const polylinePoints = timelinePoints.map(getSvgCoordinates).join(' ');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-overlay backdrop-blur-md overflow-y-auto animate-fadeIn" id="results-modal-backdrop">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-overlay backdrop-blur-md overflow-y-auto animate-fadeIn"
+      id="results-modal-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div 
         className="w-full max-w-3xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden my-auto"
         id="results-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="results-modal-title"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-border bg-surface-muted flex items-center justify-between">
           <div>
             <span className="text-xs uppercase tracking-wider font-semibold text-accent">Session Complete</span>
-            <h2 className="text-xl font-bold text-text-primary">{modeTitle}</h2>
+            <h2 className="text-xl font-bold text-text-primary" id="results-modal-title">{modeTitle}</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span className="text-xs text-text-muted">Duration: {stats.elapsedSeconds}s</span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors cursor-pointer"
+              title="Close Results (Esc)"
+              aria-label="Close session results dialog"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -378,6 +409,14 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
               </button>
             </div>
           )}
+
+          {/* Biometric Keystroke Latency HUD */}
+          <BiometricLatencyHUD
+            stats={stats}
+            userProgress={userProgress}
+            onDrillKey={(key) => onTrainWeakKeys([key])}
+            defaultExpanded={true}
+          />
 
           {/* AI Coach Analysis Card */}
           <div className="p-4 bg-gradient-to-br from-primary-subtle to-surface-muted border border-primary-border rounded-xl space-y-3">

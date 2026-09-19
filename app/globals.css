@@ -77,7 +77,7 @@
   --text-primary: hsl(var(--slate-900-hsl));         /* #0f172a Primary heading & body */
   --text-secondary: hsl(var(--slate-700-hsl));       /* #334155 Secondary descriptors (8.8:1) */
   --text-muted: hsl(var(--slate-500-hsl));           /* #64748b Metadata & hints (4.6:1 AA) */
-  --text-subtle: hsl(var(--slate-400-hsl));          /* #94a3b8 Passive decorative labels */
+  --text-subtle: hsl(215 19% 45%);                   /* #475569 Adjusted for WCAG AA compliance (>= 4.5:1 on light) */
   --text-inverted: hsl(var(--pure-white-hsl));       /* #ffffff Crisp text on dark pills */
 
   /* Brand Accent (Golden Amber calibrated for daylight contrast) */

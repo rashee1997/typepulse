@@ -299,7 +299,11 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
   };
 
   return (
-    <div className="w-full max-w-full overflow-hidden flex flex-col items-center select-none" id="keyboard-visualizer-container">
+    <div
+      className="w-full max-w-full overflow-hidden flex flex-col items-center select-none"
+      id="keyboard-visualizer-container"
+      aria-hidden="true"
+    >
       {/* Eye-Level Live Finger Placement Cockpit */}
       {showFingerGuide && (
         <div className="w-full order-1 mb-3 p-3 bg-surface border border-border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">

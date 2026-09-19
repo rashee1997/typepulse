@@ -251,9 +251,57 @@ export function checkAndUpdateKeybrProgression(
   };
 }
 
+// High-frequency English words used to construct realistic Keybr drills
+const COMMON_DICTIONARY_WORDS: string[] = [
+  // E N I T R L set words
+  'tree', 'line', 'tell', 'tire', 'rent', 'tent', 'nine', 'teen', 'rein', 'tile',
+  'enter', 'letter', 'little', 'title', 'entire', 'retire', 'liner', 'inlet', 'tier',
+  'elite', 'inert', 'litter', 'titer', 'trill', 'tiller', 'nettle', 'riddle', 'relit',
+  'leer', 'tern', 'teen', 'lint', 'rite', 'rite', 'reel', 'reeled', 'intent', 'inter',
+  // S additions
+  'test', 'rest', 'site', 'list', 'nest', 'rise', 'sister', 'silent', 'listen',
+  'street', 'settle', 'series', 'resist', 'stir', 'slit', 'sets', 'senses', 'stress',
+  // A additions
+  'star', 'train', 'start', 'state', 'stare', 'slate', 'stain', 'raise', 'taste',
+  'strain', 'attend', 'tail', 'rain', 'rate', 'late', 'lane', 'near', 'tear',
+  'area', 'alert', 'learn', 'plant', 'real', 'alter', 'aerial', 'strait', 'attain',
+  // O additions
+  'to', 'for', 'on', 'or', 'one', 'word', 'not', 'do', 'how', 'so', 'some', 'more',
+  'look', 'two', 'no', 'who', 'oil', 'now', 'long', 'come', 'over', 'sound', 'only',
+  // U additions
+  'use', 'up', 'out', 'would', 'into', 'number', 'could', 'house', 'study', 'found',
+  // D additions
+  'had', 'said', 'down', 'did', 'made', 'day', 'order', 'under', 'read', 'need', 'land',
+  // C additions
+  'can', 'each', 'which', 'call', 'come', 'place', 'city', 'close', 'children',
+  // H additions
+  'the', 'that', 'with', 'this', 'have', 'from', 'what', 'when', 'there', 'she', 'their',
+  // General high-frequency core
+  'about', 'many', 'then', 'them', 'these', 'her', 'make', 'like', 'him', 'time',
+  'has', 'write', 'go', 'see', 'people', 'my', 'than', 'first', 'water', 'been',
+  'its', 'find', 'get', 'part', 'new', 'take', 'work', 'know', 'year', 'live',
+  'me', 'back', 'give', 'most', 'very', 'after', 'thing', 'our', 'just', 'name',
+  'good', 'sentence', 'man', 'think', 'say', 'great', 'where', 'help', 'through',
+  'much', 'before', 'right', 'too', 'mean', 'old', 'any', 'same', 'boy', 'follow',
+  'came', 'want', 'show', 'also', 'around', 'form', 'three', 'small', 'set', 'put',
+  'end', 'does', 'another', 'well', 'large', 'must', 'big', 'even', 'such', 'because',
+  'turn', 'here', 'why', 'ask', 'went', 'men', 'different', 'home', 'us', 'move',
+  'try', 'kind', 'hand', 'picture', 'again', 'change', 'off', 'play', 'spell', 'air',
+  'away', 'animal', 'point', 'page', 'mother', 'answer', 'still', 'should', 'world',
+  'high', 'every', 'food', 'between', 'own', 'below', 'country', 'last', 'school',
+  'father', 'keep', 'never', 'earth', 'eye', 'light', 'thought', 'head', 'story',
+  'saw', 'far', 'sea', 'draw', 'left', 'run', 'while', 'press', 'night', 'few',
+  'north', 'open', 'seem', 'together', 'next', 'white', 'begin', 'got', 'walk',
+  'example', 'ease', 'paper', 'group', 'always', 'music', 'those', 'both', 'mark',
+  'often', 'until', 'mile', 'river', 'car', 'feet', 'care', 'second', 'book', 'carry',
+  'took', 'eat', 'room', 'friend', 'began', 'idea', 'fish', 'mountain', 'stop',
+  'once', 'base', 'hear', 'horse', 'cut', 'sure', 'watch', 'color', 'face', 'wood'
+];
+
 /**
  * Generates custom phonotactic touch-typing text strictly constrained
  * to the currently unlocked Keybr alphabet, with 65-75% focus on the probationary key.
+ * Prioritizes real English words matching the unlocked alphabet for natural reading flow.
  */
 export function generateKeybrPracticeText(
   progression: KeybrProgressionState,
@@ -262,25 +310,44 @@ export function generateKeybrPracticeText(
   const allowedSet = new Set(progression.activeAlphabet.map((k) => k.toLowerCase()));
   const focusKey = progression.currentFocusKey.toLowerCase();
 
+  // Find all real English words that can be spelled using ONLY the currently unlocked alphabet
+  const validRealWords = COMMON_DICTIONARY_WORDS.filter((w) => {
+    const lower = w.toLowerCase();
+    return lower.length >= 3 && lower.split('').every((char) => allowedSet.has(char));
+  });
+
+  // Subset that contains the focus key specifically
+  const focusRealWords = validRealWords.filter((w) => w.toLowerCase().includes(focusKey));
+
   const words: string[] = [];
-  const maxAttempts = 60;
 
   for (let i = 0; i < wordCount; i++) {
     const shouldTargetFocus = Math.random() < 0.7;
     let chosenWord = '';
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const candidate = generateSinglePseudoWord(shouldTargetFocus ? focusKey : undefined);
-      // Check if all letters in candidate are in allowedSet
-      const isCompliant = candidate.split('').every((char) => allowedSet.has(char));
-      if (isCompliant && (!shouldTargetFocus || candidate.includes(focusKey))) {
-        chosenWord = candidate;
-        break;
+    // 1. Try to pick a real English word 70% of the time if available
+    if (Math.random() < 0.75) {
+      if (shouldTargetFocus && focusRealWords.length > 0) {
+        chosenWord = focusRealWords[Math.floor(Math.random() * focusRealWords.length)];
+      } else if (validRealWords.length > 0) {
+        chosenWord = validRealWords[Math.floor(Math.random() * validRealWords.length)];
       }
     }
 
+    // 2. If no real word was selected, generate a phonotactic candidate
     if (!chosenWord) {
-      // Fallback: build a simple pronounceable combination from active alphabet
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const candidate = generateSinglePseudoWord(shouldTargetFocus ? focusKey : undefined);
+        const isCompliant = candidate.split('').every((char) => allowedSet.has(char));
+        if (isCompliant && (!shouldTargetFocus || candidate.includes(focusKey))) {
+          chosenWord = candidate;
+          break;
+        }
+      }
+    }
+
+    // 3. Fallback: build a pronounceable syllable from active alphabet
+    if (!chosenWord) {
       const vowels = progression.activeAlphabet.filter((k) => ['a', 'e', 'i', 'o', 'u'].includes(k));
       const consonants = progression.activeAlphabet.filter((k) => !['a', 'e', 'i', 'o', 'u'].includes(k));
 

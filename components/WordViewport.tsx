@@ -34,9 +34,12 @@ export const WordViewport: React.FC<WordViewportProps> = ({
   const [translateY, setTranslateY] = useState<number>(0);
   const is3LineMode = viewportMode === '3-line';
 
+  // Fixed uniform line height in pixels (matches font-mono text-xl leading-10)
+  const LINE_HEIGHT = 40;
+
   // Track active line vertical offset to keep active line centered on line 2 (of 3)
   useEffect(() => {
-    if (!is3LineMode || !activeCharRef?.current || !textStageRef.current) {
+    if (!activeCharRef?.current || !textStageRef.current) {
       setTranslateY(0);
       return;
     }
@@ -44,21 +47,26 @@ export const WordViewport: React.FC<WordViewportProps> = ({
     const activeEl = activeCharRef.current;
     const stageEl = textStageRef.current;
 
-    // Relative vertical position of active character inside text stage
-    const activeTop = activeEl.offsetTop - stageEl.offsetTop;
-    const charHeight = activeEl.offsetHeight || 36;
+    // In 3-line mode: compute line index using active element's offsetTop inside relative stage
+    if (is3LineMode) {
+      const activeTop = activeEl.offsetTop;
+      const lineIndex = Math.floor((activeTop + 4) / LINE_HEIGHT);
 
-    // Line 0: top < charHeight * 1.2 -> translateY = 0
-    // Line 1: charHeight * 1.2 <= top < charHeight * 2.2 -> translateY = 0 (middle line)
-    // Line 2+: top >= charHeight * 2.2 -> shift stage upwards by (lineIndex - 1) * lineHeight
-    const lineIndex = Math.floor(activeTop / Math.max(28, charHeight));
-
-    if (lineIndex <= 1) {
-      setTranslateY(0);
+      if (lineIndex <= 1) {
+        setTranslateY(0);
+      } else {
+        // Shift stage up so lineIndex is always on the middle (2nd) line
+        const shift = (lineIndex - 1) * LINE_HEIGHT;
+        setTranslateY(-shift);
+      }
     } else {
-      // Keep active line as line 2 (centered in 3-line view)
-      const shift = (lineIndex - 1) * charHeight;
-      setTranslateY(-shift);
+      // Standard scrolling mode
+      setTranslateY(0);
+      if (containerRef.current) {
+        const activeTop = activeEl.offsetTop;
+        const containerHeight = containerRef.current.clientHeight;
+        containerRef.current.scrollTop = Math.max(0, activeTop - containerHeight / 2 + LINE_HEIGHT);
+      }
     }
   }, [engineIndex, is3LineMode, activeCharRef]);
 
@@ -91,16 +99,18 @@ export const WordViewport: React.FC<WordViewportProps> = ({
       ref={containerRef}
       onClick={onContainerClick}
       className={`w-full relative select-none rounded-2xl border border-border bg-surface transition-colors cursor-text focus-within:ring-2 focus-within:ring-accent/60 shadow-inner overflow-hidden ${
-        is3LineMode ? 'h-40 py-4 px-6 flex flex-col justify-center' : 'h-56 p-5 overflow-y-auto'
+        is3LineMode
+          ? 'h-[142px] pt-2.5 pb-2 px-5 sm:px-7 flex flex-col justify-start'
+          : 'h-56 p-5 overflow-y-auto'
       }`}
       id="typing-text-canvas"
     >
       {/* Background line guide cues in 3-line mode */}
       {is3LineMode && (
-        <div className="absolute inset-x-0 inset-y-3 pointer-events-none flex flex-col justify-between opacity-15">
-          <div className="w-full border-b border-dashed border-text-muted"></div>
-          <div className="w-full border-b border-solid border-accent/40 bg-accent/5 h-10 rounded"></div>
-          <div className="w-full border-b border-dashed border-text-muted"></div>
+        <div className="absolute inset-x-0 top-2.5 h-[120px] pointer-events-none flex flex-col justify-between opacity-10">
+          <div className="w-full h-10 border-b border-dashed border-text-muted"></div>
+          <div className="w-full h-10 border-b border-solid border-accent/40 bg-accent/5"></div>
+          <div className="w-full h-10 border-b border-dashed border-text-muted"></div>
         </div>
       )}
 
@@ -112,9 +122,9 @@ export const WordViewport: React.FC<WordViewportProps> = ({
         ref={textStageRef}
         style={{
           transform: is3LineMode ? `translateY(${translateY}px)` : 'none',
-          transition: is3LineMode ? 'transform 0.14s cubic-bezier(0.2, 0, 0, 1)' : 'none',
+          transition: is3LineMode ? 'transform 0.12s cubic-bezier(0.2, 0, 0, 1)' : 'none',
         }}
-        className="text-xl font-mono leading-relaxed tracking-wider break-words flex flex-wrap items-baseline gap-y-1 relative"
+        className="text-xl font-mono leading-10 tracking-wider break-words flex flex-wrap items-baseline relative z-0"
       >
         {wordTokens.map((token, tokenIdx) => {
           if (token.isSpace) {
@@ -133,17 +143,17 @@ export const WordViewport: React.FC<WordViewportProps> = ({
               <span
                 key={`space-${index}`}
                 ref={isCurrent ? activeCharRef : undefined}
-                className="relative inline-block w-2.5 h-6 text-center select-none"
+                className="relative inline-block w-3 h-10 leading-10 text-center select-none align-baseline"
               >
                 {/* Blinking Caret on Space */}
                 {isCurrent && (
-                  <span className="absolute left-0 top-0.5 bottom-0.5 w-0.5 bg-accent animate-pulse rounded-full shadow-glow-accent-sm" />
+                  <span className="absolute left-0 top-1 bottom-1 w-0.5 bg-accent animate-pulse rounded-full shadow-glow-accent-sm z-10" />
                 )}
 
                 {/* Ghost Pacer on Space */}
                 {isGhost && (
                   <span
-                    className="absolute left-0 top-0.5 bottom-0.5 w-0.5 bg-primary/90 rounded-full shadow-glow-primary-sm pointer-events-none z-10"
+                    className="absolute left-0 top-1 bottom-1 w-0.5 bg-primary/90 rounded-full shadow-glow-primary-sm pointer-events-none z-10"
                     title="Ghost PB Pacer"
                   >
                     <span className="absolute -top-3.5 -left-1.5 text-[9px] text-primary font-mono select-none drop-shadow">
@@ -157,8 +167,8 @@ export const WordViewport: React.FC<WordViewportProps> = ({
                     isIncorrect
                       ? 'bg-error/30 text-error rounded px-0.5 font-bold'
                       : isCorrect
-                      ? 'text-text-subtle/40'
-                      : 'text-text-subtle/30'
+                      ? 'text-text-subtle/30'
+                      : 'text-text-subtle/20'
                   }
                 >
                   &nbsp;
@@ -168,7 +178,7 @@ export const WordViewport: React.FC<WordViewportProps> = ({
           }
 
           return (
-            <span key={`word-${tokenIdx}`} className="inline-flex whitespace-nowrap">
+            <span key={`word-${tokenIdx}`} className="inline-flex whitespace-nowrap h-10 leading-10 items-baseline">
               {token.chars.map(({ charItem, index }) => {
                 const isCurrent = index === engineIndex;
                 const isCorrect = charItem.status === 'correct';
@@ -185,7 +195,7 @@ export const WordViewport: React.FC<WordViewportProps> = ({
                   <span
                     key={index}
                     ref={isCurrent ? activeCharRef : undefined}
-                    className={`relative transition-colors duration-75 ${
+                    className={`relative inline-block h-10 leading-10 transition-colors duration-75 align-baseline ${
                       isCorrect
                         ? 'text-text-primary font-medium'
                         : isIncorrect
@@ -199,13 +209,13 @@ export const WordViewport: React.FC<WordViewportProps> = ({
                   >
                     {/* Caret */}
                     {isCurrent && (
-                      <span className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-accent animate-pulse rounded-full shadow-glow-accent-sm" />
+                      <span className="absolute -left-0.5 top-1 bottom-1 w-0.5 bg-accent animate-pulse rounded-full shadow-glow-accent-sm z-10" />
                     )}
 
                     {/* Ghost Pacer Caret */}
                     {isGhost && (
                       <span
-                        className="absolute -left-0.5 top-0 bottom-0 w-0.5 bg-primary/90 rounded-full shadow-glow-primary-sm pointer-events-none z-10"
+                        className="absolute -left-0.5 top-1 bottom-1 w-0.5 bg-primary/90 rounded-full shadow-glow-primary-sm pointer-events-none z-10"
                         title="Ghost PB Pacer"
                       >
                         <span className="absolute -top-3.5 -left-1.5 text-[9px] text-primary font-mono select-none drop-shadow">

@@ -32,6 +32,7 @@ import {
 } from '@/lib/ai-service';
 import {
   loadUserProgress,
+  saveUserProgress,
   processCompletedSession,
   INITIAL_USER_PROGRESS,
 } from '@/lib/progress-service';
@@ -39,6 +40,7 @@ import { generateKeybrPracticeText, INITIAL_KEYBR_PROGRESSION } from '@/lib/adap
 
 // Components
 import { WordViewport } from '@/components/WordViewport';
+import { KeybrGuidanceCard } from '@/components/KeybrGuidanceCard';
 import { KeyboardVisualizer } from '@/components/KeyboardVisualizer';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ResultsModal } from '@/components/ResultsModal';
@@ -528,22 +530,6 @@ export default function Home() {
     preferences.cadenceMetronomeVolume,
   ]);
 
-  // Keep active character centered in view with smooth rAF batching to eliminate jank
-  useEffect(() => {
-    let animFrame: number;
-    if (activeCharRef.current && textContainerRef.current) {
-      animFrame = requestAnimationFrame(() => {
-        if (!activeCharRef.current || !textContainerRef.current) return;
-        const charOffsetTop = activeCharRef.current.offsetTop;
-        const containerHeight = textContainerRef.current.clientHeight;
-        textContainerRef.current.scrollTop = Math.max(0, charOffsetTop - containerHeight / 2 + 20);
-      });
-    }
-    return () => {
-      if (animFrame) cancelAnimationFrame(animFrame);
-    };
-  }, [engineIndex]);
-
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K Command Palette, Shift+Z Zen Mode, Escape)
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
@@ -600,6 +586,69 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Handle Input Changes (Mobile virtual keyboard, IME, and autocomplete fallback)
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (!val || isResultsOpen || isSettingsOpen || isCoachChatOpen || isCommandPaletteOpen) {
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
+
+    const lastChar = val[val.length - 1];
+    if (lastChar && currentView === 'typing') {
+      const expectedChar = engineRef.current.chars[engineRef.current.currentIndex]?.char;
+      const res = engineRef.current.handleInput(lastChar);
+      setEngineChars([...engineRef.current.chars]);
+      setEngineIndex(engineRef.current.currentIndex);
+      scheduleStatsUpdate();
+
+      if (res.success) {
+        if (sessionState === 'ready') {
+          setSessionState('playing');
+        }
+        if (res.isCorrect) {
+          soundFx.playKeyClick();
+          if (engineRef.current.combo > 0 && engineRef.current.combo % 25 === 0) {
+            soundFx.playCombo();
+          }
+          if (lastChar === ' ') {
+            setLiveAnnouncement('Word correct');
+          }
+        } else {
+          soundFx.playError();
+          setLiveAnnouncement(
+            `Error: typed ${lastChar === ' ' ? 'space' : lastChar}, expected ${expectedChar === ' ' ? 'space' : expectedChar}`
+          );
+        }
+
+        if (res.isFinished) {
+          if (statsRafIdRef.current !== null) {
+            cancelAnimationFrame(statsRafIdRef.current);
+            statsRafIdRef.current = null;
+          }
+          setLiveStats(engineRef.current.getStats());
+          finalizeSession();
+        }
+      }
+    }
+
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
+  };
+
+  // Reset Keybr progression back to the initial probationary set
+  const handleResetKeybr = () => {
+    const resetProgression = { ...INITIAL_KEYBR_PROGRESSION };
+    const updated: UserProgress = {
+      ...userProgress,
+      keybrProgression: resetProgression,
+    };
+    setUserProgress(updated);
+    saveUserProgress(updated);
+    setupNewTest('practice', undefined, null, undefined, undefined, 'keybr');
+  };
 
   // Handle Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -1576,23 +1625,55 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap text-xs">
-                      <span className="font-mono text-text-subtle">
-                        Active Keys: <strong className="text-accent">{userProgress.keybrProgression?.activeAlphabet.join(', ') || 'e, n, i, t, r, l'}</strong>
-                      </span>
                       {userProgress.keybrProgression?.currentFocusKey && (
-                        <span className="px-2 py-0.5 rounded bg-warning-subtle text-warning border border-warning/30 font-medium">
-                          Focus Target: <strong className="uppercase">{userProgress.keybrProgression.currentFocusKey}</strong> ({Math.round((userProgress.keybrProgression.confidenceMap[userProgress.keybrProgression.currentFocusKey] || 0.5) * 100)}% confidence)
+                        <span className="px-2 py-0.5 rounded-lg bg-warning/15 text-warning border border-warning/40 font-medium flex items-center gap-1">
+                          Focus: <strong className="uppercase font-mono">{userProgress.keybrProgression.currentFocusKey}</strong>
                         </span>
                       )}
+                      <div className="flex items-center gap-1 bg-surface-muted p-0.5 rounded-lg border border-border">
+                        {[15, 25, 50].map((count) => (
+                          <button
+                            key={count}
+                            onClick={() => {
+                              setWordCount(count);
+                              wordCountRef.current = count;
+                              setupNewTest('practice', undefined, null, undefined, undefined, 'keybr');
+                            }}
+                            className={`px-2 py-0.5 rounded font-mono transition-colors cursor-pointer ${
+                              wordCount === count ? 'bg-surface text-accent font-bold shadow-sm' : 'text-text-muted hover:text-text-primary'
+                            }`}
+                          >
+                            {count}
+                          </button>
+                        ))}
+                      </div>
                       <button
                         onClick={() => setupNewTest('practice')}
-                        className="flex items-center gap-1 px-2 py-0.5 bg-surface-muted hover:bg-surface-hover text-accent rounded-md font-medium border border-border transition-colors ml-1"
+                        className="flex items-center gap-1 px-2.5 py-1 bg-surface-muted hover:bg-surface-hover text-accent rounded-lg font-medium border border-border transition-colors cursor-pointer text-xs"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        <span>Regenerate Drill</span>
+                        <span>New Drill</span>
                       </button>
                     </div>
                   )}
+
+                  {/* Viewport Mode Quick Toggle */}
+                  <div className="border-l border-border pl-2">
+                    <button
+                      onClick={() => {
+                        const nextMode = preferences.viewportMode === 'scrolling' ? '3-line' : 'scrolling';
+                        const updated: AppPreferences = { ...preferences, viewportMode: nextMode };
+                        setPreferences(updated);
+                        try {
+                          localStorage.setItem('typepulse_preferences', JSON.stringify(updated));
+                        } catch {}
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border border-border bg-surface hover:bg-surface-hover text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                      title="Toggle between fixed 3-Line view and standard scrolling view"
+                    >
+                      <span className="font-mono text-[11px]">{preferences.viewportMode === 'scrolling' ? '📜 Scroll' : '≡ 3 Lines'}</span>
+                    </button>
+                  </div>
 
                   {/* Real-Time Ghost Pacer Quick Toggle */}
                   <div className="border-l border-border pl-2">
@@ -1869,6 +1950,21 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Keybr Adaptive Progression Guidance Card */}
+                {contentCategory === 'keybr' && gameMode === 'practice' && (
+                  <KeybrGuidanceCard
+                    progression={userProgress.keybrProgression || INITIAL_KEYBR_PROGRESSION}
+                    onSwitchToWords={() => {
+                      setContentCategory('words');
+                      setTimeLimit(null);
+                      setTimeRemaining(null);
+                      setupNewTest('practice', undefined, null);
+                    }}
+                    onResetKeybr={handleResetKeybr}
+                    onRegenerate={() => setupNewTest('practice')}
+                  />
+                )}
+
                 {/* THE TYPING TEXT STAGE WITH SMOOTH 3-LINE VIRTUALIZED VIEWPORT */}
                 <WordViewport
                   engineChars={engineChars}
@@ -1885,10 +1981,10 @@ export default function Home() {
                   <input
                     ref={inputRef}
                     type="text"
-                    className="absolute inset-0 size-full opacity-0 cursor-default pointer-events-none caret-transparent"
+                    className="absolute inset-0 size-full opacity-0 cursor-text pointer-events-auto caret-transparent z-10"
                     onKeyDown={handleKeyDown}
                     value=""
-                    onChange={() => {}}
+                    onChange={handleInputChange}
                     autoFocus
                     inputMode="text"
                     autoCapitalize="off"
@@ -1902,7 +1998,7 @@ export default function Home() {
 
                   {/* Ready helper hint */}
                   {sessionState === 'ready' && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-surface-muted/90 rounded-full text-xs text-text-primary border border-border backdrop-blur-sm pointer-events-none shadow-sm z-10">
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-surface-muted/90 rounded-full text-xs text-text-primary border border-border backdrop-blur-sm pointer-events-none shadow-sm z-20">
                       Press any key to start typing
                     </div>
                   )}

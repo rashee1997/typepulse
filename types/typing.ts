@@ -19,7 +19,8 @@ export type GameMode =
   | 'story-stream'
   | 'code-pulse'
   | 'certification-test'
-  | 'arcade';
+  | 'arcade'
+  | 'code-climber';
 
 export type SessionState = 'ready' | 'countdown' | 'playing' | 'paused' | 'completed';
 

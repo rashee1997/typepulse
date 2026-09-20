@@ -201,6 +201,10 @@ export function calculateSessionXp(stats: TypingStats, mode: GameMode): number {
     xp = Math.round(xp * 1.2);
   } else if (mode === 'ai-mission') {
     xp = Math.round(xp * 1.3);
+  } else if (mode === 'code-climber') {
+    // Source code demands shifted symbols and exact indentation that prose never
+    // asks for, so it pays at the challenge tier rather than plain practice.
+    xp = Math.round(xp * 1.2);
   }
 
   return Math.max(10, xp);

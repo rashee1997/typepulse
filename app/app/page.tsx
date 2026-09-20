@@ -703,7 +703,16 @@ export default function Home() {
     // Tab to reset current session (in lessons: re-practices same letters)
     if (e.key === 'Tab') {
       e.preventDefault();
-      handleResetCurrent();
+      if (gameModeRef.current === 'code-climber') {
+        // A climber restarts the same snippet; switching to practice would
+        // throw away the deliberately chosen text for a random one.
+        const snippetText = currentTargetTextRef.current;
+        if (snippetText) {
+          setupNewTest('code-climber', snippetText, null);
+        }
+      } else {
+        handleResetCurrent();
+      }
       return;
     }
 
@@ -720,6 +729,12 @@ export default function Home() {
     if (e.repeat && key !== 'Backspace') {
       e.preventDefault();
       return;
+    }
+
+    // Enter must submit a newline in code targets; prose targets never contain
+    // newlines, so this is a no-op outside code modes.
+    if (e.key === 'Enter') {
+      e.preventDefault();
     }
 
     // Prevent default browser behavior on handled typing keys to prevent duplicate input,
@@ -941,24 +956,33 @@ export default function Home() {
   };
 
   // Launch AST Code Climber
+  //
+  // A Code Climber session used to reuse the 'practice' mode wholesale, which
+  // rendered the Free Practice chrome (category switcher, ghost PB pacer) over a
+  // snippet the typist had deliberately chosen. It is its own GameMode now; the
+  // pacer is meaningless when the target text is a fixed snippet, so it stays off
+  // here regardless of the user's preference.
   const handleStartCodeClimber = (snippet: CodeClimberSnippet) => {
     setIsCodeClimberOpen(false);
-    activeLessonRef.current = null;
-    activeMissionRef.current = null;
-    gameModeRef.current = 'practice';
-    setActiveLesson(null);
-    setActiveMission(null);
-    setGameMode('practice');
+    gameModeRef.current = 'code-climber';
+    setGameMode('code-climber');
     setModeTitle(`Code Climber (${snippet.language}): ${snippet.title}`);
     setCurrentView('typing');
 
-    setCurrentTargetText(snippet.code);
-    engineRef.current.reset(snippet.code);
-    setEngineChars([...engineRef.current.chars]);
+    const targetText = snippet.code;
+    currentTargetTextRef.current = targetText;
+    setCurrentTargetText(targetText);
+    engineRef.current.ddaEnabled = preferencesRef.current.ddaEnabled !== false;
+    engineRef.current.errorMode = preferencesRef.current.errorMode ?? 'standard';
+    engineRef.current.quickWordSkip = false;
+    engineRef.current.codeAutoIndent = preferencesRef.current.codeAutoIndent !== false;
+    engineRef.current.reset(targetText);
+    setEngineChars(engineRef.current.getCharsSnapshot());
     setEngineIndex(0);
     setGhostIndex(0);
     setLiveStats(engineRef.current.getStats());
     setSessionState('ready');
+    setTimeLimit(null);
     setTimeRemaining(null);
 
     setTimeout(() => {

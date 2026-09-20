@@ -30,7 +30,7 @@ const LINE_HEIGHT = 40;
  * Ligatures are disabled so `fi`, `->` etc. can never merge into a single glyph.
  */
 const CHAR_BASE =
-  'relative inline-block h-10 leading-10 align-baseline select-none transition-colors duration-75 [font-variant-ligatures:none]';
+  'relative inline-block h-10 leading-10 align-baseline select-none transition-colors duration-75 [font-variant-ligatures:none] whitespace-pre';
 
 const CHAR_STATE_CLASS: Record<CharState['status'], string> = {
   pending: 'text-text-subtle',
@@ -108,6 +108,12 @@ export const WordViewport: React.FC<WordViewportProps> = ({
   const textStageRef = useRef<HTMLDivElement>(null);
   const translateYRef = useRef(0);
   const is3LineMode = viewportMode === '3-line';
+  /**
+   * Code targets (Code Climber) keep their newlines and indentation, so they
+   * cannot share the prose word-wrap path below: words must never re-wrap, and a
+   * newline must end its visual line instead of rendering as whitespace.
+   */
+  const isCodeMode = gameMode === 'code-climber';
 
   /**
    * Keep the active line locked to the middle row without re-rendering React.
@@ -199,7 +205,47 @@ export const WordViewport: React.FC<WordViewportProps> = ({
       {/* Keystroke input capture injected as child */}
       {children}
 
-      {/* Sliding text stage (transform is driven imperatively, see effect above) */}
+      {/* CODE MODE: verbatim source layout — one glyph box per character, a full-width zero-height break at every newline. */}
+      {isCodeMode && (
+        <div
+          ref={textStageRef}
+          style={{
+            transition: is3LineMode ? 'transform 0.12s cubic-bezier(0.2, 0, 0, 1)' : 'none',
+          }}
+          className="text-xl font-mono leading-10 tracking-wider tabular-nums flex flex-wrap items-baseline relative z-0 [font-variant-ligatures:none]"
+        >
+          {engineChars.map((charItem, index) => {
+            if (charItem.char === '\n') {
+              const isCurrent = index === engineIndex;
+              return (
+                <span
+                  key={`br-${index}`}
+                  ref={isCurrent ? activeCharRef : undefined}
+                  aria-hidden="true"
+                  className="relative inline-block w-full h-0"
+                >
+                  {isCurrent && (
+                    <span className="absolute left-0 top-1 h-8 w-0.5 rounded-full bg-accent shadow-glow-accent-sm animate-caret z-10" />
+                  )}
+                </span>
+              );
+            }
+            return (
+              <TypingChar
+                key={index}
+                char={charItem.char}
+                status={charItem.status}
+                isCurrent={index === engineIndex}
+                isGhost={false}
+                activeCharRef={activeCharRef}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* PROSE MODE: sliding text stage (transform is driven imperatively, see effect above) */}
+      {!isCodeMode && (
       <div
         ref={textStageRef}
         style={{
@@ -263,6 +309,7 @@ export const WordViewport: React.FC<WordViewportProps> = ({
           );
         })}
       </div>
+      )}
     </div>
   );
 };

@@ -310,6 +310,11 @@ export class TypingEngine {
       return backspaceResult;
     }
 
+    // Submit key maps to the newline character used by multi-line code targets.
+    // Prose targets never contain '\n', so in those modes Enter simply fails the
+    // comparison like any other wrong key rather than being rewritten here.
+    const inputKey = key === 'Enter' ? '\n' : key;
+
     if (this.currentIndex >= this.chars.length) {
       return {
         success: false,
@@ -340,7 +345,7 @@ export class TypingEngine {
     // Quick Word Skip on Space:
     // If typist hits Space mid-word, skip remaining characters in the current word,
     // mark them incorrect, and advance to next word boundary.
-    if (this.quickWordSkip && key === ' ' && this.chars[this.currentIndex]?.char !== ' ') {
+    if (this.quickWordSkip && inputKey === ' ' && this.chars[this.currentIndex]?.char !== ' ') {
       let spaceIdx = this.currentIndex;
       while (spaceIdx < this.chars.length && this.chars[spaceIdx].char !== ' ') {
         this.chars[spaceIdx].status = 'incorrect';
@@ -380,7 +385,7 @@ export class TypingEngine {
     this.totalKeystrokes++;
     this.keystrokeSequence++;
     const target = this.chars[this.currentIndex];
-    const isCorrect = key === target.char;
+    const isCorrect = inputKey === target.char;
 
     if (isCorrect) {
       this.correctKeystrokes++;
@@ -389,13 +394,13 @@ export class TypingEngine {
         this.maxCombo = this.combo;
       }
       target.status = target.status === 'incorrect' ? 'corrected' : 'correct';
-      target.userTyped = key;
+      target.userTyped = inputKey;
       target.timestamp = now;
     } else {
       this.incorrectKeystrokes++;
       this.combo = 0;
       target.status = 'incorrect';
-      target.userTyped = key;
+      target.userTyped = inputKey;
       target.timestamp = now;
 
       // Track weak key
@@ -415,8 +420,10 @@ export class TypingEngine {
       index: this.currentIndex,
     });
 
-    // Record n-gram latency & accuracy patterns (unigram, bigram, trigram)
-    const normKey = key.toLowerCase();
+    // Record n-gram latency & accuracy patterns (unigram, bigram, trigram).
+    // Normalised from the mapped key so the newline transition itself is what is
+    // measured in code modes, not a five-letter "enter" token.
+    const normKey = inputKey.toLowerCase();
     const patternsToTrack: string[] = [normKey];
     if (this.previousKey) {
       patternsToTrack.push((this.previousKey + normKey).toLowerCase());
@@ -478,7 +485,7 @@ export class TypingEngine {
     this.currentIndex++;
 
     // Code Auto-Indentation & Bracket Matching bypass
-    if (isCorrect && this.codeAutoIndent && (key === '\n' || target.char === '\n')) {
+    if (isCorrect && this.codeAutoIndent && (inputKey === '\n' || target.char === '\n')) {
       let indentIdx = this.currentIndex;
       while (indentIdx < this.chars.length && this.chars[indentIdx].char === ' ') {
         this.chars[indentIdx].status = 'correct';

@@ -140,14 +140,14 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-end justify-center sm:justify-end sm:p-6 bg-overlay backdrop-blur-[2px] animate-fadeIn"
+      className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-[2px] animate-fadeIn"
       id="ai-coach-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="w-full sm:w-[480px] max-h-[55vh] h-[480px] bg-surface border border-primary-border sm:rounded-2xl rounded-t-2xl shadow-modal flex flex-col overflow-hidden backdrop-blur-md"
+        className="w-full sm:w-[480px] h-full bg-surface border-l border-primary-border shadow-modal flex flex-col overflow-hidden backdrop-blur-md"
         id="ai-coach-chatbox"
         ref={dialogRef}
         tabIndex={-1}

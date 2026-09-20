@@ -156,7 +156,7 @@ export async function callChatLlm(
     const res = await fetch('/api/gemini/coach', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: turns, systemInstruction, temperature, jsonMode, maxTokens }),
+      body: JSON.stringify({ messages: turns, systemInstruction, temperature, jsonMode, maxTokens, model: settings.model }),
       signal: options.signal,
     });
     const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };

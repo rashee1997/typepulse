@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
       maxTokens,
       stream = false,
       jsonMode = false,
+      model,
     }: {
       prompt?: string;
       messages?: IncomingMessage[];
@@ -74,7 +75,10 @@ export async function POST(req: NextRequest) {
       maxTokens?: number;
       stream?: boolean;
       jsonMode?: boolean;
+      model?: string;
     } = await req.json();
+
+    const selectedModel = model || COACH_MODEL;
 
     const contents = toContents(Array.isArray(messages) ? messages : [], prompt);
     if (contents.length === 0) {
@@ -109,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     if (stream) {
       const responseStream = await ai.models.generateContentStream({
-        model: COACH_MODEL,
+        model: selectedModel,
         contents,
         config,
       });
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest) {
     }
 
     const response = await ai.models.generateContent({
-      model: COACH_MODEL,
+      model: selectedModel,
       contents,
       config,
     });

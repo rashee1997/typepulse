@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import {
   CERTIFICATION_BENCHMARKS,
   CertificationPassage,
@@ -24,6 +25,7 @@ export const CertificationModal: React.FC<CertificationModalProps> = ({
   bestWpm = 0,
   bestAccuracy = 0,
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [selectedDuration, setSelectedDuration] = useState<60 | 180 | 300>(60);
   const [selectedPassageId, setSelectedPassageId] = useState<string>(
     STANDARDIZED_CERTIFICATION_PASSAGES[0].id
@@ -51,6 +53,8 @@ export const CertificationModal: React.FC<CertificationModalProps> = ({
       <div
         className="w-full max-w-3xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden my-auto flex flex-col max-h-[90vh]"
         id="certification-modal-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="certification-modal-title"

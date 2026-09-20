@@ -41,7 +41,8 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
     .slice(0, 4)
     .map(([char]) => char);
 
-  // Load Tri-Tier Daily Missions
+  // Load Tri-Tier Daily Missions. Generated from the typist's own numbers, not
+  // from a model — the provider pill below states which is in play.
   useEffect(() => {
     if (dailyMissions.length > 0) return;
     const todayKey = new Date().toISOString().slice(0, 10);
@@ -50,20 +51,17 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
     // the model the user types 35 WPM before they had typed anything; this falls
     // back to the curriculum's own opening target instead.
     const currentWpm = baselineWpm(userProgress.highScores.bestWpm);
-    let isCancelled = false;
+    const triMissions = generateTriTierDailyMissions(todayKey, topWeakKeys, currentWpm);
 
-    generateTriTierDailyMissions(todayKey, topWeakKeys, currentWpm, aiSettings).then((triMissions) => {
-      if (isCancelled) return;
-      setDailyMissions(triMissions);
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(triMissions));
-      } catch {}
-    });
+    setDailyMissions(triMissions);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(triMissions));
+    } catch {}
+  }, [dailyMissions.length, userProgress.highScores.bestWpm, topWeakKeys]);
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [dailyMissions.length, userProgress.highScores.bestWpm, aiSettings, topWeakKeys]);
+  const hasConfiguredProvider = Boolean(aiSettings.apiKey || aiSettings.provider === 'gemini');
+  const providerLabel =
+    aiSettings.provider === 'gemini' ? 'Google Gemini' : aiSettings.model || 'OpenAI Compatible';
 
   const handleGenerateNewMission = async () => {
     setGenerating(true);
@@ -124,15 +122,19 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
       {/* Provider Info Pill */}
       <div className="px-4 py-2.5 bg-surface-muted border border-border rounded-xl flex items-center justify-between text-xs text-text-muted">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-success" />
-          <span>Active Intelligence Provider:</span>
-          <span className="font-mono text-text-primary font-semibold">
-            {aiSettings.provider === 'gemini' ? 'Google Gemini' : aiSettings.model || 'OpenAI Compatible'}
-          </span>
+          <span className={`w-2 h-2 rounded-full ${hasConfiguredProvider ? 'bg-success' : 'bg-warning'}`} />
+          {hasConfiguredProvider ? (
+            <>
+              <span>Custom missions use:</span>
+              <span className="font-mono text-text-primary font-semibold">{providerLabel}</span>
+            </>
+          ) : (
+            <span>No model key set — every mission on this board is generated locally.</span>
+          )}
         </div>
         <button
           onClick={onOpenSettings}
-          className="text-accent hover:underline font-medium underline-offset-2"
+          className="text-accent hover:text-accent-hover hover:underline font-medium underline-offset-2"
         >
           Change AI Endpoint & Model
         </button>

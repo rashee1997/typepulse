@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import {
   Check,
   Crown,
@@ -36,6 +37,7 @@ export const MasteryPassModal: React.FC<MasteryPassModalProps> = ({
   activeProfile,
   onClaimReward,
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [tiers, setTiers] = useState<MasteryTier[]>(() => loadMasteryTiers(userProgress.xp));
   const [claimedNotice, setClaimedNotice] = useState<string | null>(null);
 
@@ -107,6 +109,8 @@ export const MasteryPassModal: React.FC<MasteryPassModalProps> = ({
       <div
         className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp"
         id="mastery-pass-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Cyber Mastery Pass"

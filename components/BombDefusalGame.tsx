@@ -355,7 +355,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
         {/* Central Disarm Code Display */}
         <div className="relative w-full py-8 px-6 bg-slate-900/90 border-2 border-slate-700 rounded-2xl flex flex-col items-center justify-center shadow-inner">
           <span className="text-[11px] font-mono font-bold text-text-subtle mb-3 uppercase tracking-widest flex items-center gap-1.5">
-            <Scissors className="w-3.5 h-3.5 text-accent" />
+            <Scissors className="w-3.5 h-3.5 text-amber-400" />
             CIRCUIT DISARM KEY
           </span>
 
@@ -372,7 +372,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
                     isCut
                       ? 'bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 scale-95 opacity-80'
                       : isCurrent
-                      ? 'bg-accent/20 border-2 border-accent text-accent scale-105 shadow-glow-accent animate-pulse'
+                      ? 'bg-accent/20 border-2 border-accent text-amber-400 scale-105 shadow-glow-accent animate-pulse'
                       : 'bg-slate-800/80 border border-slate-700 text-slate-300'
                   }`}
                 >

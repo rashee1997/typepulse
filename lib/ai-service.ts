@@ -1,5 +1,5 @@
 import { AICoachFeedback, AIMission, AISettings, TypingStats, QuestState, QuestScene, TurnResult, BossTurnData, Lesson, AIDrillOptions, AIDrillResult } from '@/types/typing';
-import { generateWeakKeyDrill, numericSymbolSets } from './word-banks';
+import { generateMissionPassage, generateWeakKeyDrill, numericSymbolSets } from './word-banks';
 import { CharacterPersona } from './character-personas';
 import { getLessonTargetKeys, getCumulativeKeysForLesson, sanitizePatternToAllowedKeys, generateDeterministicLessonDrill, baselineWpm } from './curriculum';
 
@@ -374,7 +374,7 @@ Output only valid JSON.`;
       targetWpm: parsed.targetWpm || Math.max(20, Math.round(currentWpm * 1.05)),
       targetAccuracy: parsed.targetAccuracy || 96,
       focusKeys: focusKeysList,
-      content: parsed.content || generateWeakKeyDrill(focusKeysList, 20),
+      content: parsed.content || generateMissionPassage(parsed.type || 'WEAK_KEY_DRILL', focusKeysList, 30),
       rewardXp: parsed.rewardXp || 200,
       reason: parsed.reason || `Reinforces muscle memory on keys ${focusKeysList.join(', ')}.`,
       completed: false,
@@ -453,7 +453,7 @@ function generateDeterministicCoachFeedback(stats: TypingStats, context: { mode:
 
 function generateDeterministicMission(weakKeys: string[], currentWpm: number): AIMission {
   const targets = weakKeys.length > 0 ? weakKeys.slice(0, 3) : ['e', 'r', 't'];
-  const drillContent = generateWeakKeyDrill(targets, 22);
+  const drillContent = generateMissionPassage('WEAK_KEY_DRILL', targets, 30);
 
   return {
     id: `ai-mission-${Date.now()}`,
@@ -1005,12 +1005,15 @@ token1 token2 token3 token4 ...`;
  * 2. Latency Buster (Weakest n-gram / struggle keys)
  * 3. Speed Burst (WPM + 10%)
  */
-export async function generateTriTierDailyMissions(
+/**
+ * The daily board is generated locally from the typist's own numbers — it does not
+ * call a model, so it takes no AI settings and the board says so in the UI.
+ */
+export function generateTriTierDailyMissions(
   dateKey: string,
   weakKeys: string[],
-  currentWpm: number,
-  settings?: AISettings
-): Promise<AIMission[]> {
+  currentWpm: number
+): AIMission[] {
   const safeWpm = Math.max(25, currentWpm || 35);
   const targets = weakKeys.length > 0 ? weakKeys.slice(0, 3) : ['e', 'r', 't'];
 
@@ -1031,7 +1034,7 @@ export async function generateTriTierDailyMissions(
   };
 
   // 2. Latency Buster Mission
-  const drillText = generateWeakKeyDrill(targets, 20);
+  const drillText = generateMissionPassage('WEAK_KEY_DRILL', targets, 30);
   const latencyMission: AIMission = {
     id: `daily-latency-${dateKey}`,
     type: 'WEAK_KEY_DRILL',

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import { AISettings, AppPreferences, SwitchSoundProfile, UserProgress } from '@/types/typing';
 import { AI_PROVIDER_PRESETS, testAiConnection } from '@/lib/ai-service';
 import { soundFx } from '@/lib/sound';
@@ -28,6 +29,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   userProgress,
   onProgressImported,
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [activeTab, setActiveTab] = useState<'ai' | 'preferences' | 'data'>('ai');
   const [formData, setFormData] = useState<AISettings>({ ...aiSettings });
   const [prefsData, setPrefsData] = useState<AppPreferences>({ ...preferences });
@@ -120,6 +122,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <div 
         className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden flex flex-col max-h-[90vh]"
         id="settings-modal-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import {
   Check,
   Copy,
@@ -64,6 +65,7 @@ export const GhostDuelModal: React.FC<GhostDuelModalProps> = ({
   onStartDuel,
   currentShareUrl,
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [copied, setCopied] = useState(false);
   const [pasteInput, setPasteInput] = useState('');
   const [pasteError, setPasteError] = useState('');
@@ -116,6 +118,8 @@ export const GhostDuelModal: React.FC<GhostDuelModalProps> = ({
       <div
         className="w-full max-w-lg bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden flex flex-col max-h-[90vh] animate-scaleUp"
         id="ghost-duel-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Ghost Duel Arena"

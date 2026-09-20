@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import Markdown from 'react-markdown';
 import { AISettings, UserProgress } from '@/types/typing';
 import { askAiCoachQuestion } from '@/lib/ai-service';
@@ -26,6 +27,7 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
   userProgress,
   onOpenSettings,
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -135,6 +137,8 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
       <div
         className="w-full sm:w-[480px] max-h-[55vh] h-[480px] bg-surface border border-primary-border sm:rounded-2xl rounded-t-2xl shadow-modal flex flex-col overflow-hidden backdrop-blur-md"
         id="ai-coach-chatbox"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="false"
         aria-label="AI Coach Sensei Chat"
@@ -182,7 +186,14 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
         </div>
 
         {/* Messages Stream */}
-        <div className="p-3 sm:p-4 overflow-y-auto space-y-3 flex-1 text-xs scrollbar-thin">
+        <div
+          className="p-3 sm:p-4 overflow-y-auto space-y-3 flex-1 text-xs scrollbar-thin"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-busy={loading}
+          aria-label="Coaching conversation"
+        >
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -213,7 +224,8 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
           ))}
 
           {loading && (
-            <div className="flex gap-2 items-center text-text-muted text-xs">
+            <div className="flex gap-2 items-center text-text-muted text-xs" role="status" aria-live="polite">
+              <span className="sr-only">Your coach is composing a reply.</span>
               <div className="w-6 h-6 rounded-lg bg-primary-subtle border border-primary-border text-primary flex items-center justify-center">
                 <Bot className="w-3 h-3" />
               </div>
@@ -257,6 +269,7 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask Sensei for typing tips..."
+            aria-label="Ask the coach a question"
             className="flex-1 px-3 py-2 bg-surface border border-border rounded-xl text-xs text-text-primary placeholder:text-text-subtle focus:outline-none focus:border-accent"
           />
           <button

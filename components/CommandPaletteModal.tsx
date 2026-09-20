@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import {
   BookOpen,
   Bot,
@@ -59,16 +60,6 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     );
   });
 
-  // Focus search input on open
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
   const handleClose = () => {
     setSearch('');
     setSelectedIndex(0);
@@ -82,7 +73,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     onClose();
   };
 
+  // Escape, Tab containment and focus restoration come from the shared contract.
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, handleClose);
+
   const safeSelectedIndex = filteredCommands.length > 0 ? Math.min(selectedIndex, filteredCommands.length - 1) : 0;
+  const activeOptionId = filteredCommands.length > 0 ? `command-option-${safeSelectedIndex}` : undefined;
 
   // Keyboard navigation inside palette
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -129,6 +124,8 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       <div
         className="w-full max-w-xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden flex flex-col max-h-[80vh] sm:max-h-[600px] animate-slideDown"
         id="command-palette-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Quick Command Palette"
@@ -148,9 +145,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             placeholder="Type a command or search mode, words, theme, AI..."
             className="flex-1 bg-transparent border-none text-text-primary placeholder:text-text-subtle text-sm focus:outline-none focus:ring-0"
             role="combobox"
-            aria-expanded="true"
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
             aria-controls="command-palette-list"
+            aria-activedescendant={activeOptionId}
             aria-autocomplete="list"
+            aria-label="Search commands"
           />
           <kbd className="hidden sm:inline-block px-2 py-0.5 rounded bg-surface-muted text-[11px] font-mono text-text-subtle border border-border">
             ESC
@@ -170,6 +170,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           ref={listRef}
           id="command-palette-list"
           role="listbox"
+          aria-label="Commands"
           className="flex-1 overflow-y-auto p-2 space-y-1 text-xs scrollbar-thin"
         >
           {filteredCommands.length === 0 ? (
@@ -184,6 +185,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
               return (
                 <div
                   key={cmd.id}
+                  id={`command-option-${idx}`}
                   data-index={idx}
                   role="option"
                   aria-selected={isSelected}
@@ -228,6 +230,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             })
           )}
         </div>
+
+        {/* Result count channel: filtering is a visual change screen readers cannot see. */}
+        <span role="status" aria-live="polite" className="sr-only">
+          {filteredCommands.length} commands match.
+        </span>
 
         {/* Footer Navigation Hints */}
         <div className="px-4 py-2 border-t border-border bg-surface-muted flex items-center justify-between text-[11px] text-text-subtle font-mono shrink-0">

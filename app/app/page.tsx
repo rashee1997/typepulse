@@ -11,6 +11,7 @@ import {
   Lesson,
   SessionState,
   ThemePreference,
+  KeybrProgressionState,
   TypingStats,
   UserProgress,
 } from '@/types/typing';
@@ -42,6 +43,7 @@ import { useSystemPrefersDark } from '@/hooks/use-system-prefers-dark';
 // Components
 import { WordViewport } from '@/components/WordViewport';
 import { KeybrGuidanceCard } from '@/components/KeybrGuidanceCard';
+import { ShortcutSheet } from '@/components/ShortcutSheet';
 import { KeyboardVisualizer } from '@/components/KeyboardVisualizer';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ResultsModal } from '@/components/ResultsModal';
@@ -91,6 +93,48 @@ import {
   VolumeX,
   Zap,
 } from 'lucide-react';
+
+type PracticeCategory = 'words' | 'quotes' | 'code' | 'keybr';
+
+interface DrillContentInput {
+  mode: GameMode;
+  category: PracticeCategory;
+  customText?: string;
+  lesson?: Lesson | null;
+  mission?: AIMission | null;
+  progression: KeybrProgressionState;
+  wordCount: number;
+  punctuation: boolean;
+  numbers: boolean;
+  codeLanguage: string;
+}
+
+/**
+ * The single answer to "what should the arena show?".
+ *
+ * Lessons, missions, duels and certifications carry their own content; reaching
+ * the practice category for them is how an AI mission silently renders a weak-key
+ * drill instead of its own passage. When such a mode arrives without content the
+ * honest fallback is a targeted drill, and it says so loudly.
+ */
+function resolveDrillContent(input: DrillContentInput): string {
+  const supplied = input.customText || input.lesson?.content || input.mission?.content;
+  if (supplied) return supplied;
+
+  if (input.mode !== 'practice') {
+    console.error(`No content supplied for mode "${input.mode}"; falling back to a weak-key drill.`);
+    return generateWeakKeyDrill(input.mission?.focusKeys ?? [], 25);
+  }
+
+  if (input.category === 'quotes') return getRandomQuote();
+  if (input.category === 'code') {
+    return getRandomCodeSnippet(input.codeLanguage === 'all' ? undefined : input.codeLanguage);
+  }
+  if (input.category === 'keybr') {
+    return generateKeybrPracticeText(input.progression, input.wordCount || 25);
+  }
+  return generateRandomWords(input.wordCount, input.punctuation, input.numbers);
+}
 
 export default function Home() {
   // Navigation View State
@@ -163,6 +207,7 @@ export default function Home() {
   const [isCodeClimberOpen, setIsCodeClimberOpen] = useState(false);
   const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
   const [isAiCustomDrillOpen, setIsAiCustomDrillOpen] = useState(false);
+  const [isShortcutSheetOpen, setIsShortcutSheetOpen] = useState(false); // Shift+/ opens the key reference
   const [activeGhostDuel, setActiveGhostDuel] = useState<GhostDuelPayload | null>(null);
   const [currentTargetText, setCurrentTargetText] = useState<string>('');
 
@@ -294,6 +339,10 @@ export default function Home() {
   const activeMissionRef = useRef<AIMission | null>(activeMission);
   const gameModeRef = useRef<GameMode>(gameMode);
   const currentTargetTextRef = useRef<string>('');
+  const preferencesRef = useRef(preferences);
+  // Practice content stays sticky, so returning from a game or mission restores
+  // the category the typist last chose for free practice.
+  const lastPracticeCategoryRef = useRef<PracticeCategory>(contentCategory);
 
   useEffect(() => {
     contentCategoryRef.current = contentCategory;
@@ -306,6 +355,7 @@ export default function Home() {
     activeLessonRef.current = activeLesson;
     activeMissionRef.current = activeMission;
     gameModeRef.current = gameMode;
+    preferencesRef.current = preferences;
   }, [
     contentCategory,
     selectedCodeLanguage,
@@ -317,6 +367,7 @@ export default function Home() {
     activeLesson,
     activeMission,
     gameMode,
+    preferences,
   ]);
 
   // Generate or configure text based on selected mode
@@ -358,40 +409,28 @@ export default function Home() {
         setModeTitle('Free Practice');
       }
 
-      const activeCat = overrideCategory || contentCategoryRef.current;
-      let targetText = '';
-
-      if (customText) {
-        targetText = customText;
-      } else if (lessonObj) {
-        targetText = lessonObj.content;
-      } else if (mode === 'lesson' && (lessonObj || activeLessonRef.current)) {
-        // PRESERVE exact lesson letters for re-practice! Never bleed random words into lessons
-        targetText = (lessonObj || activeLessonRef.current)!.content;
-      } else if (missionObj) {
-        targetText = missionObj.content;
-      } else if (mode === 'ai-mission' && (missionObj || activeMissionRef.current)) {
-        targetText = (missionObj || activeMissionRef.current)!.content;
-      } else if (activeCat === 'quotes') {
-        targetText = getRandomQuote();
-      } else if (activeCat === 'code') {
-        targetText = getRandomCodeSnippet(
-          selectedCodeLanguageRef.current === 'all' ? undefined : selectedCodeLanguageRef.current
-        );
-      } else if (activeCat === 'keybr') {
-        const progression = userProgressRef.current.keybrProgression || INITIAL_KEYBR_PROGRESSION;
-        targetText = generateKeybrPracticeText(progression, wordCountRef.current || 25);
-      } else {
-        targetText = generateRandomWords(
-          wordCountRef.current,
-          includePunctuationRef.current,
-          includeNumbersRef.current
-        );
+      if (mode === 'practice' && overrideCategory) {
+        lastPracticeCategoryRef.current = overrideCategory;
       }
+
+      const targetText = resolveDrillContent({
+        mode,
+        category: overrideCategory ?? contentCategoryRef.current,
+        customText,
+        lesson: lessonObj ?? activeLessonRef.current,
+        mission: missionObj ?? activeMissionRef.current,
+        progression: userProgressRef.current.keybrProgression ?? INITIAL_KEYBR_PROGRESSION,
+        wordCount: wordCountRef.current,
+        punctuation: includePunctuationRef.current,
+        numbers: includeNumbersRef.current,
+        codeLanguage: selectedCodeLanguageRef.current,
+      });
 
       currentTargetTextRef.current = targetText;
       setCurrentTargetText(targetText);
       engineRef.current.ddaEnabled = false;
+      engineRef.current.errorMode = preferencesRef.current.errorMode ?? 'standard';
+      engineRef.current.quickWordSkip = preferencesRef.current.quickWordSkip ?? false;
       engineRef.current.reset(targetText);
       setEngineChars(engineRef.current.getCharsSnapshot());
       setEngineIndex(0);
@@ -429,7 +468,8 @@ export default function Home() {
     setGameMode('practice');
     setModeTitle('Free Practice');
     setCurrentView('typing');
-    setupNewTest('practice');
+    setContentCategory(lastPracticeCategoryRef.current);
+    setupNewTest('practice', undefined, null, undefined, undefined, lastPracticeCategoryRef.current);
   }, [setupNewTest]);
 
   // Reset the active session with the exact same content (e.g. same lesson letters for re-practice)
@@ -564,10 +604,20 @@ export default function Home() {
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K Command Palette, Shift+Z Zen Mode, Escape)
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
+      // An open dialog owns Escape and Tab; chrome toggles must never fire behind
+      // an aria-modal surface.
+      if (document.querySelector('[role="dialog"]') !== null) return;
+
       // Cmd+K or Ctrl+K opens Command Palette
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+      // Shift+/ opens the shortcut sheet (never while typing into the arena)
+      if (e.key === '?' && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        setIsShortcutSheetOpen(true);
         return;
       }
       // Shift+Z toggles Zen Mode (when not typing inside an active typing test)
@@ -1061,6 +1111,15 @@ export default function Home() {
       },
     },
     {
+      id: 'open-shortcut-sheet',
+      title: 'Keyboard Shortcuts & Hotkeys',
+      subtitle: 'Every global shortcut, filterable by scope',
+      category: 'Settings & Audio',
+      icon: <Keyboard className="w-4 h-4" />,
+      shortcut: 'Shift+/',
+      action: () => setIsShortcutSheetOpen(true),
+    },
+    {
       id: 'toggle-zen-mode',
       title: isZenMode ? 'Exit Zen Mode' : 'Enter Zen Mode',
       subtitle: isZenMode ? 'Restore header and HUD controls' : 'Distraction-free minimalist typing stage',
@@ -1211,6 +1270,11 @@ export default function Home() {
         {liveAnnouncement}
       </div>
 
+      <ShortcutSheet
+        isOpen={isShortcutSheetOpen}
+        onClose={() => setIsShortcutSheetOpen(false)}
+      />
+
       {/* TOP GLOBAL NAVBAR - SLEEK RESPONSIVE HEADER WITH ZERO OVERFLOW */}
       {isZenMode ? (
         <header className="w-full max-w-7xl mx-auto px-4 py-3 flex items-center justify-between shrink-0 bg-transparent z-40">
@@ -1264,6 +1328,8 @@ export default function Home() {
                 }
               }}
               title="Practice Mode"
+              aria-current={currentView === 'typing' && gameMode === 'practice' ? 'page' : undefined}
+              aria-label="Practice"
               className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'typing' && gameMode === 'practice'
                   ? 'bg-accent text-accent-foreground shadow-sm'
@@ -1277,6 +1343,8 @@ export default function Home() {
             <button
               onClick={() => setCurrentView('lessons')}
               title="Academy Curriculum"
+              aria-current={currentView === 'lessons' ? 'page' : undefined}
+              aria-label="Academy"
               className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'lessons'
                   ? 'bg-accent text-accent-foreground shadow-sm'
@@ -1290,6 +1358,8 @@ export default function Home() {
             <button
               onClick={() => setCurrentView('ai-missions')}
               title="AI Missions"
+              aria-current={currentView === 'ai-missions' ? 'page' : undefined}
+              aria-label="Missions"
               className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'ai-missions'
                   ? 'bg-accent text-accent-foreground shadow-sm'
@@ -1303,6 +1373,8 @@ export default function Home() {
             <button
               onClick={() => setCurrentView('word-rush')}
               title="Arcade Arena"
+              aria-current={currentView === 'word-rush' ? 'page' : undefined}
+              aria-label="Arcade"
               className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'word-rush'
                   ? 'bg-accent text-accent-foreground shadow-sm'
@@ -1317,6 +1389,8 @@ export default function Home() {
             <button
               onClick={() => setCurrentView('analytics')}
               title="Profile & Stats"
+              aria-current={currentView === 'analytics' ? 'page' : undefined}
+              aria-label="Stats"
               className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 currentView === 'analytics'
                   ? 'bg-accent text-accent-foreground shadow-sm'
@@ -1335,6 +1409,7 @@ export default function Home() {
               onClick={() => setIsCommandPaletteOpen(true)}
               className="p-1.5 sm:px-2 sm:py-1 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover flex items-center gap-1.5 text-xs transition-colors shrink-0 cursor-pointer"
               title="Open Command Palette (Cmd+K)"
+              aria-label="Open command palette"
               id="open-command-palette-btn"
             >
               <Search className="w-3.5 h-3.5 text-accent shrink-0" />
@@ -1367,6 +1442,7 @@ export default function Home() {
               onClick={() => setIsCoachChatOpen(true)}
               className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-primary-subtle border border-primary-border text-primary hover:bg-primary-subtle/80 flex items-center gap-1.5 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
               title="Open AI Typing Coach (Sensei)"
+              aria-label="AI typing coach"
               id="open-coach-chat-btn"
             >
               <Bot className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -1382,6 +1458,8 @@ export default function Home() {
               }}
               className="p-1.5 rounded-xl bg-surface-muted border border-border text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors shrink-0 cursor-pointer"
               title={preferences.soundEnabled ? 'Mute Mechanical Audio' : 'Unmute Audio'}
+              aria-label="Typing sounds"
+              aria-pressed={preferences.soundEnabled}
             >
               {preferences.soundEnabled ? <Volume2 className="w-4 h-4 text-accent" /> : <VolumeX className="w-4 h-4" />}
             </button>
@@ -1419,7 +1497,10 @@ export default function Home() {
       )}
 
       {/* SCROLLABLE APP BODY - single scroll container beneath the sticky header */}
-      <div className="flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
+      <div
+        className="flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
+        data-modal-scroll-lock
+      >
       {/* SUB-VIEW CONDITIONAL RENDERING */}
       <main className="max-w-7xl w-full mx-auto px-4 py-4 flex flex-col justify-start">
         {currentView === 'lessons' && (
@@ -1463,6 +1544,7 @@ export default function Home() {
             onTrainWeakKeys={handleTrainWeakKeys}
             onLaunchCustomDrill={handleLaunchCustomDrill}
             onBackToPractice={switchToPractice}
+            targetWpm={preferences.targetPacerWpm}
           />
         )}
 

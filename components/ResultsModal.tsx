@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import Markdown from 'react-markdown';
 import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
 import { generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
@@ -51,6 +52,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   onOpenAiDrill,
   targetText,
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [coach, setCoach] = useState<{ sessionId: string; data: AICoachFeedback | null; loading: boolean } | null>(null);
   const [generatingMission, setGeneratingMission] = useState(false);
   const [copiedGhost, setCopiedGhost] = useState(false);
@@ -198,18 +200,6 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     return () => controller.abort();
   }, [isOpen, sessionId, stats, modeTitle, userProgress.level, userProgress.highScores.bestWpm, aiSettings, leveledUp, newAchievements.length]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   if (!isOpen) return null;
 
   const handleCreateMission = async () => {
@@ -270,6 +260,8 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
       <div 
         className="w-full max-w-3xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden my-auto"
         id="results-modal-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="results-modal-title"
@@ -782,9 +774,13 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
             </div>
 
             {loadingCoach ? (
-              <div className="py-3 flex items-center gap-2 text-xs text-text-muted">
-                <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                <span>Synthesizing keystroke mechanics and rhythm...</span>
+              // Reserved height: the coach reply is the tallest async element in this
+              // dialog, so its arrival must not push the panels below it around.
+              <div className="min-h-[96px]" aria-busy="true">
+                <div className="py-3 flex items-center gap-2 text-xs text-text-muted" role="status">
+                  <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                  <span>Synthesizing keystroke mechanics and rhythm...</span>
+                </div>
               </div>
             ) : coachFeedback ? (
               <div className="space-y-2 text-xs text-text-secondary leading-relaxed">

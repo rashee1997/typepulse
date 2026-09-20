@@ -184,6 +184,50 @@ export function generateWeakKeyDrill(weakKeysOrPatterns: string[], wordCount: nu
   return selected.join(" ").trim();
 }
 
+/**
+ * Prose passages for missions generated without a model.
+ *
+ * A mission target has to read like a passage someone types under pressure. The
+ * rhythmic pattern cadences inside generateWeakKeyDrill ("rr rf rj") belong to the
+ * explicit weak-key drill surface; used as a mission target they read as a Keybr
+ * progression and misrepresent what the mission is.
+ */
+const MISSION_PASSAGES: Record<string, string[]> = {
+  ACCURACY_TARGET: [
+    "Precision is the foundation of real velocity. When every keystroke is deliberate and true, speed arrives without strain.",
+    "Slow hands build fast hands. Keep the wrists quiet, land each key the same way, and let the rhythm carry the accuracy.",
+  ],
+  SPEED_SPRINT: [
+    "The silver runner accelerated through the neon circuit, leaving long trails of light across the sleeping skyline.",
+    "Momentum rewards the typist who stops checking the scoreboard and starts trusting the next keystroke instead.",
+  ],
+  WEAK_KEY_DRILL: [
+    "The awkward keys are only awkward until they are ordinary. Give them the same calm attention as the easy ones.",
+    "Repetition without attention is just noise. Watch the awkward transition, slow it down, then build it back up.",
+  ],
+};
+
+function wordsFeaturing(keys: string[], count: number): string[] {
+  const focused = keys.filter(Boolean).map((key) => key.toLowerCase());
+  const matched = EXPANDED_VOCABULARY.filter((word) =>
+    focused.some((key) => word.toLowerCase().includes(key))
+  );
+  const pool = matched.length >= 8 ? matched : EXPANDED_VOCABULARY;
+  return Array.from({ length: count }, () => pool[Math.floor(Math.random() * pool.length)]);
+}
+
+/** Mission passage: real prose, then real vocabulary biased to the focus keys. */
+export function generateMissionPassage(
+  type: string,
+  focusKeys: string[] = [],
+  wordCount: number = 30
+): string {
+  const bank = MISSION_PASSAGES[type] ?? MISSION_PASSAGES.WEAK_KEY_DRILL;
+  const passage = bank[Math.floor(Math.random() * bank.length)];
+  const remaining = Math.max(8, wordCount - passage.split(' ').length);
+  return `${passage} ${wordsFeaturing(focusKeys, remaining).join(' ')}`.trim();
+}
+
 // Numeric & Symbol Practice Sets
 export const numericSymbolSets = {
   dates: [

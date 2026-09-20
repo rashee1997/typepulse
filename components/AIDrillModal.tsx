@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import { Lesson, AIDrillOptions, AIDrillResult, AIDrillStyle, AISettings, UserProgress } from '@/types/typing';
 import { generateLessonAiDrill } from '@/lib/ai-service';
 import { getLessonTargetKeys, getCumulativeKeysForLesson, sanitizePatternToAllowedKeys } from '@/lib/curriculum';
@@ -38,6 +39,7 @@ export const AIDrillModal: React.FC<AIDrillModalProps> = ({
   onStartDrill,
   initialStyle = 'alternating',
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [style, setStyle] = useState<AIDrillStyle>(initialStyle);
   const [scope, setScope] = useState<'target_only' | 'cumulative'>('target_only');
   const [length, setLength] = useState<15 | 25 | 40>(25);
@@ -162,6 +164,8 @@ export const AIDrillModal: React.FC<AIDrillModalProps> = ({
       <div 
         className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden my-auto flex flex-col"
         id="ai-drill-modal-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-drill-modal-title"

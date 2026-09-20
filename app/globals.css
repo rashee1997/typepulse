@@ -78,8 +78,12 @@
   --text-primary: hsl(var(--slate-900-hsl));         /* #0f172a Primary heading & body */
   --text-secondary: hsl(var(--slate-700-hsl));       /* #334155 Secondary descriptors (8.8:1) */
   --text-muted: hsl(var(--slate-500-hsl));           /* #64748b Metadata & hints (4.6:1 AA) */
-  --text-subtle: hsl(215 19% 45%);                   /* #475569 Adjusted for WCAG AA compliance (>= 4.5:1 on light) */
+  --text-subtle: hsl(215 22% 44%);                   /* #586c89 Inactive glyphs (5.4:1 on surface, 4.7:1 on surface-muted) */
   --text-inverted: hsl(var(--pure-white-hsl));       /* #ffffff Crisp text on dark pills */
+
+  /* Control boundary. `--border` is a decorative hairline (1.2:1) and must not
+     double as the only thing identifying a text field — WCAG 1.4.11 wants 3:1. */
+  --border-input: hsl(215 20% 56%);                  /* #788ba5 3.5:1 on surface */
 
   /* Brand Accent (Golden Amber calibrated for daylight contrast) */
   --accent: hsl(var(--amber-500-hsl));               /* #f59e0b Radiant amber base */
@@ -102,6 +106,12 @@
   --primary-border: hsl(234 89% 82%);                /* #c7d2fe Subtle indigo border */
 
   /* Status Colors (Curated for Light Backgrounds) */
+  --success-text: hsl(162 84% 27%);                  /* #0b7f5c Readable emerald on success tints (4.6:1) */
+  --danger-text: hsl(345 83% 41%);                   /* #bf123d Readable rose on danger tints (5.3:1) */
+  --warning-text: hsl(26 83% 26%);                   /* #793b0b Readable amber on warning tints (8.1:1) */
+  --info-text: hsl(192 91% 28%);                     /* #066e88 Readable cyan on info tints (5.4:1) */
+  --primary-text: hsl(var(--indigo-600-hsl));        /* #4f46e5 Readable indigo on primary tints (6.9:1) */
+
   --success: hsl(var(--emerald-600-hsl));            /* #059669 Emerald text (4.8:1 contrast) */
   --success-hover: hsl(var(--emerald-500-hsl));
   --success-foreground: hsl(var(--pure-white-hsl));
@@ -174,7 +184,14 @@
   --text-primary: hsl(var(--slate-50-hsl));          /* #f8fafc High contrast text */
   --text-secondary: hsl(var(--slate-300-hsl));        /* #cbd5e1 Secondary body text */
   --text-muted: hsl(var(--slate-400-hsl));            /* #94a3b8 Metadata & labels (7.5:1) */
-  --text-subtle: hsl(var(--slate-500-hsl));           /* #64748b Inactive elements */
+  --text-subtle: hsl(215 20% 55%);                    /* #7588a3 Inactive glyphs (4.9:1 surface, 5.5:1 canvas) */
+  --border-input: hsl(215 19% 45%);                   /* #5d6f89 3.5:1 on surface */
+
+  --success-text: var(--success);
+  --danger-text: hsl(var(--rose-300-hsl));            /* #fda4af 5.1:1 on danger tints (rose-400 was 3.7:1) */
+  --warning-text: var(--warning);
+  --info-text: var(--info);
+  --primary-text: var(--primary-hover);
   --text-inverted: hsl(var(--slate-950-hsl));        /* #020617 Dark text on bright badge */
 
   /* Brand Accent */
@@ -328,8 +345,18 @@
   --color-error-border: var(--danger-border);
 
   --color-overlay: var(--surface-overlay);
+  --color-surface-overlay: var(--surface-overlay);
   --color-foreground-muted: var(--text-muted);
   --color-border-hover: var(--border-strong);
+  --color-border-input: var(--border-input);
+
+  /* Text partners for on-tint status copy, mirroring the `--accent-text` pattern. */
+  --color-success-text: var(--success-text);
+  --color-danger-text: var(--danger-text);
+  --color-error-text: var(--danger-text);
+  --color-warning-text: var(--warning-text);
+  --color-info-text: var(--info-text);
+  --color-primary-text: var(--primary-text);
 
   /* ------------------------------------------------------------------------
      ELEVATION BINDINGS
@@ -449,10 +476,15 @@ body {
    -------------------------------------------------------------------------- */
 button:focus-visible,
 a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
 [role='button']:focus-visible,
 [role='tab']:focus-visible,
 [role='menuitem']:focus-visible,
 [role='option']:focus-visible,
+[role='switch']:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
@@ -548,6 +580,21 @@ summary:focus-visible {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  /* Opacity-only cues survive, slowed down: they carry state (caret position,
+     live indicator) and cannot trigger the vestibular problems that scaling or
+     panning motion does. Everything that moves is still collapsed above. */
+  .animate-caret {
+    animation: caretBreathe 2.4s ease-in-out infinite !important;
+  }
+
+  .animate-pulse {
+    animation: reducedPulse 2.4s ease-in-out infinite !important;
+  }
+}
+
+@keyframes reducedPulse {
+  50% { opacity: 0.45; }
 }
 
 /* ==========================================================================
@@ -555,6 +602,56 @@ summary:focus-visible {
    System-font fallback stack (no bundled font asset) — wider letterforms,
    generous spacing/x-height, avoids b/d/p/q mirror-symmetry ambiguity.
    ========================================================================== */
+/* ==========================================================================
+   ACCESSIBILITY FLOOR (unlayered on purpose)
+   Tailwind emits its utilities inside `@layer utilities`, so these plain rules
+   win the cascade without `!important` arm-wrestling at every call site.
+   ========================================================================== */
+
+/* WCAG 1.4.11: an idle text field must be identifiable by more than a 1.2:1
+   hairline. Focus borders are deliberately left to the component. */
+input:not(:focus):not([type='range']):not([type='checkbox']):not([type='radio']),
+select:not(:focus),
+textarea:not(:focus) {
+  border-color: var(--border-input);
+}
+
+/* WCAG 1.4.3: `--accent`, `--success` and friends are calibrated as *background*
+   colours. In light mode they fall to ~2:1 as text, so any element that paints
+   one on a tinted surface switches to its readable text partner token. Dark mode
+   already passes for every pair and is intentionally untouched — the dark game
+   canvases keep the bright brand accrual. */
+:root:not(.dark) .text-accent,
+:root:not(.dark) .bg-accent-subtle .text-accent {
+  color: var(--accent-text);
+}
+
+:root:not(.dark) .text-success,
+:root:not(.dark) .bg-success-subtle .text-success {
+  color: var(--success-text);
+}
+
+:root:not(.dark) .text-warning,
+:root:not(.dark) .bg-warning-subtle .text-warning {
+  color: var(--warning-text);
+}
+
+:root:not(.dark) .text-info,
+:root:not(.dark) .bg-info-subtle .text-info {
+  color: var(--info-text);
+}
+
+:root:not(.dark) .bg-primary-subtle .text-primary {
+  color: var(--primary-text);
+}
+
+:root:not(.dark) .text-danger,
+:root:not(.dark) .text-error,
+:root:not(.dark) .bg-danger-subtle .text-danger,
+:root:not(.dark) .bg-error-subtle .text-error {
+  color: var(--danger-text);
+}
+
 .dyslexic-font,
 .dyslexic-font input,
 .dyslexic-font textarea {

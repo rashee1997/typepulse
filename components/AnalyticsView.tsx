@@ -25,6 +25,7 @@ import {
   BrainCircuit,
   CheckCircle2,
 } from 'lucide-react';
+import { SpeedForecastCard } from '@/components/SpeedForecastCard';
 
 interface AnalyticsViewProps {
   userProgress: UserProgress;
@@ -32,6 +33,7 @@ interface AnalyticsViewProps {
   onTrainWeakKeys: (keys: string[]) => void;
   onLaunchCustomDrill?: (text: string, title?: string) => void;
   onBackToPractice: () => void;
+  targetWpm?: number;
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
@@ -40,6 +42,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   onTrainWeakKeys,
   onLaunchCustomDrill,
   onBackToPractice,
+  targetWpm,
 }) => {
   const { highScores, keyStats, unlockedAchievements, history, dailyStreak, level, title, xp } = userProgress;
   const xpNeeded = getXpForNextLevel(level);
@@ -648,6 +651,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       {/* Visual Achievements & Milestones Gallery */}
       <AchievementsGallery userProgress={userProgress} />
 
+      {/* Goal projection derived from recorded history */}
+      <SpeedForecastCard history={history} bestWpm={highScores.bestWpm} targetWpm={targetWpm} />
+
       {/* Recent Sessions History */}
       <div className="p-6 bg-surface border border-border rounded-2xl space-y-4 shadow-card">
         <h3 className="font-bold text-text-primary text-base">Recent Sessions</h3>
@@ -657,15 +663,21 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             No session history recorded yet. Complete a test to start your analytics ledger.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-x-auto"
+            tabIndex={0}
+            role="region"
+            aria-label="Recent sessions table, scrollable horizontally"
+          >
             <table className="w-full text-left text-xs">
+              <caption className="sr-only">Your ten most recent typing sessions</caption>
               <thead>
                 <tr className="border-b border-border text-text-muted uppercase text-[10px] tracking-wider">
-                  <th className="py-2.5 px-3">Mode</th>
-                  <th className="py-2.5 px-3">Speed</th>
-                  <th className="py-2.5 px-3">Accuracy</th>
-                  <th className="py-2.5 px-3">Duration</th>
-                  <th className="py-2.5 px-3">XP</th>
+                  <th scope="col" className="py-2.5 px-3">Mode</th>
+                  <th scope="col" className="py-2.5 px-3">Speed</th>
+                  <th scope="col" className="py-2.5 px-3">Accuracy</th>
+                  <th scope="col" className="py-2.5 px-3">Duration</th>
+                  <th scope="col" className="py-2.5 px-3">XP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

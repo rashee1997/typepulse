@@ -383,7 +383,12 @@ export const KeyboardVisualizer: React.FC<KeyboardVisualizerProps> = ({
       )}
 
       {/* Keyboard Bed */}
-      <div className="order-3 lg:order-2 p-2 sm:p-2.5 bg-surface rounded-2xl border border-border shadow-card backdrop-blur-sm w-full max-w-full overflow-x-auto scrollbar-none">
+      <div
+        className="order-3 lg:order-2 p-2 sm:p-2.5 bg-surface rounded-2xl border border-border shadow-card backdrop-blur-sm w-full max-w-full overflow-x-auto scrollbar-none"
+        tabIndex={0}
+        role="region"
+        aria-label="Virtual keyboard and finger guide"
+      >
         <div className="flex flex-col gap-1 min-w-[560px]">
           {KEYBOARD_ROWS.map((row, rIdx) => (
             <div key={rIdx} className="flex justify-center gap-1">

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import { AISettings } from '@/types/typing';
 import { callLlm } from '@/lib/ai-service';
 import { Bot, ChevronRight, Code, FileText, Loader2, Sparkles, X, Zap } from 'lucide-react';
@@ -20,6 +21,7 @@ export const AICustomDrillModal: React.FC<AICustomDrillModalProps> = ({
   onLaunchDrill,
   userWeakKeys = [],
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [kind, setKind] = useState<'paragraph' | 'code'>('paragraph');
   const [topic, setTopic] = useState('');
   const [language, setLanguage] = useState<'typescript' | 'python' | 'rust' | 'go' | 'sql'>('typescript');
@@ -103,6 +105,8 @@ Output ONLY the raw code snippet without markdown fences or explanations.`;
       <div
         className="w-full max-w-xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden my-auto flex flex-col max-h-[90vh]"
         id="ai-custom-drill-modal-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-custom-drill-modal-title"

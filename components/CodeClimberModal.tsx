@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useModalFocus } from '@/hooks/use-modal-focus';
 import {
   ArrowRight,
   Braces,
@@ -73,6 +74,7 @@ export const CodeClimberModal: React.FC<CodeClimberModalProps> = ({
   onStartClimb,
   codeAutoIndent = true,
 }) => {
+  const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
   const [selectedLang, setSelectedLang] = useState<string>('all');
   const [activeSnippetId, setActiveSnippetId] = useState<string>(CODE_CLIMBER_SNIPPETS[0].id);
 
@@ -107,6 +109,8 @@ export const CodeClimberModal: React.FC<CodeClimberModalProps> = ({
       <div
         className="w-full max-w-3xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden flex flex-col max-h-[90vh] animate-scaleUp"
         id="code-climber-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Developer AST Code Climber"

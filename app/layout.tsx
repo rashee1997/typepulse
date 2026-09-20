@@ -88,6 +88,50 @@ export const metadata: Metadata = {
 const OG_IMAGE = `${SITE_URL}/opengraph-image`;
 
 /**
+ * Offline-shell registration policy.
+ *
+ * Production registers the service worker: hashed, immutable chunks are exactly
+ * what it is designed to cache. Development must never register it — `next dev`
+ * serves chunks from stable, un-hashed paths with `Cache-Control: no-store`, and
+ * the Cache API does not honour that header, so a cache-first shell replays a
+ * pre-refactor bundle against a fresh webpack runtime. That mismatch is what
+ * produces "Cannot read properties of undefined (reading 'call')" and
+ * "__webpack_require__.n is not a function" in the browser.
+ */
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+const SERVICE_WORKER_SCRIPT = IS_PRODUCTION
+  ? `
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    `
+  : `
+      if ('serviceWorker' in navigator) {
+        (async () => {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            const wasControlled =
+              registrations.length > 0 && !!navigator.serviceWorker.controller;
+            await Promise.all(
+              registrations.map((registration) => registration.unregister())
+            );
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+            // Only a stale registration can have served this document, so reload
+            // once to drop its chunks. The flag makes the reload impossible to loop.
+            if (wasControlled && !sessionStorage.getItem('sw-purged')) {
+              sessionStorage.setItem('sw-purged', '1');
+              location.reload();
+            }
+          } catch {}
+        })();
+      }
+    `;
+
+/**
  * Structured data graph — the site-wide identity nodes.
  *
  * `TechArticle` and `FAQPage` deliberately live on /docs instead of here: schema
@@ -173,17 +217,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
             `,
           }}
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js').catch(() => {});
-                });
-              }
-            `,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{__html: SERVICE_WORKER_SCRIPT}} />
         <link rel="llms" href="/llms.txt" />
         <script
           type="application/ld+json"

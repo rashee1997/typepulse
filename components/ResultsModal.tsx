@@ -468,7 +468,9 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
                   ? stats.confidenceScore >= 0.85
                     ? 'Target Mastered 🎯'
                     : 'Target Developing ⚡'
-                  : `Rhythm: ${stats.consistency}%`}
+                  : stats.consistency > 0
+                  ? `Rhythm: ${stats.consistency}%`
+                  : 'Rhythm: not measured in this mode'}
               </span>
             </div>
 
@@ -476,7 +478,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
               <span className="text-xs font-medium text-text-muted">XP Earned</span>
               <div className="flex items-baseline gap-1 mt-1">
                 <span className="text-3xl font-extrabold text-primary font-mono">
-                  +{sessionSummary?.xpEarned || 25}
+                  +{sessionSummary?.xpEarned ?? 0}
                 </span>
                 <span className="text-xs text-text-subtle font-mono">XP</span>
               </div>

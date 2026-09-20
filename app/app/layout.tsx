@@ -4,7 +4,7 @@ import {SITE} from '@/lib/site-content';
 export const metadata: Metadata = {
   title: 'Studio',
   description:
-    'The Runewright studio: 42 lessons, 18 arcade drills, live telemetry and the AI typing coach. Progress is stored locally in your browser.',
+    'The Runewright studio: 42 lessons, 12 arcade drills, live telemetry and the AI typing coach. Progress is stored locally in your browser.',
   alternates: {canonical: '/app'},
 };
 

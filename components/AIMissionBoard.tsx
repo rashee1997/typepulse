@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { AIMission, AISettings, UserProgress } from '@/types/typing';
 import { generateAiMission, generateTriTierDailyMissions } from '@/lib/ai-service';
+import { baselineWpm } from '@/lib/curriculum';
 import { Bot, ChevronRight, Flame, Loader2, Plus, Sparkles, Target, Zap, Calendar, ShieldCheck } from 'lucide-react';
 
 interface AIMissionBoardProps {
@@ -45,7 +46,10 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
     if (dailyMissions.length > 0) return;
     const todayKey = new Date().toISOString().slice(0, 10);
     const storageKey = `typing_daily_missions_${todayKey}`;
-    const currentWpm = userProgress.highScores.bestWpm || 35;
+    // Missions are pitched off the recorded best. The old `|| 35` fallback told
+    // the model the user types 35 WPM before they had typed anything; this falls
+    // back to the curriculum's own opening target instead.
+    const currentWpm = baselineWpm(userProgress.highScores.bestWpm);
     let isCancelled = false;
 
     generateTriTierDailyMissions(todayKey, topWeakKeys, currentWpm, aiSettings).then((triMissions) => {
@@ -64,7 +68,7 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
   const handleGenerateNewMission = async () => {
     setGenerating(true);
     try {
-      const currentWpm = userProgress.highScores.bestWpm || 30;
+      const currentWpm = baselineWpm(userProgress.highScores.bestWpm);
       const newMission = await generateAiMission(topWeakKeys, currentWpm, aiSettings);
       setCustomMissions((prev) => [newMission, ...prev]);
     } finally {

@@ -206,6 +206,72 @@ export function calculateSessionXp(stats: TypingStats, mode: GameMode): number {
   return Math.max(10, xp);
 }
 
+/**
+ * Real measurements an arcade mode is able to supply.
+ *
+ * Arcade modes used to hand `onFinishSession` a hand-written `TypingStats` built
+ * from magic multipliers — `wpm: Math.round(wordsDestroyed * 4.2)`,
+ * `accuracy: 97`, `elapsedSeconds: 45`, `consistency: 90`. Because
+ * `processCompletedSession` does `bestWpm: Math.max(prev.bestWpm, stats.wpm)`,
+ * a killed-enemy count became the user's "personal best" — and that personal best
+ * is what the Ghost PB pacer races against. It also inflated
+ * `totalTimePracticedSeconds` by a fabricated 40–45 seconds per run.
+ *
+ * Supply what the mode actually measured; everything derivable is derived here
+ * with the same formula the typing engine uses (1 word = 5 characters), and
+ * anything a mode cannot measure stays 0 rather than being invented.
+ */
+export interface ArcadeMeasurement {
+  /** Characters the user typed correctly, as counted by the mode. */
+  correctKeys: number;
+  /** Total characters attempted. `0` means the mode does not measure this. */
+  totalKeys: number;
+  /** Measured wall-clock duration of the run, in seconds. */
+  elapsedSeconds: number;
+  /** Only present when the mode tracks per-character errors. */
+  errorsByChar?: Record<string, number>;
+}
+
+/**
+ * Builds an honest `TypingStats` from a real measurement.
+ *
+ * `accuracy` and `consistency` are 0 when the mode did not measure them — 0 is
+ * the "not measured" sentinel here, since the live engine never returns an
+ * accuracy below 0 or a consistency below 10.
+ */
+export function buildArcadeTypingStats(m: ArcadeMeasurement): TypingStats {
+  const correctKeys = Math.max(0, Math.round(m.correctKeys));
+  const totalKeys = Math.max(correctKeys, Math.round(m.totalKeys));
+  const elapsedMinutes = Math.max(0, m.elapsedSeconds) / 60;
+
+  const wpm = elapsedMinutes > 0 ? Math.round(correctKeys / 5 / elapsedMinutes) : 0;
+  const rawWpm = elapsedMinutes > 0 ? Math.round(totalKeys / 5 / elapsedMinutes) : 0;
+  const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 1000) / 10 : 0;
+  const incorrectChars = Math.max(0, totalKeys - correctKeys);
+  const errorsByChar = m.errorsByChar ?? {};
+
+  return {
+    wpm,
+    rawWpm,
+    accuracy,
+    correctChars: correctKeys,
+    incorrectChars,
+    correctedErrors: 0,
+    totalKeystrokes: totalKeys,
+    elapsedSeconds: Math.round(m.elapsedSeconds * 10) / 10,
+    combo: 0,
+    maxCombo: 0,
+    // Not measured by the arcade modes: 0 reads as "unknown" in the UI.
+    consistency: 0,
+    errorsByChar,
+    weakKeys: Object.entries(errorsByChar)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([char]) => char),
+    timeline: [],
+  };
+}
+
 // Update progress after completing a session
 export function processCompletedSession(
   prev: UserProgress,
@@ -504,11 +570,15 @@ export function recordArcadeGameResult(
     date: Date.now(),
     mode: 'word-rush' as GameMode,
     modeTitle: `Arcade: ${gameTitle}`,
-    wpm: gameStats.wpm || 0,
-    rawWpm: gameStats.wpm || 0,
-    accuracy: gameStats.accuracy || 95,
-    durationSeconds: gameStats.elapsedSeconds || 60,
-    totalChars: Math.round(((gameStats.wpm || 30) * 5 * (gameStats.elapsedSeconds || 60)) / 60),
+    // Record what the game actually reported. The previous fallbacks invented
+    // measurements: any arcade run without a duration was stored as a 60-second
+    // 30 WPM session at 95% accuracy, and every one of them added a fabricated
+    // minute to lifetime practice time. Unknown stays unknown.
+    wpm: gameStats.wpm ?? 0,
+    rawWpm: gameStats.wpm ?? 0,
+    accuracy: gameStats.accuracy ?? 0,
+    durationSeconds: gameStats.elapsedSeconds ?? 0,
+    totalChars: Math.round(((gameStats.wpm ?? 0) * 5 * (gameStats.elapsedSeconds ?? 0)) / 60),
     errors: 0,
     score: gameStats.score,
     xpEarned,
@@ -526,7 +596,7 @@ export function recordArcadeGameResult(
     highScores: {
       ...current.highScores,
       totalSessions: current.highScores.totalSessions + 1,
-      totalTimePracticedSeconds: current.highScores.totalTimePracticedSeconds + (gameStats.elapsedSeconds || 60),
+      totalTimePracticedSeconds: current.highScores.totalTimePracticedSeconds + (gameStats.elapsedSeconds ?? 0),
     },
     keyStats: updatedKeyStats,
     patternStats: updatedPatternStats,

@@ -12,6 +12,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       images: [`${SITE_URL}/opengraph-image`],
     },
     {
+      url: `${SITE_URL}${SITE.docsPath}`,
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
+    {
       url: `${SITE_URL}${SITE.entryPath}`,
       changeFrequency: 'weekly',
       priority: 0.8,

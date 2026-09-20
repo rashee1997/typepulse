@@ -19,7 +19,17 @@ import {
 } from 'lucide-react';
 
 interface OrbitalDefenseGameProps {
-  onFinish: (score: number, wordsDestroyed: number, accuracy: number) => void;
+  onFinish: (
+    score: number,
+    wordsDestroyed: number,
+    accuracy: number,
+    /**
+     * What this run actually measured. The caller needs raw counts, not the
+     * rounded accuracy percentage: it derives WPM from real characters over
+     * real elapsed time instead of inventing a duration.
+     */
+    run: { correctKeys: number; totalKeys: number; elapsedSeconds: number }
+  ) => void;
   onExit: () => void;
 }
 
@@ -74,6 +84,7 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
   const hasEndedRef = useRef(false);
   const totalKeysRef = useRef(0);
   const correctKeysRef = useRef(0);
+  const startedAtRef = useRef(0);
   const onFinishRef = useRef(onFinish);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -123,7 +134,12 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
       totalKeysRef.current > 0
         ? Math.round((correctKeysRef.current / totalKeysRef.current) * 100)
         : 100;
-    onFinishRef.current(scoreRef.current, wordsDestroyedRef.current, accuracy);
+    onFinishRef.current(scoreRef.current, wordsDestroyedRef.current, accuracy, {
+      correctKeys: correctKeysRef.current,
+      totalKeys: totalKeysRef.current,
+      elapsedSeconds:
+        startedAtRef.current > 0 ? (Date.now() - startedAtRef.current) / 1000 : 0,
+    });
   }, []);
 
   // Trigger EMP Superweapon
@@ -248,6 +264,7 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
     hasEndedRef.current = false;
     totalKeysRef.current = 0;
     correctKeysRef.current = 0;
+    startedAtRef.current = Date.now();
     setTotalKeystrokes(0);
     setCorrectKeystrokes(0);
     setGameState('playing');

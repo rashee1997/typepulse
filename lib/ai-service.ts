@@ -1,7 +1,7 @@
 import { AICoachFeedback, AIMission, AISettings, TypingStats, QuestState, QuestScene, TurnResult, BossTurnData, Lesson, AIDrillOptions, AIDrillResult } from '@/types/typing';
 import { generateWeakKeyDrill, numericSymbolSets } from './word-banks';
 import { CharacterPersona } from './character-personas';
-import { getLessonTargetKeys, getCumulativeKeysForLesson, sanitizePatternToAllowedKeys, generateDeterministicLessonDrill } from './curriculum';
+import { getLessonTargetKeys, getCumulativeKeysForLesson, sanitizePatternToAllowedKeys, generateDeterministicLessonDrill, baselineWpm } from './curriculum';
 
 export const AI_PROVIDER_PRESETS = [
   {
@@ -1274,15 +1274,22 @@ export async function generateBiometricDiagnostic(
     day3: { title: string; drill: string; targetWpm: number };
   };
 }> {
-  const isLeftSlower = handMetrics.leftHandAvgMs > handMetrics.rightHandAvgMs + 25;
-  const isRightSlower = handMetrics.rightHandAvgMs > handMetrics.leftHandAvgMs + 25;
+  const balanceDeltaMs = Math.round(handMetrics.leftHandAvgMs - handMetrics.rightHandAvgMs);
+  const isLeftSlower = balanceDeltaMs > 25;
+  const isRightSlower = balanceDeltaMs < -25;
+  // Report the delta that was actually measured. The previous strings asserted a
+  // fixed "+28ms"/"+26ms" no matter what the profile contained.
   const handBalance = isLeftSlower
-    ? 'Left-hand latency delta detected (+28ms avg).'
+    ? `Left hand runs ${Math.abs(balanceDeltaMs)}ms slower than the right on average.`
     : isRightSlower
-    ? 'Right-hand latency delta detected (+26ms avg).'
-    : 'Bilateral hand balance is harmonious (within ±10ms).';
+    ? `Right hand runs ${Math.abs(balanceDeltaMs)}ms slower than the left on average.`
+    : `Bilateral hand balance is within ${Math.abs(balanceDeltaMs)}ms.`;
 
-  const slowList = handMetrics.slowDigraphs.length > 0 ? handMetrics.slowDigraphs.slice(0, 3) : ['sw', 'ed', 'tr'];
+  // Do not invent digraphs. An empty list means the profile has no slow
+  // transition data yet, and the diagnostic says so instead of naming three.
+  const slowList = handMetrics.slowDigraphs.slice(0, 3);
+  const fingerKeys = Object.keys(handMetrics.fingerAverages);
+  const hasFingerData = fingerKeys.length > 0;
 
   if (settings && (settings.apiKey || settings.provider === 'gemini')) {
     try {
@@ -1290,7 +1297,7 @@ export async function generateBiometricDiagnostic(
 - Left hand average latency: ${handMetrics.leftHandAvgMs}ms
 - Right hand average latency: ${handMetrics.rightHandAvgMs}ms
 - Finger latencies: ${JSON.stringify(handMetrics.fingerAverages)}
-- Slowest digraph transitions: ${slowList.join(', ')}
+- Slowest digraph transitions: ${slowList.length > 0 ? slowList.join(', ') : 'none recorded yet'}
 - Current speed: ${handMetrics.overallWpm} WPM, Accuracy: ${handMetrics.accuracy}%
 
 Provide a clinical biometric diagnostic and a 3-Day Actionable Prescription Plan in this exact JSON schema:
@@ -1316,26 +1323,38 @@ Provide a clinical biometric diagnostic and a 3-Day Actionable Prescription Plan
     }
   }
 
-  // Deterministic Biomechanical Prescription
+  // Deterministic Biomechanical Prescription. Only states findings that are
+  // backed by the measurements passed in.
+  const slowestFinger = hasFingerData
+    ? fingerKeys.reduce((a, b) => (handMetrics.fingerAverages[a] >= handMetrics.fingerAverages[b] ? a : b))
+    : null;
+  const fingerFinding = slowestFinger
+    ? ` Slowest finger group is ${slowestFinger} at ${Math.round(handMetrics.fingerAverages[slowestFinger])}ms average.`
+    : ' No per-finger latency has been recorded yet, so no finger-specific finding can be made.';
+
+  // A prescription needs a target pace. Anchor it to the measured speed, or to
+  // the curriculum's opening target when no speed has been recorded.
+  const anchorWpm = baselineWpm(handMetrics.overallWpm);
+
   return {
-    fingerSummary: `${handBalance} Mild ring-to-pinky finger decoupling observed during top-row reaches, causing hesitation on transitions.`,
+    fingerSummary: `${handBalance}${fingerFinding}`,
     bottleneckNgrams: slowList,
     ergonomicTip: 'Keep elbows at a natural 90-degree angle and curl fingers softly as if holding a tennis ball to reduce extensor tendon strain.',
     prescriptionPlan: {
       day1: {
         title: 'Isolation & Anchor Re-alignment',
         drill: 'sweet swing switch swift sword sweet swing switch swift sweet swing switch swift sweet',
-        targetWpm: Math.round(handMetrics.overallWpm * 0.95),
+        targetWpm: Math.round(anchorWpm * 0.95),
       },
       day2: {
         title: 'Bilateral Cross-Hand Cadence',
         drill: 'travel trend train trust trade track truth trace treat transit travel trend train trust trade',
-        targetWpm: Math.round(handMetrics.overallWpm * 1.02),
+        targetWpm: Math.round(anchorWpm * 1.02),
       },
       day3: {
         title: 'High-Velocity Integration Sprint',
         drill: 'the swift runner crossed the finish track with calm confidence and steady rhythmic power',
-        targetWpm: Math.round(handMetrics.overallWpm * 1.08),
+        targetWpm: Math.round(anchorWpm * 1.08),
       },
     },
   };

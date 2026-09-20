@@ -20,12 +20,13 @@ export const SITE = {
   formerName: 'TypePulse AI',
   tagline: 'An AI-coached touch-typing studio.',
   definition:
-    'Offline-first touch-typing studio: 42 keyboard lessons, 18 arcade drills, adaptive weak-key training and an optional AI coach. Self-hosted, no account, progress in localStorage.',
+    'Offline-first touch-typing studio: 42 keyboard lessons, 12 arcade drills, adaptive weak-key training and an optional AI coach. Self-hosted, no account, progress in localStorage.',
   repoUrl: 'https://github.com/rashee1997/typepulse',
   repoLabel: 'rashee1997/typepulse',
   version: '0.1.0',
   license: 'No LICENSE file',
   entryPath: '/app',
+  docsPath: '/docs',
 } as const;
 
 /**
@@ -45,7 +46,9 @@ export interface Fact {
 /** Counts read directly out of the source tree. */
 export const FACTS: Fact[] = [
   { value: '42', label: 'lessons', detail: 'lib/curriculum-data.ts' },
-  { value: '18', label: 'arcade drills', detail: 'components/*Game.tsx' },
+  // The dashboard's ActiveGame union, not the number of `*Game.tsx` files: six of
+  // those files are unreferenced, so counting files overstated this by six.
+  { value: '12', label: 'arcade drills', detail: 'components/ArcadeDashboard.tsx' },
   { value: '8', label: 'AI providers', detail: 'lib/ai-service.ts' },
   { value: '1', label: 'grading engine', detail: 'lib/typing-engine.ts' },
 ];
@@ -129,7 +132,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: 'arcade',
-    title: '18 arcade drills',
+    title: '12 arcade drills',
     summary:
       'Canvas and DOM mini-games reuse the same engine, so scores stay comparable across modes.',
     bullets: [
@@ -288,7 +291,7 @@ export const FAQ: FaqEntry[] = [
   {
     question: 'What is Runewright?',
     answer:
-      "A touch-typing studio that runs entirely in the browser: 42 progressive lessons, 18 arcade drills, adaptive weak-key training and an optional AI coach. Typing logic lives in one dependency-free class, TypingEngine in lib/typing-engine.ts.",
+      "A touch-typing studio that runs entirely in the browser: 42 progressive lessons, 12 arcade drills, adaptive weak-key training and an optional AI coach. Typing logic lives in one dependency-free class, TypingEngine in lib/typing-engine.ts.",
   },
   {
     question: 'Where is my typing data stored?',
@@ -348,7 +351,7 @@ GEMINI_API_KEY=your-key-here`,
     id: 'run',
     step: '03',
     title: 'Run',
-    code: `bun dev      # docs at /, studio at /app
+    code: `bun dev      # landing / · docs /docs · studio /app
 bun run build && bun run start   # production`,
   },
 ];
@@ -365,11 +368,12 @@ export const PROVIDER_NAMES = [
   'Custom OpenAI-compatible',
 ];
 
+/** In-page anchors for the documentation route, absolute so / can link to them too. */
 export const NAV_LINKS = [
-  { href: '#quickstart', label: 'Quickstart' },
-  { href: '#engine', label: 'Engine' },
-  { href: '#api', label: 'API' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '/docs#quickstart', label: 'Quickstart' },
+  { href: '/docs#engine', label: 'Engine' },
+  { href: '/docs#api', label: 'API' },
+  { href: '/docs#faq', label: 'FAQ' },
 ];
 
 /** Flattened answer text used by the JSON-LD FAQPage graph. */

@@ -2,7 +2,10 @@
 
 import React, { useState, useCallback } from 'react';
 import { AISettings, UserProgress, TypingStats, ArcadeScores } from '@/types/typing';
-import { recordArcadeGameResult } from '@/lib/progress-service';
+import { buildArcadeTypingStats, recordArcadeGameResult } from '@/lib/progress-service';
+
+/** Raw measurements a game hands back when a run ends. */
+type ArcadeRun = { correctKeys: number; totalKeys: number; elapsedSeconds: number };
 import { TypingRaceGame } from '@/components/TypingRaceGame';
 import { OrbitalDefenseGame } from '@/components/OrbitalDefenseGame';
 import { BombDefusalGame } from '@/components/BombDefusalGame';
@@ -115,7 +118,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
 
   // Grand Prix Race Finish
   const handleRaceFinish = useCallback(
-    (totalXp: number, position: number, wpm: number, accuracy: number) => {
+    (totalXp: number, position: number, wpm: number, accuracy: number, run: ArcadeRun) => {
       onUpdateXp(totalXp);
       const isWon = position === 1;
       const isPodium = position <= 3;
@@ -123,6 +126,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         score: Math.round(wpm * 10),
         wpm,
         accuracy,
+        elapsedSeconds: run.elapsedSeconds,
         won: isWon,
         podium: isPodium,
       });
@@ -139,7 +143,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
 
   // Orbital Laser Defense Finish
   const handleOrbitalFinish = useCallback(
-    (score: number, wordsDestroyed: number, accuracy: number) => {
+    (score: number, wordsDestroyed: number, accuracy: number, run: ArcadeRun) => {
       const xp = Math.max(120, Math.round(score / 8));
       onUpdateXp(xp);
 
@@ -147,6 +151,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         score,
         wordsDestroyed,
         accuracy,
+        elapsedSeconds: run.elapsedSeconds,
       });
       setScores(res.updatedProgress.arcadeStats || {
         ...scores,
@@ -156,25 +161,10 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       });
 
       if (onFinishSession) {
-        onFinishSession(
-          {
-            wpm: Math.round(wordsDestroyed * 4.2),
-            rawWpm: Math.round(wordsDestroyed * 4.5),
-            accuracy,
-            correctChars: wordsDestroyed * 5,
-            incorrectChars: Math.round(wordsDestroyed * 5 * ((100 - accuracy) / 100)),
-            correctedErrors: 0,
-            totalKeystrokes: wordsDestroyed * 5,
-            elapsedSeconds: 45,
-            combo: 0,
-            maxCombo: 0,
-            consistency: 90,
-            errorsByChar: {},
-            weakKeys: [],
-            timeline: [],
-          },
-          'orbital-defense'
-        );
+        // Derived from the run's own keystroke counts and clock. The literals
+        // that used to sit here (wordsDestroyed * 4.2 WPM, a flat 45-second
+        // duration, 90% consistency) were persisted as a personal best.
+        onFinishSession(buildArcadeTypingStats(run), 'orbital-defense');
       }
     },
     [onUpdateXp, onFinishSession, scores]
@@ -182,7 +172,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
 
   // Bomb Defusal Finish
   const handleBombDefusalFinish = useCallback(
-    (score: number, bombsDefused: number, accuracy: number) => {
+    (score: number, bombsDefused: number, accuracy: number, run: ArcadeRun) => {
       const xp = Math.max(120, Math.round(score / 7));
       onUpdateXp(xp);
 
@@ -190,6 +180,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         score,
         bombsDefused,
         accuracy,
+        elapsedSeconds: run.elapsedSeconds,
       });
       setScores(res.updatedProgress.arcadeStats || {
         ...scores,
@@ -199,25 +190,9 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       });
 
       if (onFinishSession) {
-        onFinishSession(
-          {
-            wpm: Math.round(bombsDefused * 7.5),
-            rawWpm: Math.round(bombsDefused * 8),
-            accuracy,
-            correctChars: bombsDefused * 6,
-            incorrectChars: Math.round(bombsDefused * 6 * ((100 - accuracy) / 100)),
-            correctedErrors: 0,
-            totalKeystrokes: bombsDefused * 6,
-            elapsedSeconds: 40,
-            combo: 0,
-            maxCombo: 0,
-            consistency: 92,
-            errorsByChar: {},
-            weakKeys: [],
-            timeline: [],
-          },
-          'bomb-defusal'
-        );
+        // Same reasoning as Orbital Defense: real counts, real duration, and no
+        // invented consistency for a mode that never measures it.
+        onFinishSession(buildArcadeTypingStats(run), 'bomb-defusal');
       }
     },
     [onUpdateXp, onFinishSession, scores]
@@ -225,7 +200,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
 
   // Word Blitz Finish
   const handleBlitzFinish = useCallback(
-    (score: number, words: number, maxMult: number) => {
+    (score: number, words: number, maxMult: number, run: ArcadeRun) => {
       const xp = Math.round(score / 15);
       onUpdateXp(xp);
       const newScores = {
@@ -236,26 +211,9 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       };
       saveScores(newScores);
       if (onFinishSession) {
-        const approxWpm = Math.round((words * 5) / 0.75); // 45s round
-        onFinishSession(
-          {
-            wpm: Math.max(20, approxWpm),
-            rawWpm: Math.max(20, approxWpm),
-            accuracy: 97,
-            correctChars: words * 5,
-            incorrectChars: Math.round(words * 0.3),
-            correctedErrors: 0,
-            totalKeystrokes: words * 5,
-            elapsedSeconds: 45,
-            combo: maxMult * 4,
-            maxCombo: maxMult * 4,
-            consistency: 90,
-            errorsByChar: {},
-            weakKeys: [],
-            timeline: [],
-          },
-          'word-blitz'
-        );
+        // The old figures assumed a 45-second round and asserted 97% accuracy
+        // no matter how the round actually went; the run now reports both.
+        onFinishSession(buildArcadeTypingStats(run), 'word-blitz');
       }
     },
     [onUpdateXp, onFinishSession, scores]
@@ -284,9 +242,12 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
             correctedErrors: 0,
             totalKeystrokes: chars,
             elapsedSeconds: stats.elapsedSeconds,
-            combo: 10,
-            maxCombo: 10,
-            consistency: 92,
+            // The duel does not track combo or rhythm consistency. These read
+            // 10 / 10 / 92% as if it did; the results modal now shows "not
+            // measured" for a zero consistency instead of a made-up figure.
+            combo: 0,
+            maxCombo: 0,
+            consistency: 0,
             errorsByChar: {},
             weakKeys: [],
             timeline: [],

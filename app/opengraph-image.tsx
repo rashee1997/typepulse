@@ -77,7 +77,7 @@ export default function OpengraphImage() {
               maxWidth: '940px',
             }}
           >
-            42 lessons · 18 arcade drills · an adaptive weak-key engine · telemetry
+            42 lessons · 12 arcade drills · an adaptive weak-key engine · telemetry
             that never leaves your browser.
           </div>
         </div>

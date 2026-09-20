@@ -1,15 +1,6 @@
 import type {Metadata, Viewport} from 'next';
 import './globals.css'; // Global styles
-import {
-  FAQ,
-  SITE,
-  SITE_URL,
-  faqAnswerText,
-  PIPELINE,
-  CAPABILITIES,
-  API_ENDPOINTS,
-  PROVIDER_NAMES,
-} from '@/lib/site-content';
+import {SITE, SITE_URL, CAPABILITIES} from '@/lib/site-content';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -97,11 +88,11 @@ export const metadata: Metadata = {
 const OG_IMAGE = `${SITE_URL}/opengraph-image`;
 
 /**
- * Structured data graph.
+ * Structured data graph — the site-wide identity nodes.
  *
- * The FAQPage answers are generated from the exact same array the landing page
- * renders, so the schema can never drift away from the visible copy — which is
- * what schema validators and answer engines both check for.
+ * `TechArticle` and `FAQPage` deliberately live on /docs instead of here: schema
+ * validators require the marked-up content to be visible on the page that
+ * declares it, and those nodes describe documentation that only exists there.
  */
 const structuredData = {
   '@context': 'https://schema.org',
@@ -148,46 +139,6 @@ const structuredData = {
       name: SITE.name,
       url: SITE.repoUrl,
       description: `${SITE.name} — ${SITE.tagline}`,
-    },
-    {
-      '@type': 'TechArticle',
-      '@id': `${SITE_URL}/#architecture`,
-      headline: `${SITE.name} architecture, engine API and self-hosting reference`,
-      description:
-        'Technical reference for Runewright: the keystroke-to-telemetry pipeline, the TypingEngine public API, the adaptive weak-key model, the two server routes, and the localStorage progress schema.',
-      proficiencyLevel: 'Expert',
-      inLanguage: 'en',
-      articleSection: 'Software architecture',
-      about: { '@id': `${SITE_URL}/#software` },
-      author: { '@id': `${SITE_URL}/#organization` },
-      mainEntityOfPage: SITE_URL,
-      dependencies:
-        'Next.js 15 (App Router), React 19.2, TypeScript 5.9, Tailwind CSS 4.1, @google/genai 2.x, motion 12, canvas-confetti 1.9, react-markdown 10',
-      keywords: [
-        'typing engine architecture',
-        'keystroke latency',
-        'adaptive typing curriculum',
-        'localStorage progress schema',
-        ...API_ENDPOINTS.map((endpoint) => endpoint.path),
-      ],
-      articleBody: [
-        `Pipeline: ${PIPELINE.map((stage) => `${stage.title} (${stage.actor})` ).join(' → ')}.`,
-        `Capabilities: ${CAPABILITIES.map((capability) => capability.title).join('; ')}.`,
-        `AI providers: ${PROVIDER_NAMES.join(', ')}.`,
-      ].join(' '),
-    },
-    {
-      '@type': 'FAQPage',
-      '@id': `${SITE_URL}/#faq`,
-      isPartOf: { '@id': `${SITE_URL}/#website` },
-      mainEntity: FAQ.map((entry) => ({
-        '@type': 'Question',
-        name: entry.question,
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: faqAnswerText(entry),
-        },
-      })),
     },
   ],
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   AIDrillResult,
   AIMission,
@@ -201,7 +201,29 @@ export default function Home() {
   // Engine React Mirror State (for React-safe rendering)
   const [engineChars, setEngineChars] = useState<CharState[]>([]);
   const [engineIndex, setEngineIndex] = useState<number>(0);
-  const [ghostIndex, setGhostIndex] = useState<number>(0);
+  /**
+   * Pace for the Ghost PB pacer, or `null` when there is nothing honest to race.
+   *
+   * A brand-new profile has `highScores.bestWpm === 0`. The pacer used to
+   * substitute a hardcoded `50` WPM for that case, so a first-time visitor was
+   * shown a ghost running at a speed they had never achieved — and the UI printed
+   * "Ghost PB: 50 WPM" as though it were their personal best. There is no
+   * personal best until a session has been completed, so the pacer now stays
+   * inactive instead of inventing one. An explicitly configured pace still wins.
+   */
+  const ghostTargetWpm = useMemo<number | null>(() => {
+    const explicitPace = preferences.targetPacerWpm;
+    if (typeof explicitPace === 'number' && explicitPace > 0) return explicitPace;
+    return userProgress.highScores.bestWpm > 0 ? userProgress.highScores.bestWpm : null;
+  }, [preferences.targetPacerWpm, userProgress.highScores.bestWpm]);
+
+  const [ghostIndexRaw, setGhostIndex] = useState<number>(0);
+  /**
+   * `-1` means "no ghost". No rendered character index can equal it, so neither
+   * the pacer marker nor the delta badge can appear without a real target —
+   * without needing to reset state from inside an effect.
+   */
+  const ghostIndex = ghostTargetWpm === null ? -1 : ghostIndexRaw;
   const [liveStats, setLiveStats] = useState<TypingStats>(() => new TypingEngine('').getStats());
   const [sessionState, setSessionState] = useState<SessionState>('ready');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
@@ -495,29 +517,26 @@ export default function Home() {
 
   // Real-Time Ghost PB Pacer Effect (strictly practice mode only)
   useEffect(() => {
-    if (sessionState !== 'playing' || preferences.showGhostPacer === false || gameMode !== 'practice') {
+    if (
+      sessionState !== 'playing' ||
+      preferences.showGhostPacer === false ||
+      gameMode !== 'practice' ||
+      // No recorded personal best (and no explicit pace) means there is nothing
+      // to race, so no timer is started at all.
+      ghostTargetWpm === null
+    ) {
       return;
     }
-
-    const targetWpm =
-      preferences.targetPacerWpm ||
-      (userProgress.highScores.bestWpm > 0 ? userProgress.highScores.bestWpm : 50);
 
     const interval = setInterval(() => {
       const elapsed = engineRef.current.getElapsedSeconds();
       const total = engineRef.current.chars.length;
-      const idx = calculateGhostPacerIndex(elapsed, targetWpm, total);
+      const idx = calculateGhostPacerIndex(elapsed, ghostTargetWpm, total);
       setGhostIndex(idx);
     }, 120);
 
     return () => clearInterval(interval);
-  }, [
-    sessionState,
-    preferences.showGhostPacer,
-    preferences.targetPacerWpm,
-    userProgress.highScores.bestWpm,
-    gameMode,
-  ]);
+  }, [sessionState, preferences.showGhostPacer, ghostTargetWpm, gameMode]);
 
   // Cadence Metronome Sound Tick & Rhythm Loop
   useEffect(() => {
@@ -1735,11 +1754,19 @@ export default function Home() {
                           ? 'bg-primary-subtle text-primary border border-primary-border shadow-sm'
                           : 'text-text-muted hover:text-text-primary border border-transparent'
                       }`}
-                      title="Toggle Real-Time Ghost Pacer against your Personal Best"
+                      title={
+                        ghostTargetWpm !== null
+                          ? `Toggle the Ghost PB pacer, which races your recorded ${ghostTargetWpm} WPM best`
+                          : 'No personal best recorded yet — this appears once you finish a practice run'
+                      }
                     >
-                      <Ghost className="w-3.5 h-3.5 text-primary" />
+                      <Ghost
+                        className={
+                          ghostTargetWpm !== null ? 'w-3.5 h-3.5 text-primary' : 'w-3.5 h-3.5 text-text-subtle'
+                        }
+                      />
                       <span className="font-mono">
-                        Ghost PB: {userProgress.highScores.bestWpm > 0 ? `${userProgress.highScores.bestWpm} WPM` : '50 WPM'}
+                        Ghost PB: {ghostTargetWpm !== null ? `${ghostTargetWpm} WPM` : 'no run yet'}
                       </span>
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
@@ -1904,7 +1931,10 @@ export default function Home() {
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] text-text-subtle uppercase tracking-wider font-semibold">Speed</span>
-                        {sessionState === 'playing' && gameMode === 'practice' && preferences.showGhostPacer !== false && (
+                        {sessionState === 'playing' &&
+                          gameMode === 'practice' &&
+                          preferences.showGhostPacer !== false &&
+                          ghostTargetWpm !== null && (
                           <span
                             className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold ${
                               engineIndex >= ghostIndex

@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { UserProgress, AISettings } from '@/types/typing';
 import { getXpForNextLevel } from '@/lib/progress-service';
 import { generateBiometricDiagnostic } from '@/lib/ai-service';
+import { baselineWpm } from '@/lib/curriculum';
+import { FINGER_REACH_MAP } from '@/lib/keyboard-geometry';
 import { CERTIFICATION_BENCHMARKS, getCertificationTier } from '@/lib/certification-service';
 import { AchievementsGallery } from './AchievementsGallery';
 import {
@@ -77,22 +79,48 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
   let leftErrors = 0;
   let rightErrors = 0;
-  const fingerAverages: Record<string, number> = {
-    leftPinky: 195,
-    leftRing: 180,
-    leftMiddle: 165,
-    leftIndex: 155,
-    rightIndex: 150,
-    rightMiddle: 162,
-    rightRing: 178,
-    rightPinky: 190,
-  };
 
   Object.entries(keyStats).forEach(([char, stats]) => {
     const lower = char.toLowerCase();
     if (leftHandKeys.includes(lower)) leftErrors += stats.errors;
     if (rightHandKeys.includes(lower)) rightErrors += stats.errors;
   });
+
+  // Per-finger and per-hand latencies come from the real `patternStats` the
+  // typing engine records per key. These used to be a fixed table (leftPinky
+  // 195ms, leftRing 180ms, …) that never changed with the user's performance,
+  // and the hand averages were `175 + errors * 2` / `168 + errors * 2`.
+  const patternStats = userProgress.patternStats || {};
+  const fingerLatencyTotals: Record<string, { totalMs: number; typed: number }> = {};
+  let leftLatencyMs = 0;
+  let leftLatencyTyped = 0;
+  let rightLatencyMs = 0;
+  let rightLatencyTyped = 0;
+
+  Object.entries(patternStats).forEach(([char, stat]) => {
+    if (char.length !== 1 || stat.typed <= 0) return;
+    const lower = char.toLowerCase();
+    const finger = FINGER_REACH_MAP[lower]?.fingerLabel;
+    if (finger) {
+      const bucket = fingerLatencyTotals[finger] || { totalMs: 0, typed: 0 };
+      bucket.totalMs += stat.totalLatencyMs;
+      bucket.typed += stat.typed;
+      fingerLatencyTotals[finger] = bucket;
+    }
+    if (leftHandKeys.includes(lower)) {
+      leftLatencyMs += stat.totalLatencyMs;
+      leftLatencyTyped += stat.typed;
+    } else if (rightHandKeys.includes(lower)) {
+      rightLatencyMs += stat.totalLatencyMs;
+      rightLatencyTyped += stat.typed;
+    }
+  });
+
+  const fingerAverages: Record<string, number> = {};
+  Object.entries(fingerLatencyTotals).forEach(([finger, bucket]) => {
+    fingerAverages[finger] = Math.round(bucket.totalMs / bucket.typed);
+  });
+  const hasLatencyData = leftLatencyTyped > 0 || rightLatencyTyped > 0;
 
   const totalErrors = Math.max(1, leftErrors + rightErrors);
   const leftPercent = Math.round((leftErrors / totalErrors) * 100);
@@ -101,18 +129,24 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   const handleRunDiagnostic = async () => {
     setIsDiagnosing(true);
     try {
-      const leftAvg = 175 + Math.min(60, leftErrors * 2);
-      const rightAvg = 168 + Math.min(60, rightErrors * 2);
-      const slowest = sortedWeakKeys.slice(0, 3).map(([k]) => `${k}e`);
+      const leftAvg = leftLatencyTyped > 0 ? Math.round(leftLatencyMs / leftLatencyTyped) : 0;
+      const rightAvg = rightLatencyTyped > 0 ? Math.round(rightLatencyMs / rightLatencyTyped) : 0;
+      // Real transitions the engine measured, ranked by average latency. The
+      // old fallback named 'th'/'er'/'in' regardless of the user's data.
+      const slowest = Object.entries(patternStats)
+        .filter(([pattern, stat]) => pattern.length === 2 && stat.typed > 0)
+        .sort(([, a], [, b]) => b.avgLatencyMs - a.avgLatencyMs)
+        .slice(0, 3)
+        .map(([pattern]) => pattern);
 
       const report = await generateBiometricDiagnostic(
         {
           leftHandAvgMs: leftAvg,
           rightHandAvgMs: rightAvg,
           fingerAverages,
-          slowDigraphs: slowest.length > 0 ? slowest : ['th', 'er', 'in'],
-          overallWpm: highScores.bestWpm || 50,
-          accuracy: highScores.bestAccuracy || 95,
+          slowDigraphs: slowest,
+          overallWpm: highScores.bestWpm,
+          accuracy: highScores.bestAccuracy,
         },
         aiSettings
       );
@@ -504,6 +538,27 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <div className="flex items-center justify-between text-[11px] text-text-muted font-mono">
             <span>Left Errors: {leftErrors}</span>
             <span>Right Errors: {rightErrors}</span>
+          </div>
+
+          {/* Measured latencies, or an explicit statement that none exist. The
+              diagnostic used to assume 175ms/168ms before any data was typed. */}
+          <div className="flex items-center justify-between text-[11px] text-text-muted font-mono">
+            {hasLatencyData ? (
+              <>
+                <span>
+                  Left avg:{' '}
+                  {leftLatencyTyped > 0 ? `${Math.round(leftLatencyMs / leftLatencyTyped)}ms` : '—'}
+                </span>
+                <span>
+                  Right avg:{' '}
+                  {rightLatencyTyped > 0 ? `${Math.round(rightLatencyMs / rightLatencyTyped)}ms` : '—'}
+                </span>
+              </>
+            ) : (
+              <span className="text-text-subtle">
+                No keystroke latency recorded yet — type a session to populate this.
+              </span>
+            )}
           </div>
         </div>
 

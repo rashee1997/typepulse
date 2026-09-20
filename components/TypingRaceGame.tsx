@@ -17,7 +17,18 @@ import {
 } from 'lucide-react';
 
 interface TypingRaceGameProps {
-  onFinish: (xp: number, position: number, wpm: number, accuracy: number) => void;
+  onFinish: (
+    xp: number,
+    position: number,
+    wpm: number,
+    accuracy: number,
+    /**
+     * Raw counts and the measured wall-clock duration. Without the duration the
+     * caller logged the race with no elapsed time at all, so the session never
+     * contributed to lifetime practice time.
+     */
+    run: { correctKeys: number; totalKeys: number; elapsedSeconds: number }
+  ) => void;
   onExit: () => void;
 }
 
@@ -226,7 +237,12 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
 
   // Complete the Race
   const completeRace = useCallback(
-    (finalPlace: number, finalWpm: number, finalAcc: number) => {
+    (
+      finalPlace: number,
+      finalWpm: number,
+      finalAcc: number,
+      run: { correctKeys: number; totalKeys: number; elapsedSeconds: number }
+    ) => {
       if (hasFinishedRef.current) return;
       hasFinishedRef.current = true;
       setGameState('finished');
@@ -249,7 +265,7 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
         soundFx.playCombo();
       }
 
-      onFinishRef.current(totalXp, finalPlace, finalWpm, finalAcc);
+      onFinishRef.current(totalXp, finalPlace, finalWpm, finalAcc, run);
     },
     [division]
   );
@@ -293,7 +309,11 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
           setPlayerPlace(playerRank);
           if (playerFinished && !hasFinishedRef.current) {
             const currentAcc = typedChars > 0 ? Math.max(0, Math.round(((typedChars - errorCount) / typedChars) * 100)) : 100;
-            completeRace(playerRank, playerWpm, currentAcc);
+            completeRace(playerRank, playerWpm, currentAcc, {
+              correctKeys: Math.max(0, typedChars - errorCount),
+              totalKeys: typedChars,
+              elapsedSeconds: Math.max(0, (Date.now() - raceStartTimeRef.current) / 1000),
+            });
           }
         }, 0);
 
@@ -340,6 +360,14 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
 
         const currentAcc = Math.max(0, Math.round(((typedChars - errorCount) / Math.max(1, typedChars)) * 100));
         setAccuracy(currentAcc);
+        // `typedChars` has not committed yet for the word finished on this very
+        // keystroke, so count it explicitly rather than under-reporting.
+        const keysSoFar = typedChars + currentTarget.length + 1;
+        const runMeasurement = {
+          correctKeys: Math.max(0, keysSoFar - errorCount),
+          totalKeys: keysSoFar,
+          elapsedSeconds: Math.max(0, (Date.now() - raceStartTimeRef.current) / 1000),
+        };
 
         setRacers((prev) =>
           prev.map((r) =>
@@ -356,7 +384,7 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
 
         if (nextIdx >= words.length) {
           const { playerRank } = updateRankings(racers);
-          completeRace(playerRank, wpm, currentAcc);
+          completeRace(playerRank, wpm, currentAcc, runMeasurement);
         }
       } else {
         // Mistake made

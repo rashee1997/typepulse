@@ -15,7 +15,17 @@ import {
 } from 'lucide-react';
 
 interface WordBlitzProps {
-  onFinish: (score: number, wordsCleared: number, maxMultiplier: number) => void;
+  onFinish: (
+    score: number,
+    wordsCleared: number,
+    maxMultiplier: number,
+    /**
+     * What this run actually measured. Without it the caller had no measurement
+     * to work from and substituted its own constants — this mode used to report
+     * a flat 97% accuracy and a 45-second duration regardless of the run.
+     */
+    run: { correctKeys: number; totalKeys: number; elapsedSeconds: number }
+  ) => void;
   onExit: () => void;
 }
 
@@ -39,6 +49,12 @@ export const WordBlitzGame: React.FC<WordBlitzProps> = ({ onFinish, onExit }) =>
   const wordsClearedRef = useRef(wordsCleared);
   const maxComboRef = useRef(maxCombo);
   const onFinishRef = useRef(onFinish);
+  // Real keystroke accounting. The input compares against `currentWord`, so
+  // correctness is a genuine prefix test rather than an assumed percentage.
+  const totalKeysRef = useRef(0);
+  const correctKeysRef = useRef(0);
+  const lastInputRef = useRef('');
+  const startedAtRef = useRef(0);
 
   useEffect(() => {
     scoreRef.current = score;
@@ -69,11 +85,20 @@ export const WordBlitzGame: React.FC<WordBlitzProps> = ({ onFinish, onExit }) =>
     setGameState('gameover');
     soundFx.playSuccess();
     const finalMult = Math.min(5, 1 + Math.floor(maxComboRef.current / 4));
-    onFinishRef.current(scoreRef.current, wordsClearedRef.current, finalMult);
+    onFinishRef.current(scoreRef.current, wordsClearedRef.current, finalMult, {
+      correctKeys: correctKeysRef.current,
+      totalKeys: totalKeysRef.current,
+      elapsedSeconds:
+        startedAtRef.current > 0 ? (Date.now() - startedAtRef.current) / 1000 : 0,
+    });
   }, []);
 
   const startBlitz = useCallback(() => {
     hasFinishedRef.current = false;
+    totalKeysRef.current = 0;
+    correctKeysRef.current = 0;
+    lastInputRef.current = '';
+    startedAtRef.current = Date.now();
     setTimeLeft(45);
     setScore(0);
     setCombo(0);
@@ -108,8 +133,21 @@ export const WordBlitzGame: React.FC<WordBlitzProps> = ({ onFinish, onExit }) =>
     if (gameState !== 'playing') return;
 
     const val = e.target.value;
+    const completed = val === currentWord || (val.endsWith(' ') && val.trim() === currentWord);
 
-    if (val === currentWord || (val.endsWith(' ') && val.trim() === currentWord)) {
+    // Count only newly added characters, and judge them by whether the input is
+    // still a prefix of the target word. No assumed accuracy.
+    const prevVal = lastInputRef.current;
+    const added = Math.max(0, val.length - prevVal.length);
+    if (added > 0) {
+      totalKeysRef.current += added;
+      if (completed || currentWord.startsWith(val)) {
+        correctKeysRef.current += added;
+      }
+    }
+    lastInputRef.current = val;
+
+    if (completed) {
       // Completed word!
       soundFx.playKeyClick();
       const points = currentWord.length * 10 * multiplier;
@@ -132,6 +170,7 @@ export const WordBlitzGame: React.FC<WordBlitzProps> = ({ onFinish, onExit }) =>
       setCurrentWord(nextWord);
       setNextWord(getRandomWord());
       setInputVal('');
+      lastInputRef.current = '';
     } else {
       if (currentWord.startsWith(val)) {
         soundFx.playKeyClick();

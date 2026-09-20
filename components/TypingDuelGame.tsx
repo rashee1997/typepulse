@@ -186,7 +186,13 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
 
       // Calculate XP breakdown
       const totalChars = passage.text.length;
-      const accuracy = totalChars > 0 ? Math.max(70, Math.round(((totalChars - errorsCount) / totalChars) * 100)) : 100;
+      // No floor. This used to clamp accuracy to a minimum of 70%, which
+      // inflated the number displayed, the accuracy XP bonus, and the value
+      // written to the profile's best-accuracy record.
+      const accuracy =
+        totalChars > 0
+          ? Math.max(0, Math.min(100, Math.round(((totalChars - errorsCount) / totalChars) * 100)))
+          : 0;
       const base = opponent.baseXp;
       const winBonus = won ? opponent.winBonusXp : 40; // Consolation XP for finishing
       const accuracyBonus = accuracy >= 98 ? 80 : accuracy >= 95 ? 40 : 0;
@@ -318,7 +324,8 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
     // Player finish check
     if (nextIdx >= text.length && !hasFinishedRef.current) {
       const finalElapsed = Math.max(0.5, (Date.now() - raceStartTimeRef.current) / 1000);
-      const finalSpeed = Math.max(20, Math.round((text.length / 5) / (finalElapsed / 60)));
+      // Measured, not floored at a flattering 20 WPM.
+      const finalSpeed = Math.round((text.length / 5) / (finalElapsed / 60));
       concludeDuel('player', finalElapsed, finalSpeed);
     }
   };

@@ -1,7 +1,7 @@
 {
   "name": "Runewright - AI-Coached Touch-Typing Studio",
   "short_name": "Runewright",
-  "description": "Interactive touch typing platform with a 42-lesson curriculum, adaptive weak-key drills, 18 arcade drills, real-time analytics, and customizable AI coaching. Progress is stored locally in your browser.",
+  "description": "Interactive touch typing platform with a 42-lesson curriculum, adaptive weak-key drills, 12 arcade drills, real-time analytics, and customizable AI coaching. Progress is stored locally in your browser.",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",

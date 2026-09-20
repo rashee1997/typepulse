@@ -45,8 +45,9 @@ ${bullets([
   `License: ${SITE.license}. The repository has no LICENSE file, so default copyright applies and the code is not formally licensed for redistribution.`,
   `Stack: Next.js 15 (App Router, standalone output), React 19.2, TypeScript 5.9, Tailwind CSS 4.1, @google/genai 2.x, motion 12, canvas-confetti 1.9`,
   `Runtime requirement: Node.js 20+. No database, object storage, or queue.`,
-  `Documentation entry point: ${SITE_URL}/`,
+  `Documentation entry point: ${SITE_URL}${SITE.docsPath}`,
   `Interactive studio: ${SITE_URL}${SITE.entryPath}`,
+  `Landing page: ${SITE_URL}/ (hero only)`,
   `Long-form machine-readable docs: ${SITE_URL}/llms-full.txt`,
 ])}
 
@@ -84,7 +85,7 @@ ${API_ENDPOINTS.map(
 
 ## Library entry points
 
-${bullets(CODE_SAMPLES.map((sample) => `${sample.label}: see ${SITE_URL}/#engine-api`))}
+${bullets(CODE_SAMPLES.map((sample) => `${sample.label}: see ${SITE_URL}${SITE.docsPath}#engine`))}
 
 - \`lib/typing-engine.ts\` — \`TypingEngine\`: \`handleInput(key, options)\`, \`getStats()\`, \`getCharsSnapshot()\`, \`getRollingCadence()\`, \`getConsistency()\`, \`injectRemediationWords(words)\`, \`exportGhostPayload(author)\`, \`setGhostDuel(payload)\`, \`getGhostIndexAtTime(ms)\`
 - \`lib/typing-engine.ts\` — \`calculateGhostPacerIndex(elapsedSeconds, targetWpm, totalChars)\`, \`parseGhostDuelPayload(raw)\`
@@ -100,7 +101,7 @@ ${bullets(CODE_SAMPLES.map((sample) => `${sample.label}: see ${SITE_URL}/#engine
 git clone ${SITE.repoUrl} runewright
 cd runewright
 bun install
-bun dev   # docs at /, studio at /app
+bun dev   # landing / · docs /docs · studio /app
 \`\`\`
 
 Optional runtime secret: \`GEMINI_API_KEY\`, read server-side only by
@@ -115,7 +116,7 @@ ${FAQ.map((entry) => `### ${entry.question}\n\n${faqAnswerText(entry)}`).join('\
 
 ## Documentation index
 
-- [${SITE.name} documentation](${SITE_URL}/): architecture, engine API, HTTP API, quickstart, FAQ
+- [${SITE.name} documentation](${SITE_URL}${SITE.docsPath}): architecture, engine API, HTTP API, quickstart, FAQ
 - [Interactive studio](${SITE_URL}${SITE.entryPath}): the application itself
 - [Full machine-readable documentation](${SITE_URL}/llms-full.txt): this document expanded with complete code samples and parameter tables
 - [Source repository](${SITE.repoUrl})

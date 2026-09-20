@@ -20,7 +20,17 @@ import {
 } from 'lucide-react';
 
 interface BombDefusalGameProps {
-  onFinish: (score: number, bombsDefused: number, accuracy: number) => void;
+  onFinish: (
+    score: number,
+    bombsDefused: number,
+    accuracy: number,
+    /**
+     * What this run actually measured. The caller needs raw counts, not the
+     * rounded accuracy percentage: it derives WPM from real characters over
+     * real elapsed time instead of inventing a duration.
+     */
+    run: { correctKeys: number; totalKeys: number; elapsedSeconds: number }
+  ) => void;
   onExit: () => void;
 }
 
@@ -59,6 +69,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
   const livesRef = useRef(lives);
   const totalKeysRef = useRef(0);
   const correctKeysRef = useRef(0);
+  const startedAtRef = useRef(0);
   const onFinishRef = useRef(onFinish);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -124,7 +135,12 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
       totalKeysRef.current > 0
         ? Math.round((correctKeysRef.current / totalKeysRef.current) * 100)
         : 100;
-    onFinishRef.current(scoreRef.current, bombsDefusedRef.current, accuracy);
+    onFinishRef.current(scoreRef.current, bombsDefusedRef.current, accuracy, {
+      correctKeys: correctKeysRef.current,
+      totalKeys: totalKeysRef.current,
+      elapsedSeconds:
+        startedAtRef.current > 0 ? (Date.now() - startedAtRef.current) / 1000 : 0,
+    });
   }, []);
 
   // Ticking countdown loop
@@ -162,6 +178,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
     hasEndedRef.current = false;
     totalKeysRef.current = 0;
     correctKeysRef.current = 0;
+    startedAtRef.current = Date.now();
     setTotalKeystrokes(0);
     setCorrectKeystrokes(0);
     setGameState('playing');

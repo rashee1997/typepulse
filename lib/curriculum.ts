@@ -6,6 +6,28 @@ import { LESSONS_42 } from './curriculum-data';
 export const LESSONS_CURRICULUM: Lesson[] = LESSONS_42;
 
 /**
+ * Entry-point pace for a profile with no recorded performance.
+ *
+ * Several features need *a* number to work with before the user has finished a
+ * single session — mission generation, the biometric diagnostic, ghost pacing.
+ * Each of those used to invent its own constant (50, 35, 30, or a `Math.max(25,…)`
+ * floor), which is why a first-time visitor was routinely shown fabricated
+ * statistics about themselves. This is the curriculum's own opening target, so the
+ * number a new user sees is a designed starting point rather than an invention.
+ */
+export const STARTING_WPM: number = LESSONS_42[0]?.targetWpm ?? 15;
+
+/**
+ * The pace to plan around for a given profile: the recorded best when one exists,
+ * otherwise the curriculum entry point. Never returns a hardcoded guess.
+ */
+export function baselineWpm(recordedBestWpm?: number): number {
+  return typeof recordedBestWpm === 'number' && recordedBestWpm > 0
+    ? recordedBestWpm
+    : STARTING_WPM;
+}
+
+/**
  * Extracts strictly the individual valid characters for this lesson,
  * resolving macro identifiers like 'all' or 'Shift'.
  */

@@ -27,10 +27,12 @@ export const BiometricLatencyHUD: React.FC<BiometricLatencyHUDProps> = ({
     ([key, p]) => key.length === 1 && p.typed >= 2
   );
 
-  // Fallback: If session just started and patternStats is sparse, use userProgress keyStats
   const totalTyped = patternEntries.reduce((acc, [, p]) => acc + p.typed, 0);
   const totalMs = patternEntries.reduce((acc, [, p]) => acc + p.totalLatencyMs, 0);
-  const globalAvgMs = totalTyped > 0 ? Math.round(totalMs / totalTyped) : 220;
+  // Every entry above required `typed >= 2`, so this is always computed from real
+  // data when the HUD renders. It previously fell back to a hardcoded 220ms
+  // "baseline" that was presented as the user's own average.
+  const globalAvgMs = totalTyped > 0 ? Math.round(totalMs / totalTyped) : 0;
 
   // Rank keys by latency penalty relative to global average
   const latencyRanked = patternEntries

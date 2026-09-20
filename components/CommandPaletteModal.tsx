@@ -104,12 +104,15 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     }
   };
 
-  // Scroll active item into view
+  // Keep the highlighted row visible as the user arrows through results.
+  // `behavior: 'instant'` is deliberate: the document opts into smooth scrolling
+  // globally, and smooth-scrolling a list one row at a time on every key repeat
+  // makes the highlight trail behind the cursor.
   useEffect(() => {
     if (!listRef.current) return;
     const activeEl = listRef.current.querySelector(`[data-index="${safeSelectedIndex}"]`) as HTMLElement;
     if (activeEl) {
-      activeEl.scrollIntoView({ block: 'nearest' });
+      activeEl.scrollIntoView({ block: 'nearest', behavior: 'instant' });
     }
   }, [safeSelectedIndex]);
 

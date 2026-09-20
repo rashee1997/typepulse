@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
 import { generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
@@ -51,13 +51,26 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   onOpenAiDrill,
   targetText,
 }) => {
-  const [coachFeedback, setCoachFeedback] = useState<AICoachFeedback | null>(null);
-  const [loadingCoach, setLoadingCoach] = useState(true);
+  const [coach, setCoach] = useState<{ sessionId: string; data: AICoachFeedback | null; loading: boolean } | null>(null);
   const [generatingMission, setGeneratingMission] = useState(false);
   const [copiedGhost, setCopiedGhost] = useState(false);
   const [replayIdx, setReplayIdx] = useState<number>(0);
   const [isReplaying, setIsReplaying] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState<number>(1);
+
+  // Async safety: cancels in-flight coaching/mission requests when this result
+  // set is replaced, the modal closes, or the component unmounts.
+  const abortRef = useRef<AbortController | null>(null);
+  const sessionTokenRef = useRef<string>('');
+  const isMountedRef = useRef(true);
+
+  // Every coaching payload is stamped with the session that produced it and read
+  // back only while that stamp still matches. A slow reply from a previous drill
+  // can therefore never render against, or overwrite, the current one.
+  const sessionId =
+    sessionSummary?.id ?? `${stats.wpm}-${stats.totalKeystrokes}-${stats.accuracy}-${stats.maxCombo}`;
+  const coachFeedback = coach?.sessionId === sessionId ? coach.data : null;
+  const loadingCoach = coach?.sessionId === sessionId ? coach.loading : true;
 
   const handleShareGhost = () => {
     if (!stats.replayEvents || stats.replayEvents.length === 0) return;
@@ -96,6 +109,28 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     return () => clearInterval(interval);
   }, [isReplaying, stats.replayEvents, replaySpeed]);
 
+  // Release the shared canvas-confetti context on unmount so repeated modal opens
+  // can never accumulate animation loops or orphan canvases.
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      try {
+        confetti.reset();
+      } catch {
+        // confetti.reset is best-effort cleanup only
+      }
+    };
+  }, []);
+
+  // Stop coaching the instant the modal is dismissed
+  useEffect(() => {
+    if (isOpen) return;
+    abortRef.current?.abort();
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -118,42 +153,49 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
       } catch {}
     }
 
-    let isMounted = true;
+    // Stamp this run; only replies carrying the current stamp may be applied.
+    const controller = new AbortController();
+    const capturedSession = sessionId;
+    sessionTokenRef.current = capturedSession;
+    const isStale = () => controller.signal.aborted || sessionTokenRef.current !== capturedSession;
     let hasFullResult = false;
-    // 1. Instant optimistic feedback (<5ms)
-    generateAiCoachFeedback(
-      stats,
-      { mode: modeTitle, level: userProgress.level, userWeakKeys: stats.weakKeys },
-      { ...aiSettings, provider: 'offline' }
-    ).then((optimistic) => {
-      if (isMounted && !hasFullResult) {
-        setCoachFeedback(optimistic);
-      }
-    });
 
-    // 2. Full AI enhancement (if configured)
-    generateAiCoachFeedback(
-      stats,
-      { mode: modeTitle, level: userProgress.level, userWeakKeys: stats.weakKeys },
-      aiSettings
-    )
-      .then((feedback) => {
-        if (isMounted) {
-          hasFullResult = true;
-          setCoachFeedback(feedback);
-          setLoadingCoach(false);
-        }
+    const context = { mode: modeTitle, level: userProgress.level, userWeakKeys: stats.weakKeys };
+
+    // 1. Instant optimistic feedback (<5ms)
+    generateAiCoachFeedback(stats, context, { ...aiSettings, provider: 'offline' }, controller.signal)
+      .then((optimistic) => {
+        if (isStale() || hasFullResult) return;
+        setCoach((prev) =>
+          prev?.sessionId === capturedSession && prev.data
+            ? prev
+            : { sessionId: capturedSession, data: optimistic, loading: true }
+        );
       })
       .catch(() => {
-        if (isMounted) {
-          setLoadingCoach(false);
-        }
+        // Optimistic feedback is a local computation; nothing to recover.
       });
 
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, stats, modeTitle, userProgress.level, userProgress.highScores.bestWpm, aiSettings, leveledUp, newAchievements.length]);
+    // 2. Full AI enhancement (if configured)
+    generateAiCoachFeedback(stats, context, aiSettings, controller.signal)
+      .then((feedback) => {
+        if (isStale()) return;
+        hasFullResult = true;
+        setCoach({ sessionId: capturedSession, data: feedback, loading: false });
+      })
+      .catch(() => {
+        if (isStale()) return;
+        // Keep any optimistic feedback already on screen; just stop the spinner.
+        setCoach((prev) =>
+          prev?.sessionId === capturedSession
+            ? { ...prev, loading: false }
+            : { sessionId: capturedSession, data: null, loading: false }
+        );
+      });
+
+    // Cancel the in-flight request as soon as this result set is superseded.
+    return () => controller.abort();
+  }, [isOpen, sessionId, stats, modeTitle, userProgress.level, userProgress.highScores.bestWpm, aiSettings, leveledUp, newAchievements.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -170,13 +212,24 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   if (!isOpen) return null;
 
   const handleCreateMission = async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setGeneratingMission(true);
     try {
-      const mission = await generateAiMission(stats.weakKeys, stats.wpm, aiSettings);
+      const mission = await generateAiMission(stats.weakKeys, stats.wpm, aiSettings, controller.signal);
+      if (controller.signal.aborted || !isMountedRef.current) return;
       onStartMission(mission);
       onClose();
+    } catch {
+      // An abort is expected when the modal is dismissed mid-request.
     } finally {
-      setGeneratingMission(false);
+      // Only the request that still owns the slot may clear the spinner, so an
+      // aborted request cannot leave (or clear) a newer request's loading state.
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setGeneratingMission(false);
+      }
     }
   };
 

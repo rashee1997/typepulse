@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import { AISettings, UserProgress } from '@/types/typing';
 import { askAiCoachQuestion } from '@/lib/ai-service';
@@ -35,6 +35,13 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Async safety: one AbortController per in-flight request, plus a monotonic
+  // session token so out-of-order or post-unmount replies are discarded instead
+  // of overwriting coaching for the drill that is actually on screen.
+  const abortRef = useRef<AbortController | null>(null);
+  const sessionTokenRef = useRef(0);
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,6 +53,25 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Hard teardown of every in-flight request on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      sessionTokenRef.current += 1;
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
+
+  // Cancel pending coaching the moment the panel closes so nothing resolves later.
+  // The promise's own `finally` clears the loading flag, so no state is written here.
+  useEffect(() => {
+    if (isOpen) return;
+    sessionTokenRef.current += 1;
+    abortRef.current?.abort();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -60,6 +86,14 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     const text = questionToSend || input;
     if (!text.trim() || loading) return;
 
+    // Supersede any previous request before issuing a new one.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const token = ++sessionTokenRef.current;
+    const isStale = () =>
+      !isMountedRef.current || controller.signal.aborted || token !== sessionTokenRef.current;
+
     const userMsg: Message = { role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
@@ -68,9 +102,11 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     const contextSummary = `Player Level: ${userProgress.level}, Rank: ${userProgress.title}, Best WPM: ${userProgress.highScores.bestWpm}, Accuracy: ${userProgress.highScores.bestAccuracy}%, Total Practiced: ${Math.round(userProgress.highScores.totalTimePracticedSeconds / 60)} mins.`;
 
     try {
-      const reply = await askAiCoachQuestion(text, contextSummary, aiSettings);
+      const reply = await askAiCoachQuestion(text, contextSummary, aiSettings, controller.signal);
+      if (isStale()) return;
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
     } catch {
+      if (isStale()) return;
       setMessages((prev) => [
         ...prev,
         {
@@ -79,7 +115,12 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
         },
       ]);
     } finally {
-      setLoading(false);
+      // Only the request that still owns the slot may clear it, so a superseded
+      // request can never unlock the composer while a newer one is running.
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setLoading(false);
+      }
     }
   };
 

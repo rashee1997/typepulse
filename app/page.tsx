@@ -37,6 +37,7 @@ import {
   INITIAL_USER_PROGRESS,
 } from '@/lib/progress-service';
 import { generateKeybrPracticeText, INITIAL_KEYBR_PROGRESSION } from '@/lib/adaptive-engine';
+import { useSystemPrefersDark } from '@/hooks/use-system-prefers-dark';
 
 // Components
 import { WordViewport } from '@/components/WordViewport';
@@ -207,6 +208,10 @@ export default function Home() {
   const [activeKeyPressed, setActiveKeyPressed] = useState<string>('');
   const [liveAnnouncement, setLiveAnnouncement] = useState<string>('');
 
+  // Hydration-safe OS dark-mode preference, read through useSyncExternalStore so
+  // the server snapshot and the first client render always agree.
+  const systemPrefersDark = useSystemPrefersDark();
+
   // Synchronize Theme class with document.documentElement
   useEffect(() => {
     const root = document.documentElement;
@@ -236,12 +241,10 @@ export default function Home() {
     document.documentElement.classList.toggle('dyslexic-font', !!preferences.dyslexicFont);
   }, [preferences.dyslexicFont]);
 
+  // Derived from React state only (never `window`) to guarantee identical
+  // server prerender and initial client rehydration.
   const isDarkMode =
-    preferences.theme === 'light'
-      ? false
-      : preferences.theme === 'system' && typeof window !== 'undefined'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : true;
+    preferences.theme === 'light' ? false : preferences.theme === 'system' ? systemPrefersDark : true;
 
   const toggleTheme = () => {
     const nextTheme: ThemePreference = isDarkMode ? 'light' : 'dark';
@@ -468,28 +471,26 @@ export default function Home() {
     soundFx.setConfig(preferences.soundEnabled, preferences.soundVolume);
   }, [preferences.soundEnabled, preferences.soundVolume]);
 
-  // Countdown timer effect for timed modes
+  // Countdown timer effect for timed modes.
+  // The interval owns ONLY the decrement via a pure updater. Session finalization
+  // lives in a separate effect triggered when the counter reaches zero, so
+  // StrictMode's double-invoked updaters can never schedule two completions.
+  const isTimedMode = timeRemaining !== null;
   useEffect(() => {
-    if (sessionState !== 'playing' || timeRemaining === null) return;
-
-    if (timeRemaining <= 0) {
-      const timeout = setTimeout(() => finalizeSession(), 0);
-      return () => clearTimeout(timeout);
-    }
+    if (sessionState !== 'playing' || !isTimedMode) return;
 
     const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          clearInterval(timer);
-          setTimeout(() => finalizeSession(), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeRemaining((prev) => (prev === null ? null : Math.max(0, prev - 1)));
     }, 1000);
 
     return () => clearInterval(timer);
+  }, [sessionState, isTimedMode]);
+
+  // Finalize exactly once when the countdown reaches zero
+  useEffect(() => {
+    if (sessionState !== 'playing' || timeRemaining !== 0) return;
+    const timeout = setTimeout(() => finalizeSession(), 0);
+    return () => clearTimeout(timeout);
   }, [sessionState, timeRemaining, finalizeSession]);
 
   // Real-Time Ghost PB Pacer Effect (strictly practice mode only)
@@ -581,6 +582,8 @@ export default function Home() {
 
   // Zero-GC rAF batching for high-frequency typing loop
   const statsRafIdRef = useRef<number | null>(null);
+  // Single tracked timeout for the keyboard-visualizer key highlight
+  const activeKeyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleStatsUpdate = useCallback(() => {
     if (statsRafIdRef.current !== null) return;
@@ -594,6 +597,10 @@ export default function Home() {
     return () => {
       if (statsRafIdRef.current !== null) {
         cancelAnimationFrame(statsRafIdRef.current);
+      }
+      if (activeKeyTimeoutRef.current !== null) {
+        clearTimeout(activeKeyTimeoutRef.current);
+        activeKeyTimeoutRef.current = null;
       }
     };
   }, []);
@@ -651,9 +658,17 @@ export default function Home() {
       e.preventDefault();
     }
 
-    // Set active key for keyboard visualizer
-    setActiveKeyPressed(key);
-    setTimeout(() => setActiveKeyPressed(''), 120);
+    // Set active key for keyboard visualizer. A single tracked timeout replaces
+    // one orphaned setTimeout per keystroke, so rapid bursts cannot queue stale
+    // state updates or fire after unmount/navigation.
+    if (activeKeyTimeoutRef.current !== null) {
+      clearTimeout(activeKeyTimeoutRef.current);
+    }
+    setActiveKeyPressed((prev) => (prev === key ? prev : key));
+    activeKeyTimeoutRef.current = setTimeout(() => {
+      activeKeyTimeoutRef.current = null;
+      setActiveKeyPressed('');
+    }, 120);
 
     // Audio cue
     if (key === 'Backspace') {

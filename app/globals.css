@@ -134,6 +134,14 @@
   --scrollbar-track: #f1f5f9;
   --scrollbar-thumb: #cbd5e1;
   --scrollbar-thumb-hover: #94a3b8;
+
+  /* Elevation (theme-aware so light cards cast ink, dark cards cast depth) */
+  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --card-shadow-hover: 0 2px 4px rgba(15, 23, 42, 0.06), 0 8px 20px rgba(15, 23, 42, 0.10);
+  --modal-shadow: 0 16px 50px var(--overlay-shadow), 0 2px 8px rgba(15, 23, 42, 0.08);
+
+  /* Let the UA paint native controls + scrollbars to match the theme */
+  color-scheme: light;
 }
 
 /* ==========================================================================
@@ -217,6 +225,13 @@
   --scrollbar-track: #020617;
   --scrollbar-thumb: #1e293b;
   --scrollbar-thumb-hover: #334155;
+
+  /* Elevation */
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.45);
+  --modal-shadow: 0 16px 50px var(--overlay-shadow), 0 2px 8px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
 }
 
 /* ==========================================================================
@@ -280,11 +295,107 @@
   --color-info-foreground: var(--info-foreground);
   --color-info-subtle: var(--info-subtle);
   --color-info-border: var(--info-border);
+
+  /* ------------------------------------------------------------------------
+     ALIAS TOKENS
+     These names are referenced by existing components. Binding them here (to
+     the same semantic values as their `danger` / `text-muted` equivalents)
+     means every one of those utility classes actually generates CSS instead of
+     silently rendering as a no-op.
+     ------------------------------------------------------------------------ */
+  --color-error: var(--danger);
+  --color-error-hover: var(--danger-hover);
+  --color-error-foreground: var(--danger-foreground);
+  --color-error-subtle: var(--danger-subtle);
+  --color-error-border: var(--danger-border);
+
+  --color-overlay: var(--surface-overlay);
+  --color-foreground-muted: var(--text-muted);
+  --color-border-hover: var(--border-strong);
+
+  /* ------------------------------------------------------------------------
+     ELEVATION BINDINGS
+     `shadow-card` is the app's default card elevation; it resolves through a
+     theme-aware raw variable so light mode casts soft ink and dark mode casts
+     depth instead of an invisible light shadow.
+     ------------------------------------------------------------------------ */
+  --shadow-card: var(--card-shadow);
+  --shadow-card-hover: var(--card-shadow-hover);
+  --shadow-modal: var(--modal-shadow);
+  --shadow-glow-primary: 0 0 14px var(--info-glow);
+  --shadow-glow-primary-sm: 0 0 8px var(--info-glow);
+  --shadow-glow-danger-sm: 0 0 8px var(--danger-glow);
+
+  /* ------------------------------------------------------------------------
+     MOTION SYSTEM
+     Two curves only: `butter` for anything that moves into place (decelerating,
+     never overshoots, so entrance animations feel weighty instead of bouncy),
+     and `spring` for deliberate playful pops. Setting the Tailwind defaults here
+     upgrades every existing bare `transition-colors` / `transition-all` in the
+     app at once, so hover + press feedback is consistent everywhere.
+     ------------------------------------------------------------------------ */
+  --ease-butter: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --default-transition-duration: 180ms;
+  --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Entrance + feedback animations used across the app. */
+  --animate-fadeIn: fadeIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fadeIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-scaleUp: scaleUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-slideDown: slideDown 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-shake: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  --animate-caret: caretBreathe 1.15s ease-in-out infinite;
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scaleUp {
+    from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.975); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translate3d(0, -14px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    18% { transform: translate3d(-7px, 0, 0); }
+    36% { transform: translate3d(6px, 0, 0); }
+    54% { transform: translate3d(-4px, 0, 0); }
+    72% { transform: translate3d(3px, 0, 0); }
+    88% { transform: translate3d(-1px, 0, 0); }
+  }
+
+  /* Caret no longer uses `animate-pulse` (a full 2s opacity fade that reads as a
+     mushy blink). This stays soft, but is short enough to feel like a live
+     terminal cursor rather than a UI element waiting on a network request. */
+  @keyframes caretBreathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.18; }
+  }
 }
 
 /* ==========================================================================
    GLOBAL BASE STYLES
    ========================================================================== */
+html {
+  /* Anchor jumps and route restores glide instead of snapping. The reduced-motion
+     block at the bottom of this file resets this to `auto` when requested. */
+  scroll-behavior: smooth;
+  /* Native scrollbars inherit the palette instead of the OS default. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  /* Kill the grey mobile tap flash so pressed states stay under our control. */
+  -webkit-tap-highlight-color: transparent;
+  /* Momentum-style overscroll instead of rubber-banding the whole document. */
+  overscroll-behavior-y: none;
+}
+
 html,
 body {
   background-color: var(--background);
@@ -294,7 +405,40 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body {
+  min-height: 100dvh;
+  /* Antialiased glyph rendering keeps thin monospace strokes crisp on retina,
+     and stops macOS from fattening subpixel text mid-transition. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Text selection picks up the brand accent rather than the default OS blue. */
+::selection {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* --------------------------------------------------------------------------
+   FOCUS VISIBILITY
+   Keyboard users get a consistent, high-contrast ring on every interactive
+   control. Scoped to buttons/links/ARIA widgets so it never doubles up with the
+   `focus:ring-*` utilities already used on form inputs.
+   -------------------------------------------------------------------------- */
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+[role='menuitem']:focus-visible,
+[role='option']:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: inherit;
 }
 
 /* Custom subtle scrollbar */

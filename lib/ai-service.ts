@@ -174,11 +174,23 @@ export async function testAiConnection(settings: AISettings): Promise<{ success:
   }
 }
 
+/**
+ * True when a rejected request was cancelled by an AbortController rather than
+ * failing. Callers must treat this as "silently discard", never as a result —
+ * otherwise a stale drill's response can overwrite the active session.
+ */
+export function isAbortError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { name?: string; code?: number };
+  return e.name === 'AbortError' || e.code === 20;
+}
+
 // Low-level call to OpenAI-compatible endpoint or Gemini route
 export async function callLlm(
   prompt: string,
   arg2?: string | AISettings,
-  arg3?: AISettings
+  arg3?: AISettings,
+  arg4?: { signal?: AbortSignal }
 ): Promise<string> {
   let systemPrompt = 'You are an elite, encouraging touch typing mentor. Provide crisp, action-oriented typing guidance.';
   let settings: AISettings = DEFAULT_AI_SETTINGS;
@@ -189,6 +201,8 @@ export async function callLlm(
   } else if (arg2 && typeof arg2 === 'object') {
     settings = arg2;
   }
+
+  const signal = arg4?.signal;
 
   // If Gemini provider selected
   if (settings.provider === 'gemini') {
@@ -201,6 +215,7 @@ export async function callLlm(
         systemInstruction: systemPrompt,
         jsonMode: isJson,
       }),
+      signal,
     });
     if (!res.ok) {
       const errData = await res.json();
@@ -234,6 +249,7 @@ export async function callLlm(
         path: '/chat/completions',
         body,
       }),
+      signal,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Proxy request failed');
@@ -251,6 +267,7 @@ export async function callLlm(
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!res.ok) {
@@ -267,7 +284,8 @@ export async function callLlm(
 export async function generateAiCoachFeedback(
   stats: TypingStats,
   context: { mode: string; level: number; userWeakKeys: string[] },
-  settings: AISettings
+  settings: AISettings,
+  signal?: AbortSignal
 ): Promise<AICoachFeedback> {
   // If no key and not gemini, return smart local coaching instantly
   const hasExternalCredentials = Boolean(settings.apiKey || settings.endpoint.includes('localhost') || settings.provider === 'gemini');
@@ -296,7 +314,7 @@ Return a clean JSON object with this exact schema:
 Output only valid raw JSON.`;
 
   try {
-    const raw = await callLlm(prompt, 'You are an elite, encouraging touch-typing coach. Answer strictly with valid JSON.', settings);
+    const raw = await callLlm(prompt, 'You are an elite, encouraging touch-typing coach. Answer strictly with valid JSON.', settings, { signal });
     const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     const remediationMission = generateDeterministicMission(stats.weakKeys, stats.wpm);
@@ -308,6 +326,7 @@ Output only valid raw JSON.`;
       recommendedMission: remediationMission,
     };
   } catch (err) {
+    if (isAbortError(err)) throw err;
     console.warn('AI Coach fallback invoked:', err);
     return generateDeterministicCoachFeedback(stats, context);
   }
@@ -317,7 +336,8 @@ Output only valid raw JSON.`;
 export async function generateAiMission(
   weakKeys: string[],
   currentWpm: number,
-  settings: AISettings
+  settings: AISettings,
+  signal?: AbortSignal
 ): Promise<AIMission> {
   const hasExternalCredentials = Boolean(settings.apiKey || settings.endpoint.includes('localhost') || settings.provider === 'gemini');
 
@@ -341,7 +361,7 @@ Return a clean JSON object matching this schema:
 Output only valid JSON.`;
 
   try {
-    const raw = await callLlm(prompt, 'You are a master typing instructor creating personalized training missions.', settings);
+    const raw = await callLlm(prompt, 'You are a master typing instructor creating personalized training missions.', settings, { signal });
     const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleaned);
 
@@ -361,6 +381,7 @@ Output only valid JSON.`;
       createdAt: Date.now(),
     };
   } catch (err) {
+    if (isAbortError(err)) throw err;
     console.warn('AI Mission generation fallback invoked:', err);
     return generateDeterministicMission(weakKeys, currentWpm);
   }
@@ -370,7 +391,8 @@ Output only valid JSON.`;
 export async function askAiCoachQuestion(
   question: string,
   contextSummary: string,
-  settings: AISettings
+  settings: AISettings,
+  signal?: AbortSignal
 ): Promise<string> {
   const hasExternalCredentials = Boolean(settings.apiKey || settings.endpoint.includes('localhost') || settings.provider === 'gemini');
 
@@ -390,9 +412,11 @@ Provide a concise, encouraging, and highly technical touch-typing recommendation
     return await callLlm(
       prompt,
       'You are Sensei KeyPulse, an elite touch-typing grandmaster and ergonomic coach.',
-      settings
+      settings,
+      { signal }
     );
   } catch (err) {
+    if (isAbortError(err)) throw err;
     return generateDeterministicChatReply(question);
   }
 }

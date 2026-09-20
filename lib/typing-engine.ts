@@ -55,6 +55,20 @@ export class TypingEngine {
   private inputQueue: Array<{ key: string; options: InputOptions; resolve: (res: InputResult) => void }> = [];
   private static readonly MIN_REPEAT_THRESHOLD_MS: number = 25;
 
+  /**
+   * High-resolution monotonic clock.
+   *
+   * Millisecond keystroke intervals must never be derived from wall-clock time:
+   * `Date.now()` can jump forwards or backwards on NTP correction, which corrupts
+   * inter-key latency, consistency and DDA baselines. `performance.now()` is
+   * monotonic and sub-millisecond, so every derived metric stays stable.
+   */
+  private now(): number {
+    return typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+  }
+
   constructor(
     initialText: string = '',
     errorMode: ErrorMode = 'standard',
@@ -218,7 +232,7 @@ export class TypingEngine {
   }
 
   private processSingleInput(key: string, options: InputOptions): InputResult {
-    const now = options.timestamp || Date.now();
+    const now = options.timestamp ?? this.now();
     let currentInterval = 180;
 
     // Reject unwanted OS auto-repeat for printable characters to prevent
@@ -271,7 +285,7 @@ export class TypingEngine {
     }
 
     // Start timer on first valid keystroke
-    if (!this.startTime) {
+    if (this.startTime === null) {
       this.startTime = now;
       this.lastKeyTimestamp = now;
     } else {
@@ -399,7 +413,7 @@ export class TypingEngine {
     this.lastProcessedKeyTimestamp = now;
 
     // Record replay event stream
-    const deltaMs = this.startTime ? now - this.startTime : 0;
+    const deltaMs = this.startTime !== null ? now - this.startTime : 0;
     this.replayEvents.push({
       deltaMs,
       key,
@@ -559,8 +573,8 @@ export class TypingEngine {
   }
 
   public getElapsedSeconds(): number {
-    if (!this.startTime) return 0;
-    const end = this.endTime || Date.now();
+    if (this.startTime === null) return 0;
+    const end = this.endTime ?? this.now();
     return Math.max(0.1, (end - this.startTime) / 1000);
   }
 

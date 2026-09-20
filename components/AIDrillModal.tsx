@@ -162,6 +162,9 @@ export const AIDrillModal: React.FC<AIDrillModalProps> = ({
       <div 
         className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden my-auto flex flex-col"
         id="ai-drill-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-drill-modal-title"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-border bg-surface-muted flex items-center justify-between">
@@ -176,7 +179,7 @@ export const AIDrillModal: React.FC<AIDrillModalProps> = ({
                 </span>
                 <span className="text-xs text-text-subtle font-mono">{lesson.tierTitle}</span>
               </div>
-              <h2 className="text-lg font-bold text-text-primary mt-0.5">
+              <h2 className="text-lg font-bold text-text-primary mt-0.5" id="ai-drill-modal-title">
                 Practice Patterns: {lesson.title}
               </h2>
             </div>
@@ -186,6 +189,7 @@ export const AIDrillModal: React.FC<AIDrillModalProps> = ({
             onClick={onClose}
             className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
             title="Close modal"
+            aria-label="Close AI drill modal"
           >
             <X className="w-5 h-5" />
           </button>

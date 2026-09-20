@@ -120,6 +120,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <div 
         className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-dialog overflow-hidden flex flex-col max-h-[90vh]"
         id="settings-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-muted/50">
@@ -128,7 +131,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-text-primary">Settings & AI Configuration</h2>
+              <h2 className="text-lg font-semibold text-text-primary" id="settings-modal-title">Settings & AI Configuration</h2>
               <p className="text-xs text-text-muted">Custom OpenAI-compatible endpoints & typing preferences</p>
             </div>
           </div>
@@ -136,6 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={handleCloseAndRevert}
             className="p-1.5 text-text-muted hover:text-text-primary rounded-lg hover:bg-surface-hover transition-colors"
             id="close-settings-button"
+            aria-label="Close settings"
           >
             <X className="w-5 h-5" />
           </button>
@@ -271,6 +275,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       onClick={() => setShowApiKey(!showApiKey)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                      aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
                     >
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -548,6 +553,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   }}
                                   className="p-1 rounded bg-surface border border-border text-accent hover:opacity-80"
                                   title="Test switch audio"
+                                  aria-label={`Preview ${sw.name} switch sound`}
                                 >
                                   <Play className="w-2.5 h-2.5 fill-current" />
                                 </button>
@@ -648,6 +654,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onChange={(e) => setPrefsData((prev) => ({ ...prev, smoothCaret: e.target.checked }))}
                     className="sr-only peer"
                     id="smooth-caret-toggle"
+                  />
+                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+              </div>
+
+              {/* Dyslexia-Friendly Font Toggle */}
+              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-text-primary">Dyslexia-Friendly Font</span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Switches UI and typing text to a wider, high-legibility system font stack (Verdana/Tahoma) to reduce letterform ambiguity.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!prefsData.dyslexicFont}
+                    onChange={(e) => setPrefsData((prev) => ({ ...prev, dyslexicFont: e.target.checked }))}
+                    className="sr-only peer"
+                    id="dyslexic-font-toggle"
                   />
                   <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                 </label>

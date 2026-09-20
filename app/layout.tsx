@@ -10,6 +10,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'TypePulse AI - Touch Typing & AI Coach',
   description: 'Interactive touch typing platform with curriculum lessons, AI pattern drills, streamlined Arcade featuring Grand Prix Speedway, Orbital Laser Defense, Bomb Squad Defusal, and Word Blitz, real-time analytics, and customizable AI coaching.',
+  manifest: '/manifest.json',
   openGraph: {
     title: 'TypePulse AI - Touch Typing & AI Coach',
     description: 'Interactive touch typing platform with curriculum lessons, AI pattern drills, streamlined Arcade featuring Grand Prix Speedway, Orbital Laser Defense, Bomb Squad Defusal, and Word Blitz, real-time analytics, and customizable AI coaching.',
@@ -42,6 +43,17 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
                   }
                 }
               } catch (e) {}
+            `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js').catch(() => {});
+                });
+              }
             `,
           }}
         />

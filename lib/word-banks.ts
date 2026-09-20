@@ -1,3 +1,5 @@
+import { LITERARY_QUOTES } from './quotes';
+
 export const COMMON_WORDS_200 = [
   "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
   "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
@@ -96,7 +98,8 @@ export function getRandomCodeSnippet(language?: string): string {
 }
 
 export function getRandomQuote(): string {
-  return INSPIRATIONAL_QUOTES[Math.floor(Math.random() * INSPIRATIONAL_QUOTES.length)];
+  const pool = [...INSPIRATIONAL_QUOTES, ...LITERARY_QUOTES];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // Generates random word text

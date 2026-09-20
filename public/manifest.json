@@ -1,0 +1,14 @@
+{
+  "name": "TypePulse AI - Touch Typing & AI Coach",
+  "short_name": "TypePulse",
+  "description": "Interactive touch typing platform with curriculum lessons, AI pattern drills, arcade games, real-time analytics, and customizable AI coaching.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#f59e0b",
+  "orientation": "any",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

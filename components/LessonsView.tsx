@@ -21,8 +21,7 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
   onBackToPractice,
   onOpenAiDrill,
 }) => {
-  const tiers = [1, 2, 3, 4] as const;
-
+  const tiers = [1, 2, 3, 4, 5, 6, 7] as const;
   const getTierLessons = (tier: number) => lessons.filter((l) => l.tier === tier);
 
   const isTierUnlocked = (tier: number) => {

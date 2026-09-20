@@ -55,6 +55,9 @@ import { BiometricLatencyHUD } from '@/components/BiometricLatencyHUD';
 import { GhostDuelModal } from '@/components/GhostDuelModal';
 import { MasteryPassModal } from '@/components/MasteryPassModal';
 import { CodeClimberModal } from '@/components/CodeClimberModal';
+import { CertificationModal } from '@/components/CertificationModal';
+import { AICustomDrillModal } from '@/components/AICustomDrillModal';
+import { CertificationPassage } from '@/lib/certification-service';
 import { parseGhostDuelPayload } from '@/lib/typing-engine';
 import { GhostDuelPayload, CodeClimberSnippet, SwitchSoundProfile } from '@/types/typing';
 
@@ -127,6 +130,7 @@ export default function Home() {
     smoothCaret: true,
     showGhostPacer: true,
     fontSize: 'medium',
+    dyslexicFont: false,
     theme: 'dark-slate',
   });
 
@@ -156,6 +160,8 @@ export default function Home() {
   const [isGhostDuelOpen, setIsGhostDuelOpen] = useState(false);
   const [isMasteryPassOpen, setIsMasteryPassOpen] = useState(false);
   const [isCodeClimberOpen, setIsCodeClimberOpen] = useState(false);
+  const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
+  const [isAiCustomDrillOpen, setIsAiCustomDrillOpen] = useState(false);
   const [activeGhostDuel, setActiveGhostDuel] = useState<GhostDuelPayload | null>(null);
   const [currentTargetText, setCurrentTargetText] = useState<string>('');
 
@@ -224,6 +230,11 @@ export default function Home() {
       return () => mediaQuery.removeEventListener('change', applySystemTheme);
     }
   }, [preferences.theme]);
+
+  // Synchronize dyslexia-friendly font class with document.documentElement
+  useEffect(() => {
+    document.documentElement.classList.toggle('dyslexic-font', !!preferences.dyslexicFont);
+  }, [preferences.dyslexicFont]);
 
   const isDarkMode =
     preferences.theme === 'light'
@@ -762,6 +773,35 @@ export default function Home() {
     setIsResultsOpen(false);
     setCurrentView('typing');
     setupNewTest('practice', drillText, null);
+  };
+
+  // Launch Standardized Timed Certification Exam
+  const handleStartCertification = (passage: CertificationPassage, durationSeconds: number) => {
+    activeLessonRef.current = null;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'certification-test';
+    setActiveLesson(null);
+    setActiveMission(null);
+    setGameMode('certification-test');
+    setModeTitle(`Certification Exam (${durationSeconds}s)`);
+    setCurrentView('typing');
+    setTimeLimit(durationSeconds);
+    setTimeRemaining(durationSeconds);
+    setupNewTest('certification-test', passage.content, durationSeconds);
+  };
+
+  // Launch Custom AI-Synthesized Practice Material
+  const handleLaunchAiCustomDrill = (text: string, title: string) => {
+    activeLessonRef.current = null;
+    activeMissionRef.current = null;
+    gameModeRef.current = 'practice';
+    setActiveLesson(null);
+    setActiveMission(null);
+    setGameMode('practice');
+    setModeTitle(title);
+    setIsResultsOpen(false);
+    setCurrentView('typing');
+    setupNewTest('practice', text, null);
   };
 
   const handleUpdateArcadeXp = useCallback((amount: number) => {
@@ -1462,6 +1502,24 @@ export default function Home() {
                     <Target className="w-3 h-3" />
                     <span>Keybr</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAiCustomDrillOpen(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium text-primary hover:bg-primary-subtle transition-all cursor-pointer border border-primary-border/60"
+                    title="Generate custom AI practice material (paragraph or code)"
+                  >
+                    <Sparkles className="w-3 h-3 text-primary" />
+                    <span>AI Material</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCertificationModalOpen(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-accent hover:bg-accent-subtle transition-all cursor-pointer border border-accent-border/60"
+                    title="Take an official timed International Certification exam"
+                  >
+                    <Award className="w-3 h-3 text-accent" />
+                    <span>Certification</span>
+                  </button>
                 </div>
 
                 {/* Sub-parameters based on category */}
@@ -2153,6 +2211,22 @@ export default function Home() {
         isOpen={isCodeClimberOpen}
         onClose={() => setIsCodeClimberOpen(false)}
         onStartClimb={handleStartCodeClimber}
+      />
+
+      <CertificationModal
+        isOpen={isCertificationModalOpen}
+        onClose={() => setIsCertificationModalOpen(false)}
+        onStartTest={handleStartCertification}
+        bestWpm={userProgress.highScores.bestWpm}
+        bestAccuracy={userProgress.highScores.bestAccuracy}
+      />
+
+      <AICustomDrillModal
+        isOpen={isAiCustomDrillOpen}
+        onClose={() => setIsAiCustomDrillOpen(false)}
+        aiSettings={aiSettings}
+        onLaunchDrill={handleLaunchAiCustomDrill}
+        userWeakKeys={Object.keys(userProgress.keyStats || {})}
       />
     </div>
   );

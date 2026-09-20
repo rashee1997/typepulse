@@ -225,7 +225,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
 
   // Word Blitz Finish
   const handleBlitzFinish = useCallback(
-    (score: number, _words: number, maxMult: number) => {
+    (score: number, words: number, maxMult: number) => {
       const xp = Math.round(score / 15);
       onUpdateXp(xp);
       const newScores = {
@@ -235,8 +235,30 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         totalGamesPlayed: scores.totalGamesPlayed + 1,
       };
       saveScores(newScores);
+      if (onFinishSession) {
+        const approxWpm = Math.round((words * 5) / 0.75); // 45s round
+        onFinishSession(
+          {
+            wpm: Math.max(20, approxWpm),
+            rawWpm: Math.max(20, approxWpm),
+            accuracy: 97,
+            correctChars: words * 5,
+            incorrectChars: Math.round(words * 0.3),
+            correctedErrors: 0,
+            totalKeystrokes: words * 5,
+            elapsedSeconds: 45,
+            combo: maxMult * 4,
+            maxCombo: maxMult * 4,
+            consistency: 90,
+            errorsByChar: {},
+            weakKeys: [],
+            timeline: [],
+          },
+          'word-blitz'
+        );
+      }
     },
-    [onUpdateXp, scores]
+    [onUpdateXp, onFinishSession, scores]
   );
 
   // Typing Duel Finish
@@ -250,8 +272,30 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         totalGamesPlayed: scores.totalGamesPlayed + 1,
       };
       saveScores(newScores);
+      if (onFinishSession) {
+        const chars = Math.round(stats.playerWpm * 5 * (stats.elapsedSeconds / 60));
+        onFinishSession(
+          {
+            wpm: stats.playerWpm,
+            rawWpm: stats.playerWpm,
+            accuracy: stats.accuracy,
+            correctChars: chars,
+            incorrectChars: Math.round(chars * ((100 - stats.accuracy) / 100)),
+            correctedErrors: 0,
+            totalKeystrokes: chars,
+            elapsedSeconds: stats.elapsedSeconds,
+            combo: 10,
+            maxCombo: 10,
+            consistency: 92,
+            errorsByChar: {},
+            weakKeys: [],
+            timeline: [],
+          },
+          'typing-duel'
+        );
+      }
     },
-    [onUpdateXp, scores]
+    [onUpdateXp, onFinishSession, scores]
   );
 
   // Generic Session Finish (for drills & gauntlets)

@@ -1,5 +1,6 @@
 import { Achievement, ArcadeScores, GameMode, Lesson, MasteryTier, TypingSessionSummary, TypingStats, UserProgress, AppPreferences } from '@/types/typing';
 import { INITIAL_ACHIEVEMENTS } from './achievements';
+import { evaluateSessionAchievements } from './achievement-engine';
 import { calculateKeyConfidence, checkAndUpdateKeybrProgression, INITIAL_KEYBR_PROGRESSION } from './adaptive-engine';
 
 const PROGRESS_STORAGE_KEY = 'typepulse_user_progress';
@@ -326,38 +327,15 @@ export function processCompletedSession(
     weakKeys: stats.weakKeys,
   };
 
-  // Check for new achievements
-  const newAchievements: Achievement[] = [];
-  const unlockedAchievementIds = [...prev.unlockedAchievements];
-
-  INITIAL_ACHIEVEMENTS.forEach((ach) => {
-    if (unlockedAchievementIds.includes(ach.id)) return;
-
-    let unlocked = false;
-
-    if (ach.id === 'first_keystroke') unlocked = true;
-    if (ach.id === 'speed_30' && stats.wpm >= 30) unlocked = true;
-    if (ach.id === 'speed_60' && stats.wpm >= 60) unlocked = true;
-    if (ach.id === 'speed_90' && stats.wpm >= 90) unlocked = true;
-    if (ach.id === 'speed_100' && stats.wpm >= 100) unlocked = true;
-    if (ach.id === 'accuracy_95' && stats.accuracy >= 95 && stats.totalKeystrokes >= 60) unlocked = true;
-    if (ach.id === 'accuracy_98' && stats.accuracy >= 98 && stats.totalKeystrokes >= 80) unlocked = true;
-    if (ach.id === 'accuracy_100' && stats.accuracy === 100 && stats.totalKeystrokes >= 50) unlocked = true;
-    if (ach.id === 'combo_50' && stats.maxCombo >= 50) unlocked = true;
-    if (ach.id === 'combo_100' && stats.maxCombo >= 100) unlocked = true;
-    if (ach.id === 'streak_3' && newStreak >= 3) unlocked = true;
-    if (ach.id === 'streak_7' && newStreak >= 7) unlocked = true;
-    if (ach.id === 'streak_14' && newStreak >= 14) unlocked = true;
-    if (ach.id === 'streak_30' && newStreak >= 30) unlocked = true;
-    if (ach.id === 'lessons_tier1' && completedLessonIds.filter(id => id.startsWith('lesson-1')).length >= 4) unlocked = true;
-    if (ach.id === 'ai_mission_complete' && mode === 'ai-mission') unlocked = true;
-
-    if (unlocked) {
-      unlockedAchievementIds.push(ach.id);
-      newAchievements.push({ ...ach, unlockedAt: Date.now() });
-      totalXp += ach.xpReward;
-    }
-  });
+  // Check for new achievements via isolated engine
+  const { newAchievements, unlockedAchievementIds, bonusXp } = evaluateSessionAchievements(
+    prev,
+    stats,
+    mode,
+    newStreak,
+    completedLessonIds
+  );
+  totalXp += bonusXp;
 
   const confidenceScores = calculateKeyConfidence(updatedKeyStats, updatedPatternStats);
 

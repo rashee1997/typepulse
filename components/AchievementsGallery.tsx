@@ -21,8 +21,8 @@ import {
   Timer,
   Trophy,
   Zap,
+  Crown,
 } from 'lucide-react';
-
 interface AchievementsGalleryProps {
   userProgress: UserProgress;
 }
@@ -96,11 +96,12 @@ export const AchievementsGallery: React.FC<AchievementsGalleryProps> = ({ userPr
         return <Bot className={iconClass} />;
       case 'Timer':
         return <Timer className={iconClass} />;
+      case 'Crown':
+        return <Crown className={iconClass} />;
       default:
         return <Award className={iconClass} />;
     }
   };
-
   // Calculate live progress for locked achievements
   const getLiveProgress = (ach: Achievement): { current: number; max: number; label: string } => {
     if (ach.category === 'streak') {

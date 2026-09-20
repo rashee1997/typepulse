@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { UserProgress, AISettings } from '@/types/typing';
 import { getXpForNextLevel } from '@/lib/progress-service';
 import { generateBiometricDiagnostic } from '@/lib/ai-service';
+import { CERTIFICATION_BENCHMARKS, getCertificationTier } from '@/lib/certification-service';
 import { AchievementsGallery } from './AchievementsGallery';
 import {
   Award,
@@ -212,6 +213,71 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </span>
             <span className="text-xs text-text-subtle font-mono">hours</span>
           </div>
+        </div>
+      </div>
+
+      {/* International Typing Certification Status */}
+      <div className="p-6 bg-surface border border-border rounded-2xl shadow-card space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent font-mono text-[10px] font-bold uppercase tracking-wider border border-accent-border">
+                Official Accreditation
+              </span>
+              <span className="text-xs text-text-subtle font-mono">Typing Standards</span>
+            </div>
+            <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
+              <Award className="w-5 h-5 text-accent" />
+              <span>International Typing Certification Benchmarks</span>
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              Accreditation tiers calibrated to global touch-typing benchmarks: Bronze (30 WPM), Silver (50 WPM), Gold (70 WPM), Platinum (90 WPM), and Diamond (110 WPM).
+            </p>
+          </div>
+          {(() => {
+            const highestTier = getCertificationTier(highScores.bestWpm || 0, highScores.bestAccuracy || 0);
+            return highestTier ? (
+              <div className="px-3 py-1.5 rounded-xl bg-accent-subtle border border-accent-border flex items-center gap-2 shrink-0">
+                <span className="text-xl">{highestTier.badge}</span>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-text-subtle block leading-tight">Highest Rank</span>
+                  <span className="text-xs font-bold text-accent font-mono leading-tight">{highestTier.title}</span>
+                </div>
+              </div>
+            ) : null;
+          })()}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-2">
+          {CERTIFICATION_BENCHMARKS.map((tier) => {
+            const earned = (highScores.bestWpm || 0) >= tier.minWpm && (highScores.bestAccuracy || 0) >= tier.minAccuracy;
+            return (
+              <div
+                key={tier.id}
+                className={`p-4 rounded-xl border flex flex-col justify-between gap-2.5 transition-all ${
+                  earned
+                    ? 'bg-gradient-to-b from-accent-subtle/40 to-surface border-accent shadow-xs'
+                    : 'bg-surface-muted/40 border-border opacity-70'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="text-2xl">{tier.badge}</span>
+                  {earned && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-success text-success-foreground">
+                      Earned
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-text-primary">{tier.title}</div>
+                  <div className="text-[11px] font-mono text-text-muted mt-0.5">
+                    &ge;{tier.minWpm} WPM • &ge;{tier.minAccuracy}%
+                  </div>
+                  <p className="text-[10px] text-text-subtle mt-1 line-clamp-2">{tier.description}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

@@ -5,8 +5,9 @@ import Markdown from 'react-markdown';
 import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
 import { generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
 import { getXpForNextLevel } from '@/lib/progress-service';
+import { getCertificationTier } from '@/lib/certification-service';
 import confetti from 'canvas-confetti';
-import { Award, Bot, Check, CheckCircle2, ChevronRight, Copy, Flame, Ghost, Pause, Play, RotateCcw, Share2, Sparkles, Target, Zap, X } from 'lucide-react';
+import { Award, Bot, Check, CheckCircle2, ChevronRight, Copy, Flame, Ghost, Pause, Play, RotateCcw, Share2, Sparkles, Target, Zap, X, Crown } from 'lucide-react';
 import { BiometricLatencyHUD } from './BiometricLatencyHUD';
 
 interface ResultsModalProps {
@@ -295,6 +296,50 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Certification Exam Result Banner */}
+          {mode === 'certification-test' && (() => {
+            const earned = getCertificationTier(stats.wpm, stats.accuracy);
+            return (
+              <div
+                className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-card ${
+                  earned
+                    ? 'bg-gradient-to-r from-accent-subtle/50 via-surface to-primary-subtle/40 border-accent'
+                    : 'bg-surface-muted border-border'
+                }`}
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-3xl shadow-inner shrink-0">
+                    {earned ? earned.badge : '📋'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-accent text-accent-foreground">
+                        {earned ? 'Certified' : 'Official Benchmark'}
+                      </span>
+                      <span className="text-xs text-text-subtle font-mono">Standard Exam</span>
+                    </div>
+                    <h4 className="font-bold text-text-primary text-base mt-0.5">
+                      {earned ? `Earned: ${earned.title}` : 'Benchmark Attempt Logged'}
+                    </h4>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {earned
+                        ? earned.description
+                        : 'Did not meet the Bronze threshold (≥30 WPM, ≥95% accuracy). Keep practicing your fundamentals!'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-border w-full sm:w-auto">
+                  <div className="text-base font-mono font-black text-accent">
+                    {stats.wpm} WPM • {stats.accuracy}%
+                  </div>
+                  <span className="text-[10px] text-text-subtle font-mono block">
+                    {earned ? 'Verified Milestone' : 'Attempt Complete'}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Level Up Banner */}
           {leveledUp && (

@@ -387,3 +387,15 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   ACCESSIBILITY: DYSLEXIA-FRIENDLY FONT
+   System-font fallback stack (no bundled font asset) — wider letterforms,
+   generous spacing/x-height, avoids b/d/p/q mirror-symmetry ambiguity.
+   ========================================================================== */
+.dyslexic-font,
+.dyslexic-font input,
+.dyslexic-font textarea {
+  font-family: Verdana, Tahoma, 'Comic Sans MS', sans-serif !important;
+  letter-spacing: 0.02em;
+}

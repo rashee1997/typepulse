@@ -18,6 +18,7 @@ export type GameMode =
   | 'adaptive-boss'
   | 'story-stream'
   | 'code-pulse'
+  | 'certification-test'
   | 'arcade';
 
 export type SessionState = 'ready' | 'countdown' | 'playing' | 'paused' | 'completed';
@@ -138,7 +139,7 @@ export interface TypingStats {
 
 export interface Lesson {
   id: string;
-  tier: 1 | 2 | 3 | 4;
+  tier: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   tierTitle: string;
   title: string;
   description: string;
@@ -231,6 +232,27 @@ export interface KeybrProgressionState {
   confidenceMap: Record<string, number>; // 0.0 - 1.0 per active key
   isMastered: boolean;
   totalKeysUnlocked: number;
+}
+
+export type CertificationTierId = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond';
+
+export interface CertificationBenchmark {
+  id: CertificationTierId;
+  title: string;
+  badge: string;
+  minWpm: number;
+  minAccuracy: number; // e.g. 95
+  description: string;
+  color: string;
+}
+
+export interface CertificationResult {
+  earnedTier: CertificationBenchmark | null;
+  wpm: number;
+  accuracy: number;
+  date: number;
+  durationSeconds: number;
+  passed: boolean;
 }
 
 export interface TypePulseBackupPackage {
@@ -345,6 +367,7 @@ export interface AppPreferences {
   cadenceVisualPacer?: boolean;
   challengerTwinEnabled?: boolean;
   fontSize: 'small' | 'medium' | 'large';
+  dyslexicFont?: boolean;
   theme: ThemePreference;
   errorMode?: ErrorMode; // 'standard' | 'stop-on-error' | 'confidence'
   quickWordSkip?: boolean;

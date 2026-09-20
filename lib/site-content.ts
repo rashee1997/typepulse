@@ -24,7 +24,7 @@ export const SITE = {
   repoUrl: 'https://github.com/rashee1997/typepulse',
   repoLabel: 'rashee1997/typepulse',
   version: '0.1.0',
-  license: 'No LICENSE file',
+  license: 'MIT',
   entryPath: '/app',
   docsPath: '/docs',
 } as const;
@@ -326,7 +326,7 @@ export const FAQ: FaqEntry[] = [
   {
     question: 'What license is it under?',
     answer:
-      'None declared yet — the repository has no LICENSE file, so default copyright applies and the code is not formally licensed for redistribution. Add a LICENSE file (MIT or Apache-2.0 are the conventional choices) before relying on it as open source.',
+      'MIT. The full text is in the LICENSE file at the repository root: you may use, modify and redistribute the code, including commercially, provided the copyright notice and permission notice stay with it. Third-party packages keep their own licenses — the README lists them.',
   },
 ];
 

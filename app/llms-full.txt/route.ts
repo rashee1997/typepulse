@@ -30,8 +30,9 @@ export function GET() {
 
 Source: ${SITE.repoUrl}
 Version: v${SITE.version} (no tagged releases yet)
-License: ${SITE.license} — the repository contains no LICENSE file, so default
-copyright applies and the code is not formally licensed for redistribution.
+License: ${SITE.license} — the full text is in the LICENSE file at the repository
+root. Bundled third-party packages keep their own licenses (MIT, ISC,
+Apache-2.0); the README lists them.
 Documentation site: ${SITE_URL}${SITE.docsPath}
 Interactive studio: ${SITE_URL}${SITE.entryPath}
 Stack: Next.js 15 App Router (standalone output), React 19.2, TypeScript 5.9,

@@ -42,7 +42,7 @@ server-side database.
 ${bullets([
   `Repository: ${SITE.repoUrl}`,
   `Version: v${SITE.version} — no git tags or published releases yet`,
-  `License: ${SITE.license}. The repository has no LICENSE file, so default copyright applies and the code is not formally licensed for redistribution.`,
+  `License: ${SITE.license}. The full text is in the LICENSE file at the repository root. Bundled third-party packages keep their own licenses (MIT, ISC, Apache-2.0); the README lists them.`,
   `Stack: Next.js 15 (App Router, standalone output), React 19.2, TypeScript 5.9, Tailwind CSS 4.1, @google/genai 2.x, motion 12, canvas-confetti 1.9`,
   `Runtime requirement: Node.js 20+. No database, object storage, or queue.`,
   `Documentation entry point: ${SITE_URL}${SITE.docsPath}`,

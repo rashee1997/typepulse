@@ -99,6 +99,98 @@ export function loadStoredAiSettings(): AISettings {
   }
 }
 
+/**
+ * Whether this deployment can reach a model on its own.
+ *
+ * The built-in Gemini route reads GEMINI_API_KEY server-side, so a self-hosted
+ * install with a key already has a coach even though the user has pasted nothing
+ * into Settings. Without this probe the gates below only ever saw the typed key
+ * and quietly served locally generated text on a server that was fully wired up.
+ */
+let serverCoachAvailable = false;
+let serverCoachProbe: Promise<boolean> | null = null;
+const serverCoachListeners = new Set<() => void>();
+
+function notifyServerCoach() {
+  serverCoachListeners.forEach((listener) => listener());
+}
+
+/** Probes the built-in route once per page load; later calls reuse the result. */
+export async function probeServerCoach(): Promise<boolean> {
+  if (serverCoachProbe) return serverCoachProbe;
+  serverCoachProbe = fetch('/api/gemini/coach')
+    .then((res) => (res.ok ? res.json() : { available: false }))
+    .then((data: { available?: boolean }) => {
+      serverCoachAvailable = Boolean(data.available);
+      notifyServerCoach();
+      return serverCoachAvailable;
+    })
+    .catch(() => false);
+  return serverCoachProbe;
+}
+
+export function subscribeServerCoach(listener: () => void): () => void {
+  serverCoachListeners.add(listener);
+  return () => {
+    serverCoachListeners.delete(listener);
+  };
+}
+
+export function getServerCoachAvailable(): boolean {
+  return serverCoachAvailable;
+}
+
+export type LlmTransport = 'gemini' | 'openai' | 'none';
+
+/**
+ * Which transport a call will actually use.
+ *
+ * Precedence: an explicitly selected Gemini provider, then a key the user
+ * supplied, then a local runtime that needs no key, then this deployment's own
+ * server key. This is the single source of truth — the generation gates and
+ * `callLlm` both read it, so nothing can be gated out and then silently fall
+ * back to procedural text, or gated in and then fail on a missing credential.
+ */
+export function resolveTransport(settings?: AISettings | null): LlmTransport {
+  if (!settings) return 'none';
+  if (settings.provider === 'gemini') return 'gemini';
+  if (settings.apiKey) return 'openai';
+  if (settings.endpoint.includes('localhost') || settings.endpoint.includes('127.0.0.1')) {
+    return 'openai';
+  }
+  return serverCoachAvailable ? 'gemini' : 'none';
+}
+
+export function canUseLlm(settings?: AISettings | null): boolean {
+  return resolveTransport(settings) !== 'none';
+}
+
+/**
+ * Points settings at this deployment's own Gemini route.
+ *
+ * When the server has a key and the user has configured nothing else, the honest
+ * thing is to select the built-in coach rather than keep an unused default
+ * provider selected. A key the user typed always wins.
+ */
+export function withBuiltInCoach(settings: AISettings): AISettings {
+  if (settings.apiKey || settings.provider === 'gemini') return settings;
+  const preset = AI_PROVIDER_PRESETS.find((provider) => provider.id === 'gemini');
+  return {
+    ...settings,
+    provider: 'gemini',
+    endpoint: preset?.endpoint || '/api/gemini/coach',
+    model: preset?.defaultModel || settings.model,
+  };
+}
+
+/** Names the model that will really run, for the footer and provider pills. */
+export function describeProvider(settings: AISettings): string {
+  const transport = resolveTransport(settings);
+  if (transport === 'gemini') return 'Google Gemini (built-in server)';
+  if (transport === 'openai') return settings.model || 'OpenAI-compatible endpoint';
+  return 'Local generation (no model key)';
+}
+
 export function saveStoredAiSettings(settings: AISettings): void {
   if (typeof window === 'undefined') return;
   try {
@@ -108,9 +200,9 @@ export function saveStoredAiSettings(settings: AISettings): void {
   }
 }
 
-// Test OpenAI-compatible endpoint connection
+// Test the endpoint the resolved transport would actually call
 export async function testAiConnection(settings: AISettings): Promise<{ success: boolean; message: string; models?: string[] }> {
-  if (settings.provider === 'gemini') {
+  if (resolveTransport(settings) === 'gemini') {
     try {
       const res = await fetch('/api/gemini/coach', {
         method: 'POST',
@@ -204,8 +296,8 @@ export async function callLlm(
 
   const signal = arg4?.signal;
 
-  // If Gemini provider selected
-  if (settings.provider === 'gemini') {
+  // Route through the built-in Gemini route when that is the resolved transport.
+  if (resolveTransport(settings) === 'gemini') {
     const isJson = systemPrompt.toLowerCase().includes('json') || prompt.toLowerCase().includes('json');
     const res = await fetch('/api/gemini/coach', {
       method: 'POST',
@@ -288,9 +380,7 @@ export async function generateAiCoachFeedback(
   signal?: AbortSignal
 ): Promise<AICoachFeedback> {
   // If no key and not gemini, return smart local coaching instantly
-  const hasExternalCredentials = Boolean(settings.apiKey || settings.endpoint.includes('localhost') || settings.provider === 'gemini');
-
-  if (!hasExternalCredentials) {
+  if (!canUseLlm(settings)) {
     return generateDeterministicCoachFeedback(stats, context);
   }
 
@@ -339,9 +429,7 @@ export async function generateAiMission(
   settings: AISettings,
   signal?: AbortSignal
 ): Promise<AIMission> {
-  const hasExternalCredentials = Boolean(settings.apiKey || settings.endpoint.includes('localhost') || settings.provider === 'gemini');
-
-  if (!hasExternalCredentials) {
+  if (!canUseLlm(settings)) {
     return generateDeterministicMission(weakKeys, currentWpm);
   }
 
@@ -394,9 +482,7 @@ export async function askAiCoachQuestion(
   settings: AISettings,
   signal?: AbortSignal
 ): Promise<string> {
-  const hasExternalCredentials = Boolean(settings.apiKey || settings.endpoint.includes('localhost') || settings.provider === 'gemini');
-
-  if (!hasExternalCredentials) {
+  if (!canUseLlm(settings)) {
     return generateDeterministicChatReply(question);
   }
 
@@ -503,7 +589,7 @@ export async function generateWeaknessNarrative(
 ): Promise<string> {
   const patterns = weakPatterns && weakPatterns.length > 0 ? weakPatterns.slice(0, 4) : ['th', 'er', 'in'];
   
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const prompt = `You are a creative typing drill designer. Write an engaging, smooth, natural 2 to 3 sentence paragraph (35 to 45 words total) that contains English words frequently featuring these character n-grams or letters: ${patterns.join(', ')}.
 Do NOT list the words separately. Do NOT use emojis, quotes, or conversational filler. Return ONLY the clean paragraph text ready for touch typing practice.`;
@@ -695,7 +781,7 @@ export async function generateQuestScene(
   // Use static tree as rock-solid baseline
   const staticScene = QUEST_STATIC_STORYLINE[currentSceneId] || QUEST_STATIC_STORYLINE.intro;
 
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const prompt = `You are a text RPG dungeon master for a typing game called "Cyberpunk Infiltration Quest".
 Current scene: "${staticScene.title}".
@@ -777,7 +863,7 @@ export async function generateBossTurn(
 
   const timeLimit = Math.max(12, Math.round((attackText.length / 5 / (bossPersona.targetWpm / 60)) * 1.3));
 
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const prompt = `You are designing a boss combat round in a typing RPG.
 Boss: ${bossPersona.name} (${bossPersona.title}).
@@ -858,7 +944,7 @@ export async function generateExplainItBackPrompt(
   const index = topicIndex !== undefined ? topicIndex % TECHNICAL_CONCEPT_CARDS.length : Math.floor(Math.random() * TECHNICAL_CONCEPT_CARDS.length);
   const card = TECHNICAL_CONCEPT_CARDS[index];
 
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const prompt = `Generate a technical learning card for an "Explain It Back" typing recall practice session.
 Topic: Modern Computing / Software Engineering.
@@ -909,7 +995,7 @@ export async function generateLessonAiDrill(
   const cleanAllowedKeys = allowedKeys.filter((k) => k !== ' ');
   const length = options.length || 25;
 
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const styleDescriptions: Record<string, string> = {
         alternating: 'Strict bilateral alternation between left-hand and right-hand keys with cadence and rhythm.',
@@ -967,7 +1053,7 @@ token1 token2 token3 token4 ...`;
           allowedKeys,
           style: options.style,
           scope: options.scope,
-          source: settings.provider === 'gemini' ? 'gemini' : 'openai',
+          source: resolveTransport(settings) === 'gemini' ? 'gemini' : 'openai',
           lessonTitle: lesson.title,
         };
       }
@@ -1108,7 +1194,7 @@ export async function generateStoryStreamSegment(
 ): Promise<{ paragraph: string; genre: string; weakKeys: string[] }> {
   const safeKeys = weakKeys.length > 0 ? weakKeys.slice(0, 4) : ['e', 't', 'a', 'o'];
   
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const prompt = `You are an acclaimed novelist creating an interactive typing adventure in the ${genre} genre.
 Write the next continuous paragraph (45 to 60 words).
@@ -1164,7 +1250,7 @@ export async function generateCodePulseDrill(
   complexity: 'beginner' | 'intermediate' | 'advanced' = 'intermediate',
   settings?: AISettings
 ): Promise<{ code: string; language: string; description: string; targetSymbols: string[] }> {
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const prompt = `Generate a realistic, syntactically valid ${complexity} snippet of ${language} code for touch-typing practice (5 to 8 lines, 35 to 55 tokens).
 Focus on typing mechanics with arrows, brackets, braces, colons, and operators.
@@ -1294,7 +1380,7 @@ export async function generateBiometricDiagnostic(
   const fingerKeys = Object.keys(handMetrics.fingerAverages);
   const hasFingerData = fingerKeys.length > 0;
 
-  if (settings && (settings.apiKey || settings.provider === 'gemini')) {
+  if (canUseLlm(settings)) {
     try {
       const prompt = `Analyze this typist's biometric latency profile:
 - Left hand average latency: ${handMetrics.leftHandAvgMs}ms

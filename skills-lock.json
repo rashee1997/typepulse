@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "prompt-engineer": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/prompt-engineer/SKILL.md",
+      "computedHash": "c2574f1d0c4120117727dbfe79da8bf087b50635df30920ae1d2bc9b256ce7c6"
+    }
+  }
+}

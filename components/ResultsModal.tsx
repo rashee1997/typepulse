@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useModalFocus } from '@/hooks/use-modal-focus';
 import Markdown from 'react-markdown';
 import { Achievement, AICoachFeedback, AIMission, AISettings, GameMode, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
-import { generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
+import { describeProvider, generateAiCoachFeedback, generateAiMission } from '@/lib/ai-service';
 import { getXpForNextLevel } from '@/lib/progress-service';
 import { getCertificationTier } from '@/lib/certification-service';
 import confetti from 'canvas-confetti';
@@ -769,7 +769,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
                 <span>AI Coach Diagnosis</span>
               </div>
               <span className="text-[11px] text-text-subtle">
-                {aiSettings.provider === 'gemini' ? 'Google Gemini' : aiSettings.model || 'Smart Coach'}
+                {describeProvider(aiSettings)}
               </span>
             </div>
 

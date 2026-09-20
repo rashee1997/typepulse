@@ -26,10 +26,14 @@ class SoundSynthesizer {
     return this.ctx;
   }
 
-  public setConfig(enabled: boolean, volume: number, profile: SwitchSoundProfile = 'cherry-blue') {
+  /**
+   * `profile` is optional so a caller that only means to change the volume or mute
+   * cannot silently reset the user's chosen switch sound back to the default.
+   */
+  public setConfig(enabled: boolean, volume: number, profile?: SwitchSoundProfile) {
     this.enabled = enabled;
     this.volume = Math.max(0, Math.min(1, volume));
-    this.profile = profile;
+    if (profile) this.profile = profile;
   }
 
   public setProfile(profile: SwitchSoundProfile) {

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useModalFocus } from '@/hooks/use-modal-focus';
 import Markdown from 'react-markdown';
 import { AISettings, UserProgress } from '@/types/typing';
-import { askAiCoachQuestion } from '@/lib/ai-service';
+import { askAiCoachQuestion, describeProvider } from '@/lib/ai-service';
 import { Bot, ChevronRight, MessageSquare, Send, Sparkles, X, User } from 'lucide-react';
 
 interface AICoachChatProps {
@@ -160,7 +160,7 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
                 </span>
               </div>
               <p className="text-xs text-text-muted">
-                {aiSettings.provider === 'gemini' ? 'Gemini 2.5 Flash' : aiSettings.model || 'Neural Sensei'} • Half-docked
+                {describeProvider(aiSettings)} • Half-docked
               </p>
             </div>
           </div>

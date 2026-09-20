@@ -1,6 +1,20 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 
+const COACH_MODEL = 'gemini-3.8-flash';
+
+/**
+ * Lets the client discover that this deployment has its own model key, so the
+ * studio can use the built-in coach without the user pasting a key into
+ * Settings. Reports capability only — never the key.
+ */
+export async function GET() {
+  return NextResponse.json({
+    available: Boolean(process.env.GEMINI_API_KEY),
+    model: COACH_MODEL,
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -45,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     if (stream) {
       const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.8-flash',
+        model: COACH_MODEL,
         contents: prompt,
         config,
       });
@@ -80,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: COACH_MODEL,
       contents: prompt,
       config,
     });

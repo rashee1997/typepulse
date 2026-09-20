@@ -643,26 +643,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
               </div>
 
-              {/* Smooth Caret Toggle */}
-              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-text-primary">Smooth Caret Motion</span>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    Animates cursor gliding between letters with subtle motion transition.
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={prefsData.smoothCaret}
-                    onChange={(e) => setPrefsData((prev) => ({ ...prev, smoothCaret: e.target.checked }))}
-                    className="sr-only peer"
-                    id="smooth-caret-toggle"
-                  />
-                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                </label>
-              </div>
-
               {/* Dyslexia-Friendly Font Toggle */}
               <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
                 <div>
@@ -884,26 +864,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Nitro Racer AI Challenger Twin */}
-              <div className="p-4 bg-surface-muted border border-border rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-text-primary">Nitro Racer &quot;Challenger Twin&quot; Ghost</span>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    Spawns an AI competitor that mirrors and challenges your real-time pace with humanized acceleration curves.
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={prefsData.challengerTwinEnabled ?? true}
-                    onChange={(e) => setPrefsData((prev) => ({ ...prev, challengerTwinEnabled: e.target.checked }))}
-                    className="sr-only peer"
-                    id="challenger-twin-toggle"
-                  />
-                  <div className="w-10 h-6 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                </label>
               </div>
 
               {/* Viewport Ergonomics (Monkeytype 3-Line Centered vs Multi-line) */}

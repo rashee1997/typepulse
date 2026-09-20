@@ -126,7 +126,7 @@ export const CAPABILITIES: Capability[] = [
       'Per-key confidence plus dynamic difficulty adjustment rebuilds the next drill from your own error data.',
     bullets: [
       'calculateKeyConfidence() combines typed/error ratios and latency',
-      'DDA injects remediation words mid-session',
+      'DDA names the bigram that slowed you down and rewards recovering it in flow',
       'Bigram hesitation signals name the transition that cost you time',
     ],
   },
@@ -316,7 +316,7 @@ export const FAQ: FaqEntry[] = [
   {
     question: 'How does the adaptive engine choose drills?',
     answer:
-      'calculateKeyConfidence() combines each key\'s typed count, error count and measured latency into a confidence score, and generateKeybrPracticeText() builds practice text around the least confident keys. Dynamic difficulty adjustment can inject remediation words into the passage you are already typing, and hesitation signals record the exact bigram that slowed you down. Lessons restrict their text to their cumulative unlocked key set.',
+      'calculateKeyConfidence() combines each key\'s typed count, error count and measured latency into a confidence score, and generateKeybrPracticeText() builds practice text around the least confident keys. Hesitation signals record the exact bigram that slowed you down and the engine marks it remediated when you recover it in flow — the target text is never mutated mid-session, so a running test can never change under you. Lessons restrict their text to their cumulative unlocked key set.',
   },
   {
     question: 'Can I export or move my progress?',

@@ -87,7 +87,7 @@ ${API_ENDPOINTS.map(
 
 ${bullets(CODE_SAMPLES.map((sample) => `${sample.label}: see ${SITE_URL}${SITE.docsPath}#engine`))}
 
-- \`lib/typing-engine.ts\` — \`TypingEngine\`: \`handleInput(key, options)\`, \`getStats()\`, \`getCharsSnapshot()\`, \`getRollingCadence()\`, \`getConsistency()\`, \`injectRemediationWords(words)\`, \`exportGhostPayload(author)\`, \`setGhostDuel(payload)\`, \`getGhostIndexAtTime(ms)\`
+- \`lib/typing-engine.ts\` — \`TypingEngine\`: \`handleInput(key, options)\`, \`getStats()\`, \`getCharsSnapshot()\`, \`getRollingCadence()\`, \`getConsistency()\`, \`exportGhostPayload(author)\`, \`setGhostDuel(payload)\`, \`getGhostIndexAtTime(ms)\`
 - \`lib/typing-engine.ts\` — \`calculateGhostPacerIndex(elapsedSeconds, targetWpm, totalChars)\`, \`parseGhostDuelPayload(raw)\`
 - \`lib/adaptive-engine.ts\` — \`calculateKeyConfidence(...)\`, \`generateKeybrPracticeText(...)\`, \`generateDdaRemediationWords(...)\`, \`checkAndUpdateKeybrProgression(...)\`
 - \`lib/curriculum.ts\` — \`LESSONS_CURRICULUM\`, \`getLessonTargetKeys(lesson)\`, \`getCumulativeKeysForLesson(id)\`, \`generateDeterministicLessonDrill(...)\`

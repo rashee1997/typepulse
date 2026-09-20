@@ -29,8 +29,11 @@ import { LESSONS_CURRICULUM } from '@/lib/curriculum';
 import {
   loadStoredAiSettings,
   saveStoredAiSettings,
+  withBuiltInCoach,
   DEFAULT_AI_SETTINGS,
 } from '@/lib/ai-service';
+import { useServerCoach } from '@/hooks/use-server-coach';
+import { useStateWithRef } from '@/hooks/use-state-with-ref';
 import {
   loadUserProgress,
   saveUserProgress,
@@ -143,12 +146,14 @@ export default function Home() {
   // Game Mode Configuration
   const [gameMode, setGameMode] = useState<GameMode>('practice');
   const [modeTitle, setModeTitle] = useState('Free Practice');
-  const [wordCount, setWordCount] = useState<number>(25);
-  const [timeLimit, setTimeLimit] = useState<number | null>(null); // null means word count mode
-  const [includePunctuation, setIncludePunctuation] = useState(false);
-  const [includeNumbers, setIncludeNumbers] = useState(false);
-  const [contentCategory, setContentCategory] = useState<'words' | 'quotes' | 'code' | 'keybr'>('words');
-  const [selectedCodeLanguage, setSelectedCodeLanguage] = useState<string>('all');
+  // Test configuration is mirrored into refs on every write: setupNewTest reads it
+  // in the same tick the UI sets it, where React state is still one render behind.
+  const [wordCount, setWordCount, wordCountRef] = useStateWithRef<number>(25);
+  const [timeLimit, setTimeLimit, timeLimitRef] = useStateWithRef<number | null>(null); // null means word count mode
+  const [includePunctuation, setIncludePunctuation, includePunctuationRef] = useStateWithRef(false);
+  const [includeNumbers, setIncludeNumbers, includeNumbersRef] = useStateWithRef(false);
+  const [contentCategory, setContentCategory, contentCategoryRef] = useStateWithRef<PracticeCategory>('words');
+  const [selectedCodeLanguage, setSelectedCodeLanguage, selectedCodeLanguageRef] = useStateWithRef<string>('all');
   const [unlockedKeyCelebration, setUnlockedKeyCelebration] = useState<string | null>(null);
 
   // Active Lesson or Mission
@@ -166,13 +171,21 @@ export default function Home() {
 
   // Settings & Preferences (Loaded from localStorage on mount to prevent hydration mismatch)
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
+  // Probes the built-in Gemini route so a server-side key counts as configured.
+  const serverCoachAvailable = useServerCoach();
+  useEffect(() => {
+    if (!serverCoachAvailable) return;
+    // Deferred one tick: the studio's own settings load runs on a timeout too, and
+    // this adoption must not race it.
+    const timer = setTimeout(() => setAiSettings(withBuiltInCoach), 0);
+    return () => clearTimeout(timer);
+  }, [serverCoachAvailable]);
 
   const [preferences, setPreferences] = useState<AppPreferences>({
     soundEnabled: true,
     soundVolume: 0.35,
     showKeyboard: true,
     showFingerGuidance: true,
-    smoothCaret: true,
     showGhostPacer: true,
     fontSize: 'medium',
     dyslexicFont: false,
@@ -327,14 +340,10 @@ export default function Home() {
     }
   };
 
-  // Synchronization refs for test configuration to avoid race conditions and stale state
-  const contentCategoryRef = useRef(contentCategory);
-  const selectedCodeLanguageRef = useRef(selectedCodeLanguage);
+  // Synchronization refs for state that is only read from effects and callbacks
+  // that run after the write has committed. Test configuration is not here — it is
+  // mirrored eagerly by useStateWithRef, because it is read in the same tick.
   const userProgressRef = useRef(userProgress);
-  const wordCountRef = useRef(wordCount);
-  const includePunctuationRef = useRef(includePunctuation);
-  const includeNumbersRef = useRef(includeNumbers);
-  const timeLimitRef = useRef(timeLimit);
   const activeLessonRef = useRef<Lesson | null>(activeLesson);
   const activeMissionRef = useRef<AIMission | null>(activeMission);
   const gameModeRef = useRef<GameMode>(gameMode);
@@ -345,30 +354,12 @@ export default function Home() {
   const lastPracticeCategoryRef = useRef<PracticeCategory>(contentCategory);
 
   useEffect(() => {
-    contentCategoryRef.current = contentCategory;
-    selectedCodeLanguageRef.current = selectedCodeLanguage;
     userProgressRef.current = userProgress;
-    wordCountRef.current = wordCount;
-    includePunctuationRef.current = includePunctuation;
-    includeNumbersRef.current = includeNumbers;
-    timeLimitRef.current = timeLimit;
     activeLessonRef.current = activeLesson;
     activeMissionRef.current = activeMission;
     gameModeRef.current = gameMode;
     preferencesRef.current = preferences;
-  }, [
-    contentCategory,
-    selectedCodeLanguage,
-    userProgress,
-    wordCount,
-    includePunctuation,
-    includeNumbers,
-    timeLimit,
-    activeLesson,
-    activeMission,
-    gameMode,
-    preferences,
-  ]);
+  }, [userProgress, activeLesson, activeMission, gameMode, preferences]);
 
   // Generate or configure text based on selected mode
   const setupNewTest = useCallback(
@@ -428,9 +419,10 @@ export default function Home() {
 
       currentTargetTextRef.current = targetText;
       setCurrentTargetText(targetText);
-      engineRef.current.ddaEnabled = false;
+      engineRef.current.ddaEnabled = preferencesRef.current.ddaEnabled !== false;
       engineRef.current.errorMode = preferencesRef.current.errorMode ?? 'standard';
       engineRef.current.quickWordSkip = preferencesRef.current.quickWordSkip ?? false;
+      engineRef.current.codeAutoIndent = preferencesRef.current.codeAutoIndent !== false;
       engineRef.current.reset(targetText);
       setEngineChars(engineRef.current.getCharsSnapshot());
       setEngineIndex(0);
@@ -455,7 +447,16 @@ export default function Home() {
         inputRef.current?.focus();
       }, 50);
     },
-    []
+    // Refs and useStateWithRef setters are stable, so this callback stays stable too.
+    [
+      contentCategoryRef,
+      wordCountRef,
+      includePunctuationRef,
+      includeNumbersRef,
+      selectedCodeLanguageRef,
+      timeLimitRef,
+      setTimeLimit,
+    ]
   );
 
   // Switch back to standard practice mode safely clearing any active lesson/mission
@@ -470,7 +471,7 @@ export default function Home() {
     setCurrentView('typing');
     setContentCategory(lastPracticeCategoryRef.current);
     setupNewTest('practice', undefined, null, undefined, undefined, lastPracticeCategoryRef.current);
-  }, [setupNewTest]);
+  }, [setupNewTest, setContentCategory]);
 
   // Reset the active session with the exact same content (e.g. same lesson letters for re-practice)
   const handleResetCurrent = useCallback(() => {
@@ -530,8 +531,12 @@ export default function Home() {
 
   // Update sound config when preferences change
   useEffect(() => {
-    soundFx.setConfig(preferences.soundEnabled, preferences.soundVolume);
-  }, [preferences.soundEnabled, preferences.soundVolume]);
+    soundFx.setConfig(
+      preferences.soundEnabled,
+      preferences.soundVolume,
+      preferences.switchSoundProfile
+    );
+  }, [preferences.soundEnabled, preferences.soundVolume, preferences.switchSoundProfile]);
 
   // Countdown timer effect for timed modes.
   // The interval owns ONLY the decrement via a pure updater. Session finalization

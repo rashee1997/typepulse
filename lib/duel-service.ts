@@ -1,5 +1,5 @@
 import { AISettings } from '@/types/typing';
-import { callLlm } from './ai-service';
+import { callLlm, canUseLlm } from './ai-service';
 
 export type DuelDifficulty = 'novice' | 'adept' | 'master' | 'grandmaster';
 
@@ -122,8 +122,8 @@ export async function generateDuelPassage(
 ): Promise<DuelPassage> {
   const opponent = DUEL_OPPONENTS[difficulty];
 
-  // Try dynamic generation if AI credentials exist
-  if (settings && (settings.apiKey || settings.endpoint.includes('localhost') || settings.provider === 'gemini')) {
+  // Try dynamic generation when a model is actually reachable
+  if (canUseLlm(settings)) {
     try {
       const prompt = `Write a short, engaging, single-paragraph typing passage for a "${difficulty.toUpperCase()}" typing duel against an AI opponent called "${opponent.name}" (${opponent.title}).
 Length: strictly between ${opponent.wordCount - 5} and ${opponent.wordCount + 5} words.

@@ -148,6 +148,16 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
   const raceStartTimeRef = useRef<number>(0);
   const hasFinishedRef = useRef(false);
   const onFinishRef = useRef(onFinish);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // A countdown clears itself only when it reaches zero. Leaving the game mid-count
+  // used to leave it running against a dead component, flipping state and stealing
+  // focus after the player was already back in the dashboard.
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
 
   // Cadence metronome sound loop
   useEffect(() => {
@@ -205,7 +215,8 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
     setCountdown(3);
 
     let count = 3;
-    const timer = setInterval(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
       count -= 1;
       if (count > 0) {
         setCountdown(count);
@@ -214,7 +225,8 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
         setCountdown(0);
         soundFx.playCombo();
       } else {
-        clearInterval(timer);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        countdownRef.current = null;
         setGameState('racing');
         raceStartTimeRef.current = Date.now();
         setTimeout(() => inputRef.current?.focus(), 50);

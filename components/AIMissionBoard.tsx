@@ -1,10 +1,24 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AIMission, AISettings, UserProgress } from '@/types/typing';
-import { generateAiMission, generateTriTierDailyMissions } from '@/lib/ai-service';
+import { canUseLlm, describeProvider, generateAiMission, generateTriTierDailyMissions } from '@/lib/ai-service';
+import { useServerCoach } from '@/hooks/use-server-coach';
 import { baselineWpm } from '@/lib/curriculum';
 import { Bot, ChevronRight, Flame, Loader2, Plus, Sparkles, Target, Zap, Calendar, ShieldCheck } from 'lucide-react';
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const dailyMissionsKey = () => `typing_daily_missions_${todayKey()}`;
+
+function readCachedDailyMissions(): AIMission[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const cached = localStorage.getItem(dailyMissionsKey());
+    return cached ? (JSON.parse(cached) as AIMission[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 interface AIMissionBoardProps {
   userProgress: UserProgress;
@@ -21,47 +35,52 @@ export const AIMissionBoard: React.FC<AIMissionBoardProps> = ({
   onBackToPractice,
   onOpenSettings,
 }) => {
-  const [dailyMissions, setDailyMissions] = useState<AIMission[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const todayKey = new Date().toISOString().slice(0, 10);
-      const storageKey = `typing_daily_missions_${todayKey}`;
-      const cached = localStorage.getItem(storageKey);
-      if (cached) return JSON.parse(cached);
-    } catch {}
-    return [];
-  });
+  const [cachedMissions] = useState<AIMission[]>(readCachedDailyMissions);
   const [customMissions, setCustomMissions] = useState<AIMission[]>([]);
   const [generating, setGenerating] = useState(false);
 
-  // Extract weak keys from user progress
-  const topWeakKeys = Object.entries(userProgress.keyStats)
-    .filter(([char]) => char !== ' ')
-    .sort(([, a], [, b]) => b.errors - a.errors)
-    .slice(0, 4)
-    .map(([char]) => char);
+  const topWeakKeys = useMemo(
+    () =>
+      Object.entries(userProgress.keyStats)
+        .filter(([char]) => char !== ' ')
+        .sort(([, a], [, b]) => b.errors - a.errors)
+        .slice(0, 4)
+        .map(([char]) => char),
+    [userProgress.keyStats]
+  );
 
-  // Load Tri-Tier Daily Missions. Generated from the typist's own numbers, not
-  // from a model — the provider pill below states which is in play.
+  // Tri-Tier Daily Missions are computed from the typist's own numbers, never from
+  // a model — the provider pill below states which is in play. They are derived
+  // during render (state was one render behind, which made the board flicker from
+  // empty to populated) and only persisted as a side effect.
+  //
+  // Missions are pitched off the recorded best. The old `|| 35` fallback told the
+  // model the user types 35 WPM before they had typed anything; this falls back to
+  // the curriculum's own opening target instead.
+  const dailyMissions = useMemo(
+    () =>
+      cachedMissions.length > 0
+        ? cachedMissions
+        : generateTriTierDailyMissions(
+            todayKey(),
+            topWeakKeys,
+            baselineWpm(userProgress.highScores.bestWpm)
+          ),
+    [cachedMissions, topWeakKeys, userProgress.highScores.bestWpm]
+  );
+
   useEffect(() => {
-    if (dailyMissions.length > 0) return;
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const storageKey = `typing_daily_missions_${todayKey}`;
-    // Missions are pitched off the recorded best. The old `|| 35` fallback told
-    // the model the user types 35 WPM before they had typed anything; this falls
-    // back to the curriculum's own opening target instead.
-    const currentWpm = baselineWpm(userProgress.highScores.bestWpm);
-    const triMissions = generateTriTierDailyMissions(todayKey, topWeakKeys, currentWpm);
-
-    setDailyMissions(triMissions);
+    if (dailyMissions.length === 0) return;
     try {
-      localStorage.setItem(storageKey, JSON.stringify(triMissions));
+      localStorage.setItem(dailyMissionsKey(), JSON.stringify(dailyMissions));
     } catch {}
-  }, [dailyMissions.length, userProgress.highScores.bestWpm, topWeakKeys]);
+  }, [dailyMissions]);
 
-  const hasConfiguredProvider = Boolean(aiSettings.apiKey || aiSettings.provider === 'gemini');
-  const providerLabel =
-    aiSettings.provider === 'gemini' ? 'Google Gemini' : aiSettings.model || 'OpenAI Compatible';
+  // Re-render when the deployment probe resolves: a server-side key makes the
+  // built-in Gemini route usable without anything typed into Settings.
+  useServerCoach();
+  const hasConfiguredProvider = canUseLlm(aiSettings);
+  const providerLabel = describeProvider(aiSettings);
 
   const handleGenerateNewMission = async () => {
     setGenerating(true);

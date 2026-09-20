@@ -358,14 +358,12 @@ export interface AppPreferences {
   showKeyboard: boolean;
   showFingerGuidance: boolean;
   showAnimatedHandsInLessons?: boolean;
-  smoothCaret: boolean;
   showGhostPacer?: boolean;
   targetPacerWpm?: number;
   cadenceMetronomeEnabled?: boolean;
   cadenceMetronomeVolume?: number; // 0.0 - 1.0
   cadenceTargetWpm?: number;
   cadenceVisualPacer?: boolean;
-  challengerTwinEnabled?: boolean;
   fontSize: 'small' | 'medium' | 'large';
   dyslexicFont?: boolean;
   theme: ThemePreference;

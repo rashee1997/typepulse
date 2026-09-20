@@ -1,5 +1,5 @@
 import { CharState, ErrorMode, GhostDuelPayload, LiveHesitationSignal, ReplayEvent, TypingStats, WpmSample } from '@/types/typing';
-import { calculateKeyConfidence, generateDdaRemediationWords } from './adaptive-engine';
+import { calculateKeyConfidence } from './adaptive-engine';
 import { soundFx } from './sound';
 
 export interface InputOptions {
@@ -118,12 +118,6 @@ export class TypingEngine {
     this.inputQueue = [];
     this.isProcessingQueue = false;
     this.enforceIndexInvariants();
-  }
-
-  public injectRemediationWords(_words: string[]): boolean {
-    // Disabled to prevent unwanted text mutations and race conditions during typing.
-    // Active typing sessions must never have their target text altered in-flight.
-    return false;
   }
 
   /**

@@ -51,6 +51,15 @@ export const DailyChallengeGame: React.FC<DailyChallengeGameProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // The countdown clears itself only on completion, so unmounting mid-count used to
+  // leave it ticking and then start a whole new session on a dead component.
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
 
   // Focus input
   const focusInput = useCallback(() => {
@@ -70,13 +79,15 @@ export const DailyChallengeGame: React.FC<DailyChallengeGameProps> = ({
     soundFx.playKeypress();
 
     let count = 3;
-    const interval = setInterval(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
       count -= 1;
       if (count > 0) {
         setCountdown(count);
         soundFx.playKeypress();
       } else {
-        clearInterval(interval);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        countdownRef.current = null;
         setCountdown(0);
         setGameState('playing');
         const newEngine = new TypingEngine(passage.text);

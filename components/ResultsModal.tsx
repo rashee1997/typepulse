@@ -85,7 +85,8 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     };
     try {
       const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
-      const url = `${window.location.origin}/?duel=${encoded}`;
+      // The studio lives at /app; the documentation page owns the root route.
+      const url = `${window.location.origin}/app?duel=${encoded}`;
       navigator.clipboard.writeText(url).then(() => {
         setCopiedGhost(true);
         setTimeout(() => setCopiedGhost(false), 2500);

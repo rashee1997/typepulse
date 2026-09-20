@@ -1,7 +1,8 @@
 {
-  "name": "ai-studio-applet",
+  "name": "runewright",
   "version": "0.1.0",
   "private": true,
+  "description": "An AI-coached, offline-first touch-typing studio: curriculum, arcade drills, adaptive weak-key engine and a provider-agnostic AI coach.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

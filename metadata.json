@@ -1,6 +1,6 @@
 {
-  "name": "TypePulse AI - Touch Typing & AI Coach",
-  "description": "Interactive touch typing platform with curriculum lessons, AI pattern drills, streamlined Arcade featuring Grand Prix Speedway, Orbital Laser Defense, Bomb Squad Defusal, and Word Blitz, real-time analytics, and customizable AI coaching.",
+  "name": "Runewright - AI-Coached Touch-Typing Studio",
+  "description": "Interactive touch typing platform with a 42-lesson curriculum, AI pattern drills, 18 arcade drills featuring Grand Prix Speedway, Orbital Laser Defense, Bomb Squad Defusal and Word Blitz, real-time analytics, and customizable AI coaching.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

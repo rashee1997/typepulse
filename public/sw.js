@@ -2,7 +2,7 @@
 // network-first (falling back to cache) for everything else (HTML/API/etc).
 // ponytail: single-cache static-shell strategy is the ceiling; add versioned
 // runtime caches / Workbox only if richer offline routing is ever requested.
-const CACHE_NAME = 'typepulse-shell-v1';
+const CACHE_NAME = 'runewright-shell-v1';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

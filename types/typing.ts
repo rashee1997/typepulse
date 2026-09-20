@@ -255,7 +255,7 @@ export interface CertificationResult {
   passed: boolean;
 }
 
-export interface TypePulseBackupPackage {
+export interface RunewrightBackupPackage {
   schemaVersion: 2;
   timestamp: number;
   userProgress: UserProgress;

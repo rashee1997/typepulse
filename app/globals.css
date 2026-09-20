@@ -25,6 +25,7 @@
   --amber-500-hsl: 38 92% 50%;    /* #f59e0b */
   --amber-600-hsl: 32 95% 44%;    /* #d97706 */
   --amber-700-hsl: 26 90% 37%;    /* #b45309 */
+  --amber-900-hsl: 26 83% 26%;    /* #78350f */
   --amber-950-hsl: 26 83% 14%;    /* #451a03 */
 
   /* Indigo Accent Primitives */
@@ -87,6 +88,11 @@
   --accent-subtle: hsl(45 93% 95%);                  /* #fef9c3 Light amber tint background */
   --accent-muted: hsl(48 96% 89%);                   /* #fef08a Soft badge background */
   --accent-border: hsl(43 96% 75%);                  /* Soft amber border */
+  /* Accent as TEXT. `--accent` is calibrated as a background colour: amber on a
+     near-white surface only reaches ~2.1:1, which fails WCAG for any text. This
+     is the accessible partner token (8.7:1 light / 12.1:1 dark) for accent-coloured
+     copy, icons and links. */
+  --accent-text: hsl(var(--amber-900-hsl));          /* #78350f */
 
   /* Secondary Accent (Indigo Sensei / AI) */
   --primary: hsl(var(--indigo-600-hsl));             /* #4f46e5 Accessible primary brand */
@@ -178,6 +184,7 @@
   --accent-subtle: rgba(251, 191, 36, 0.15);         /* Semi-transparent amber badge */
   --accent-muted: rgba(251, 191, 36, 0.25);          /* Active accent badge */
   --accent-border: rgba(251, 191, 36, 0.4);
+  --accent-text: hsl(var(--amber-300-hsl));          /* #fcd34d */
 
   /* Secondary Accent (Indigo Sensei) */
   --primary: hsl(var(--indigo-500-hsl));             /* #6366f1 Sensei vibrant indigo */
@@ -239,6 +246,16 @@
    Exposes semantic tokens directly to Tailwind utility engine.
    ========================================================================== */
 @theme {
+  /* ------------------------------------------------------------------------
+     TYPOGRAPHY
+     A platform serif for display headings only (the documentation landing page).
+     Resolved from the OS stack, so no webfont is downloaded and the studio's
+     sans/mono rendering is unchanged. Appending `ui-serif` last keeps a sensible
+     fallback on systems that ship none of the named faces.
+     ------------------------------------------------------------------------ */
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua',
+    Georgia, Cambria, 'Times New Roman', ui-serif, serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
@@ -266,6 +283,7 @@
   --color-accent-subtle: var(--accent-subtle);
   --color-accent-muted: var(--accent-muted);
   --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
 
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);

@@ -265,7 +265,7 @@ export const DAILY_PASSAGES_ARCHIVE: Omit<DailyPassageData, 'id' | 'date' | 'day
   },
   {
     title: "Silicon & Starlight",
-    author: "TypePulse Archive",
+    author: "Runewright Archive",
     theme: "Technology & Cosmology",
     targetWpm: 70,
     text: "Beneath the glowing glass of modern displays lies a web of billions of transistors pulsing in synchronized harmony. Our keyboards are musical instruments through which human creativity commands the electric architecture of the cosmos.",

@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Stale duplicate copy of the project (build artifacts only, not source)
+isolate/

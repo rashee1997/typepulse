@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { UserProgress, TypingStats, TurnResult } from '@/types/typing';
+import { AISettings, UserProgress, TypingStats, TurnResult } from '@/types/typing';
 import { BOSS_ROSTER, CharacterPersona } from '@/lib/character-personas';
 import { generateBossTurn } from '@/lib/ai-service';
 import { getWeakestPatterns } from '@/lib/progress-service';
@@ -24,12 +24,19 @@ import {
 
 interface BossGauntletGameProps {
   userProgress: UserProgress;
+  /**
+   * The configured coach. Without it the gauntlet silently used the local
+   * fallback roster for every round, so a typist with a working provider never
+   * saw a generated attack.
+   */
+  aiSettings?: AISettings;
   onFinishSession: (stats: TypingStats, mode: string) => void;
   onExit: () => void;
 }
 
 export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
   userProgress,
+  aiSettings,
   onFinishSession,
   onExit,
 }) => {
@@ -67,7 +74,7 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
   // Load new turn for current boss
   const loadNewTurn = useCallback(async (lastResult: TurnResult) => {
     const weakPatterns = getWeakestPatterns(3, 'all', userProgress);
-    const turnData = await generateBossTurn(weakPatterns, currentBoss, lastResult);
+    const turnData = await generateBossTurn(weakPatterns, currentBoss, lastResult, aiSettings);
 
     setCurrentAttackName(turnData.attackName);
     setBossDialogue(turnData.bossDialogue);
@@ -78,7 +85,7 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
     const newEngine = new TypingEngine(turnData.attackText);
     setEngine(newEngine);
     setRoundState('fighting');
-  }, [currentBoss, userProgress]);
+  }, [currentBoss, userProgress, aiSettings]);
 
   // Start boss round
   const startBossFight = () => {

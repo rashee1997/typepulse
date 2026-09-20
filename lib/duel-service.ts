@@ -1,5 +1,6 @@
 import { AISettings } from '@/types/typing';
 import { callLlm, canUseLlm } from './ai-service';
+import { DUEL_SYSTEM_PROMPT } from './ai-prompts';
 
 export type DuelDifficulty = 'novice' | 'adept' | 'master' | 'grandmaster';
 
@@ -125,25 +126,26 @@ export async function generateDuelPassage(
   // Try dynamic generation when a model is actually reachable
   if (canUseLlm(settings)) {
     try {
-      const prompt = `Write a short, engaging, single-paragraph typing passage for a "${difficulty.toUpperCase()}" typing duel against an AI opponent called "${opponent.name}" (${opponent.title}).
-Length: strictly between ${opponent.wordCount - 5} and ${opponent.wordCount + 5} words.
-Punctuation: Natural English sentences.
-Tone: ${
-        difficulty === 'novice'
-          ? 'Inspiring, simple, positive everyday prose'
-          : difficulty === 'adept'
-          ? 'Modern technology, futuristic systems, engaging narrative'
-          : difficulty === 'master'
-          ? 'Scientific discovery, philosophy, rich vocabulary'
-          : 'High-concept cybernetics, astrophysics, or deep philosophy'
-      }.
-Output ONLY the paragraph text without quotes, headers, or markdown formatting.`;
+      const prompt = `Write the passage for a ${difficulty.toUpperCase()} duel against ${opponent.name}, ${opponent.title}.
 
-      const aiText = await callLlm(
-        prompt,
-        'You are an AI generating dynamic text for competitive typing duels.',
-        settings
-      );
+Requirements:
+- One paragraph, strictly between ${opponent.wordCount - 5} and ${opponent.wordCount + 5} words.
+- Tone: ${
+        difficulty === 'novice'
+          ? 'inspiring, simple, positive everyday prose'
+          : difficulty === 'adept'
+          ? 'modern technology and futuristic systems, in an engaging narrative'
+          : difficulty === 'master'
+          ? 'scientific discovery and philosophy with a rich vocabulary'
+          : 'high-concept cybernetics, astrophysics or deep philosophy'
+      }.
+- Plain sentences a typist can read at speed: no semicolon chains, no rare punctuation, no repeated words inside one sentence.
+- Return the paragraph text only: no heading, no quotes around it, no markdown.`;
+
+      const aiText = await callLlm(prompt, DUEL_SYSTEM_PROMPT, settings, {
+        temperature: 0.8,
+        maxTokens: 500,
+      });
 
       const cleaned = aiText.replace(/["`]/g, '').trim();
       if (cleaned.length > 40 && cleaned.split(/\s+/).length >= 20) {

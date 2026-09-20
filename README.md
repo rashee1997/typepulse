@@ -54,6 +54,13 @@ Weaver, Boss Gauntlet and the daily worldwide challenge.
 - Ghost duels: share a keystroke timeline as a link, race it later.
 
 **Coach (optional)**
+- Prompted from your own data. Every request is built by `lib/ai-prompts.ts`
+  from a measured profile of this typist — weak keys with error counts, slow
+  n-grams with latencies, recent pace trend, lesson progress and the last run —
+  so the coach chat, the run debrief, generated missions and drills all answer
+  about your typing instead of reciting generic advice. The chat keeps its
+  conversation, and falls back to that same profile locally whenever no model
+  answers.
 - Eight provider presets: Gemini through the built-in server route, plus OpenAI,
   OpenRouter, Groq, DeepSeek, Ollama, LM Studio and any OpenAI-compatible
   endpoint. With no key configured the app runs fully offline and missions are

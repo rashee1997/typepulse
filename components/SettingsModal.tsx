@@ -345,6 +345,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
 
+              {/* Standing instructions appended to every AI request */}
+              <div className="p-3.5 bg-surface-muted border border-border rounded-xl space-y-2">
+                <div>
+                  <span className="text-xs font-semibold text-text-secondary">Coaching Instructions (Optional)</span>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    Sent with every request: coach chat, run debriefs, generated missions and drills. Use it for
+                    standing preferences such as &quot;keep answers under 100 words&quot; or &quot;assume I type code all day&quot;.
+                  </p>
+                </div>
+                <textarea
+                  value={formData.systemPrompt ?? ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, systemPrompt: e.target.value }))}
+                  rows={2}
+                  maxLength={400}
+                  placeholder="e.g. Keep answers under 100 words and name the exact drill to run next."
+                  className="w-full px-3.5 py-2.5 bg-surface border border-border rounded-xl text-text-primary placeholder:text-text-subtle focus:outline-none focus:border-accent text-xs resize-y"
+                  id="coaching-instructions-input"
+                />
+              </div>
+
               {/* Connection Test Section */}
               <div className="p-3.5 bg-surface-muted border border-border rounded-xl space-y-2">
                 <div className="flex items-center justify-between">

@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useModalFocus } from '@/hooks/use-modal-focus';
 import { AISettings } from '@/types/typing';
-import { callLlm } from '@/lib/ai-service';
+import { callLlm, canUseLlm } from '@/lib/ai-service';
+import { MATERIAL_SYSTEM_PROMPT } from '@/lib/ai-prompts';
 import { Bot, ChevronRight, Code, FileText, Loader2, Sparkles, X, Zap } from 'lucide-react';
 
 interface AICustomDrillModalProps {
@@ -41,34 +42,63 @@ export const AICustomDrillModal: React.FC<AICustomDrillModalProps> = ({
       .map((s) => s.trim().toLowerCase())
       .filter((s) => s.length === 1);
 
+    // With no provider reachable there is nothing to wait for: use the built-in
+    // material immediately instead of making a request that cannot succeed.
+    if (!canUseLlm(aiSettings)) {
+      if (kind === 'paragraph') {
+        onLaunchDrill(
+          'Rhythmic cadence is the true heart of velocity. When keystrokes land with calm, uniform tempo across every word, the barrier between conscious thought and digital expression vanishes effortlessly.',
+          'Local Practice Passage'
+        );
+      } else {
+        onLaunchDrill(
+          `interface Task<T> {\n  id: string;\n  run: (ctx: Context) => Promise<T>;\n  retries: number;\n}`,
+          `Local ${language.toUpperCase()} Drill`
+        );
+      }
+      onClose();
+      return;
+    }
+
     try {
       if (kind === 'paragraph') {
         const theme = topic.trim() || 'scientific discovery and modern craftsmanship';
-        const prompt = `Write an engaging, cohesive single-paragraph typing practice passage (60-80 words) about "${theme}".
-${weakList.length > 0 ? `Naturally embed several words containing these target letters: ${weakList.join(', ')}.` : ''}
-Use clean, rhythmically fluid English. Output ONLY the raw paragraph text without any markdown fences, titles, or quotes.`;
+        const prompt = `Write one typing practice passage about "${theme}".
 
-        const raw = await callLlm(
-          prompt,
-          'You are an elite typing instructor crafting fluent, rhythmically balanced practice passages. Output plain text only.',
-          aiSettings
-        );
+Requirements:
+- 60 to 80 words in a single paragraph of 3 to 5 sentences.
+- Natural, rhythmic English: even sentence lengths, no tongue-twisters, no rare punctuation.
+- ${
+          weakList.length > 0
+            ? `Include words containing these letters naturally: ${weakList.join(', ')}.`
+            : 'Do not pad the passage with filler sentences.'
+        }
+- Return the passage text only: no title, no introduction, no markdown and no quotes around it.`;
+
+        const raw = await callLlm(prompt, MATERIAL_SYSTEM_PROMPT, aiSettings, {
+          temperature: 0.8,
+          maxTokens: 400,
+        });
         const text = raw.replace(/```/g, '').trim();
-        if (text.length >= 25) {
+        const words = text.split(/\s+/).filter(Boolean).length;
+        if (text.length >= 25 && words >= 25) {
           onLaunchDrill(text, `AI Passage: ${theme.slice(0, 24)}`);
           onClose();
           return;
         }
       } else {
-        const prompt = `Write a realistic, syntactically clean ${complexity} snippet of ${language} code for typing practice (5 to 8 lines).
-Focus on practical idioms with braces, brackets, arrows, and operators.
-Output ONLY the raw code snippet without markdown fences or explanations.`;
+        const prompt = `Write a ${complexity} ${language} code snippet for typing practice.
 
-        const raw = await callLlm(
-          prompt,
-          `You are a staff engineer creating precision ${language} touch-typing drills. Output raw code only.`,
-          aiSettings
-        );
+Requirements:
+- 5 to 8 lines of valid, idiomatic ${language}.
+- Rich in brackets, braces, arrows, colons and operators.
+- No comments explaining the code, no placeholder ellipses, no markdown fences.
+- Return the raw code only, with correct indentation.`;
+
+        const raw = await callLlm(prompt, MATERIAL_SYSTEM_PROMPT, aiSettings, {
+          temperature: 0.6,
+          maxTokens: 400,
+        });
         const code = raw.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         if (code.length >= 25) {
           onLaunchDrill(code, `AI Code (${language.toUpperCase()}): ${complexity}`);
@@ -76,9 +106,9 @@ Output ONLY the raw code snippet without markdown fences or explanations.`;
           return;
         }
       }
-      setErrorMsg('Generated text was too short. Please try again.');
-    } catch (err) {
-      // Deterministic instant fallback if offline
+      setErrorMsg('The generated material came back too short to practise. Try again, or pick another format.');
+    } catch {
+      // Deterministic instant fallback if the provider fails mid-request
       if (kind === 'paragraph') {
         const fallback =
           'Rhythmic cadence is the true heart of velocity. When keystrokes land with calm, uniform tempo across every word, the barrier between conscious thought and digital expression vanishes effortlessly.';

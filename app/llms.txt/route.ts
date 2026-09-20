@@ -92,7 +92,9 @@ ${bullets(CODE_SAMPLES.map((sample) => `${sample.label}: see ${SITE_URL}${SITE.d
 - \`lib/adaptive-engine.ts\` — \`calculateKeyConfidence(...)\`, \`generateKeybrPracticeText(...)\`, \`generateDdaRemediationWords(...)\`, \`checkAndUpdateKeybrProgression(...)\`
 - \`lib/curriculum.ts\` — \`LESSONS_CURRICULUM\`, \`getLessonTargetKeys(lesson)\`, \`getCumulativeKeysForLesson(id)\`, \`generateDeterministicLessonDrill(...)\`
 - \`lib/progress-service.ts\` — \`loadUserProgress()\`, \`saveUserProgress(progress)\`, \`processCompletedSession(...)\`, \`exportBackupPackage(...)\`, \`importBackupPackage(raw)\`
-- \`lib/ai-service.ts\` — \`AI_PROVIDER_PRESETS\`, \`DEFAULT_AI_SETTINGS\`, \`loadStoredAiSettings()\`, \`saveStoredAiSettings(settings)\`
+- \`lib/ai-service.ts\` — the AI layer's public barrel; re-exports every symbol below unchanged, so consumers keep importing from this one path — \`AI_PROVIDER_PRESETS\`, \`DEFAULT_AI_SETTINGS\`, \`loadStoredAiSettings()\`, \`saveStoredAiSettings(settings)\`, \`resolveTransport(settings)\`, \`canUseLlm(settings)\`, \`callChatLlm(messages, settings)\`, \`askAiCoachQuestion(request)\`
+- \`lib/ai-service/*.ts\` — implementation modules behind that barrel: \`providers\`, \`connection\`, \`transport\`, \`coach\`, \`coach-offline\`, \`narrative\`, \`quest\`, \`boss\`, \`flashcards\`, \`drills\`, \`story-stream\`, \`code-pulse\`, \`biometric\`
+- \`lib/ai-prompts.ts\` — \`buildTypistProfile(progress, context)\`, \`formatTypistProfile(profile)\`, \`buildStarterBriefing(profile)\`, \`buildSuggestedQuestions(profile)\`, \`HOUSE_STYLE\` and the per-task system prompts
 - \`lib/word-banks.ts\` — \`generateRandomWords(...)\`, \`generateWeakKeyDrill(keys, count)\`, \`getRandomCodeSnippet(lang)\`, \`getRandomQuote()\`
 
 ## Self-hosting

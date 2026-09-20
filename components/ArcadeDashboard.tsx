@@ -349,6 +349,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
     return (
       <BossGauntletGame
         userProgress={userProgress}
+        aiSettings={aiSettings}
         onFinishSession={handleGenericSessionFinish}
         onExit={() => setActiveGame('none')}
       />

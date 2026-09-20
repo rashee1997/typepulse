@@ -144,11 +144,13 @@ export const CAPABILITIES: Capability[] = [
     id: 'coach',
     title: 'Provider-agnostic AI coach',
     summary:
-      'Eight provider presets behind one settings shape, with a server route for hosted Gemini.',
+      'Eight provider presets behind one settings shape, with a server route for hosted Gemini. Every prompt is built from your recorded runs, not from a fixed instruction.',
     bullets: [
+      'buildTypistProfile() feeds weak keys, n-gram latencies and pace trend into every prompt',
+      'The coach chat is multi-turn and keeps the conversation in context',
       'Gemini via a server-only route; the key never reaches the browser',
       'OpenAI, OpenRouter, Groq, DeepSeek, custom OpenAI-compatible',
-      'Fully local via Ollama or LM Studio, no account needed',
+      'Fully local via Ollama or LM Studio, and the same profile answers offline',
     ],
   },
   {
@@ -249,9 +251,11 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     description:
       'Server-only proxy to Gemini. Reads GEMINI_API_KEY from the environment; the key never reaches the browser.',
     params: [
-      { name: 'prompt', type: 'string', required: 'required', description: 'The user turn. 400 when missing.' },
+      { name: 'messages', type: 'array', required: 'optional', description: 'Conversation turns as { role: user | assistant, content }. The last 24 turns are used and each turn is capped at 8000 characters.' },
+      { name: 'prompt', type: 'string', required: 'optional', description: 'Single-shot user turn, for callers that are not holding a conversation. One of messages or prompt is required; 400 when both are absent.' },
       { name: 'systemInstruction', type: 'string', required: 'optional', description: 'Overrides the coach persona instruction.' },
-      { name: 'temperature', type: 'number', required: 'optional', description: 'Sampling temperature. Default 0.7.' },
+      { name: 'temperature', type: 'number', required: 'optional', description: 'Sampling temperature, clamped to 0-2. Default 0.7.' },
+      { name: 'maxTokens', type: 'number', required: 'optional', description: 'Output token cap, clamped to 64-8192. Omitted when not supplied.' },
       { name: 'stream', type: 'boolean', required: 'optional', description: 'Returns text/event-stream frames terminated by data: [DONE].' },
       { name: 'jsonMode', type: 'boolean', required: 'optional', description: 'Requests application/json from the model.' },
     ],

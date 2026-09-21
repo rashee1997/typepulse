@@ -46,7 +46,7 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
   const [bossHp, setBossHp] = useState(currentBoss.maxHp || 250);
   const [playerHp, setPlayerHp] = useState(100);
   const [roundNumber, setRoundNumber] = useState(1);
-  const [roundState, setRoundState] = useState<'intro' | 'fighting' | 'boss_defeated' | 'game_over' | 'gauntlet_cleared'>('intro');
+  const [roundState, setRoundState] = useState<'intro' | 'fighting' | 'boss_defeated' | 'game_over' | 'gauntlet_cleared' | 'turn_transition'>('intro');
 
   // Round data
   const [currentAttackName, setCurrentAttackName] = useState('Seismic Slam');
@@ -60,6 +60,16 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const playerHpRef = useRef(100);
+  const bossHpRef = useRef(currentBoss.maxHp || 250);
+
+  useEffect(() => {
+    playerHpRef.current = playerHp;
+  }, [playerHp]);
+
+  useEffect(() => {
+    bossHpRef.current = bossHp;
+  }, [bossHp]);
 
   const focusInput = useCallback(() => {
     if (inputRef.current) {
@@ -73,6 +83,7 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
 
   // Load new turn for current boss
   const loadNewTurn = useCallback(async (lastResult: TurnResult) => {
+    setRoundState('turn_transition');
     const weakPatterns = getWeakestPatterns(3, 'all', userProgress);
     const turnData = await generateBossTurn(weakPatterns, currentBoss, lastResult, aiSettings);
 
@@ -102,18 +113,18 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          setRoundState('turn_transition');
           soundFx.playError();
-          setTimeout(() => {
-            setPlayerHp((hp) => {
-              const nextHp = Math.max(0, hp - 25);
-              if (nextHp <= 0) {
-                setRoundState('game_over');
-              } else {
-                loadNewTurn({ playerSuccess: false, roundDamageDealt: 0, playerAccuracy: 50, phraseCompleted: false });
-              }
-              return nextHp;
-            });
-          }, 0);
+          const nextHp = Math.max(0, playerHpRef.current - 25);
+          playerHpRef.current = nextHp;
+          setPlayerHp(nextHp);
+
+          if (nextHp <= 0) {
+            setRoundState('game_over');
+          } else {
+            loadNewTurn({ playerSuccess: false, roundDamageDealt: 0, playerAccuracy: 50, phraseCompleted: false });
+          }
           return 0;
         }
         return prev - 1;
@@ -127,7 +138,8 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
 
   // Handle Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (roundState !== 'fighting') return;
+    // C10: Strictly lock typing when not in fighting state or when phrase is completed
+    if (roundState !== 'fighting' || !engine || engine.isFinished) return;
 
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -141,7 +153,10 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
     }
 
     if (e.key.length === 1 || e.key === 'Backspace') {
-      const res = engine.handleInput(e.key, e.ctrlKey);
+      // M15 & L11: Forward repeat and handle ignored keys cleanly
+      const res = engine.handleInput(e.key, { ctrlKey: e.ctrlKey, repeat: e.repeat });
+      if (res.ignored) return;
+
       setTotalKeystrokesLogged((k) => k + 1);
 
       if (res.isCorrect) {
@@ -152,30 +167,33 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
       }
 
       if (res.isFinished) {
-        // Round typed successfully! Deal damage to boss!
+        // C10: Prevent double execution or trailing keypresses by immediately transitioning state
+        setRoundState('turn_transition');
+        if (timerRef.current) clearInterval(timerRef.current);
+
         soundFx.playStreak();
         const stats = engine.getStats();
         const baseDamage = Math.round((stats.wpm * (stats.accuracy / 100)) * 0.8);
         const damageDealt = Math.max(20, baseDamage);
 
-        setBossHp((prevHp) => {
-          const newHp = Math.max(0, prevHp - damageDealt);
-          if (newHp <= 0) {
-            // Boss defeated!
-            soundFx.playVictory();
-            if (stageIndex >= BOSS_ROSTER.length - 1) {
-              setRoundState('gauntlet_cleared');
-              onFinishSession(engine.getStats(), 'boss-gauntlet');
-            } else {
-              setRoundState('boss_defeated');
-            }
+        const newHp = Math.max(0, bossHpRef.current - damageDealt);
+        bossHpRef.current = newHp;
+        setBossHp(newHp);
+
+        if (newHp <= 0) {
+          // Boss defeated!
+          soundFx.playVictory();
+          if (stageIndex >= BOSS_ROSTER.length - 1) {
+            setRoundState('gauntlet_cleared');
+            onFinishSession(stats, 'boss-gauntlet');
           } else {
-            // Load next turn for this boss
-            setRoundNumber((r) => r + 1);
-            loadNewTurn({ playerSuccess: true, roundDamageDealt: damageDealt, playerAccuracy: stats.accuracy, phraseCompleted: true });
+            setRoundState('boss_defeated');
           }
-          return newHp;
-        });
+        } else {
+          // Load next turn for this boss
+          setRoundNumber((r) => r + 1);
+          loadNewTurn({ playerSuccess: true, roundDamageDealt: damageDealt, playerAccuracy: stats.accuracy, phraseCompleted: true });
+        }
       }
     }
   };

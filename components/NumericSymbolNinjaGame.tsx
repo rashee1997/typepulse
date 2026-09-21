@@ -88,7 +88,12 @@ export const NumericSymbolNinjaGame: React.FC<NumericSymbolNinjaGameProps> = ({
     }
 
     if (e.key.length === 1 || e.key === 'Backspace') {
-      const res = engine.handleInput(e.key, e.ctrlKey);
+      e.preventDefault();
+      if (e.repeat && e.key !== 'Backspace') return;
+      const res = engine.handleInput(e.key, {
+        ctrlKey: e.ctrlKey || e.metaKey,
+        repeat: e.repeat,
+      });
       setLiveStats(engine.getStats());
 
       if (res.isCorrect) {

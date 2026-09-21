@@ -614,10 +614,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {[
-                  { dayNum: 1, ...biometricReport.prescriptionPlan.day1 },
-                  { dayNum: 2, ...biometricReport.prescriptionPlan.day2 },
-                  { dayNum: 3, ...biometricReport.prescriptionPlan.day3 },
-                ].map((plan) => (
+                  biometricReport.prescriptionPlan?.day1 && { dayNum: 1, ...biometricReport.prescriptionPlan.day1 },
+                  biometricReport.prescriptionPlan?.day2 && { dayNum: 2, ...biometricReport.prescriptionPlan.day2 },
+                  biometricReport.prescriptionPlan?.day3 && { dayNum: 3, ...biometricReport.prescriptionPlan.day3 },
+                ]
+                  .filter((plan): plan is { dayNum: number; title: string; drill: string; targetWpm: number } => Boolean(plan && plan.drill))
+                  .map((plan) => (
                   <div
                     key={plan.dayNum}
                     className="p-3.5 rounded-xl bg-surface border border-border hover:border-accent flex flex-col justify-between transition-all group shadow-sm"

@@ -86,9 +86,10 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
       events: stats.replayEvents.map((e) => [e.deltaMs, e.index, e.isCorrect]),
     };
     try {
-      const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+      const rawBase64 = btoa(encodeURIComponent(JSON.stringify(payload)));
+      const urlSafe = rawBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       // The studio lives at /app; the documentation page owns the root route.
-      const url = `${window.location.origin}/app?duel=${encoded}`;
+      const url = `${window.location.origin}/app?duel=${encodeURIComponent(urlSafe)}`;
       navigator.clipboard.writeText(url).then(() => {
         setCopiedGhost(true);
         setTimeout(() => setCopiedGhost(false), 2500);

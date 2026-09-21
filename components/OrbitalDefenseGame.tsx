@@ -54,6 +54,7 @@ interface Explosion {
   x: number;
   y: number;
   word: string;
+  createdAt: number;
 }
 
 export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish, onExit }) => {
@@ -150,19 +151,23 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
 
     // Explode all on-screen enemies
     const cleared = enemiesRef.current;
+    const now = Date.now();
     setExplosions((prev) => [
       ...prev,
       ...cleared.map((e) => ({
-        id: `emp-exp-${Date.now()}-${Math.random()}`,
+        id: `emp-exp-${now}-${Math.random().toString(36).substring(2, 6)}`,
         x: e.x,
         y: e.y,
         word: e.word,
+        createdAt: now,
       })),
     ]);
 
     const bonusPoints = cleared.length * 150;
     setScore((s) => s + bonusPoints);
     setWordsDestroyed((w) => w + cleared.length);
+    enemiesRef.current = [];
+    lockedIdRef.current = null;
     setEnemies([]);
     setLockedTargetId(null);
   }, [empReady]);
@@ -172,11 +177,16 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
     if (gameState !== 'playing') return;
 
     let lastSpawnTime = Date.now();
+    let lastFrameTime = Date.now();
     let animId: number;
 
     const gameLoop = () => {
       if (hasEndedRef.current) return;
       const now = Date.now();
+      const dt = Math.min(100, Math.max(1, now - lastFrameTime));
+      lastFrameTime = now;
+      const timeScale = dt / 16.67; // normalize to 60fps baseline
+
       const currentWave = waveRef.current;
 
       // Spawn new enemy ship if capacity allows
@@ -202,16 +212,17 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
         };
 
         currentEnemies = [...currentEnemies, newEnemy];
+        enemiesRef.current = currentEnemies;
         setEnemies(currentEnemies);
       }
 
-      // Update positions of existing ships
+      // Update positions of existing ships using timeScale
       let breachCount = 0;
       let targetLost = false;
       const nextShips: EnemyShip[] = [];
 
       for (const ship of currentEnemies) {
-        const nextY = ship.y + ship.speed;
+        const nextY = ship.y + ship.speed * timeScale;
 
         if (nextY >= 86) {
           breachCount++;
@@ -223,15 +234,19 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
         }
       }
 
+      enemiesRef.current = nextShips;
       setEnemies(nextShips);
 
       if (breachCount > 0) {
         soundFx.playError();
         if (targetLost) {
+          lockedIdRef.current = null;
           setLockedTargetId(null);
         }
         const newLives = Math.max(0, livesRef.current - breachCount);
+        livesRef.current = newLives;
         setLives(newLives);
+        comboRef.current = 0;
         setCombo(0);
         if (newLives <= 0) {
           handleGameOver();
@@ -243,12 +258,7 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
       setLasers((prev) => (prev.length > 0 ? prev.slice(-3) : prev));
 
       // Clear finished explosions after 700ms
-      setExplosions((prev) =>
-        prev.filter((exp) => {
-          const createdAt = parseInt(exp.id.split('-')[2] || '0', 10);
-          return now - createdAt < 700;
-        })
-      );
+      setExplosions((prev) => prev.filter((exp) => now - exp.createdAt < 700));
 
       if (!hasEndedRef.current) {
         animId = requestAnimationFrame(gameLoop);
@@ -361,10 +371,11 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
             setExplosions((prev) => [
               ...prev,
               {
-                id: `exp-${Date.now()}-${Math.random()}`,
+                id: `exp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
                 x: targetX,
                 y: targetY,
                 word: activeTarget.word,
+                createdAt: Date.now(),
               },
             ]);
 
@@ -374,13 +385,18 @@ export const OrbitalDefenseGame: React.FC<OrbitalDefenseGameProps> = ({ onFinish
             }
 
             // Remove destroyed ship & release lock
-            setEnemies((prev) => prev.filter((s) => s.id !== activeTarget!.id));
+            const remaining = enemiesRef.current.filter((s) => s.id !== activeTarget!.id);
+            enemiesRef.current = remaining;
+            setEnemies(remaining);
+            lockedIdRef.current = null;
             setLockedTargetId(null);
           } else {
             // Update partially typed word
-            setEnemies((prev) =>
-              prev.map((s) => (s.id === activeTarget!.id ? { ...s, typedLetters: nextTyped } : s))
+            const updated = enemiesRef.current.map((s) =>
+              s.id === activeTarget!.id ? { ...s, typedLetters: nextTyped } : s
             );
+            enemiesRef.current = updated;
+            setEnemies(updated);
           }
         } else {
           // Mistyped key!

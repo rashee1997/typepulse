@@ -116,17 +116,19 @@ export const WordBlitzGame: React.FC<WordBlitzProps> = ({ onFinish, onExit }) =>
   useEffect(() => {
     if (gameState !== 'playing') return;
 
-    if (timeLeft <= 0) {
-      endBlitz();
-      return;
-    }
-
     const timer = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1));
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          endBlitz();
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameState, timeLeft, endBlitz]);
+  }, [gameState, endBlitz]);
 
   // Handle Typing
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

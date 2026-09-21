@@ -19,6 +19,7 @@
 import { AISettings } from '@/types/typing';
 import { DEFAULT_TASK_SYSTEM_PROMPT, HOUSE_STYLE, applyStyleOverride } from '../ai-prompts';
 import { DEFAULT_AI_SETTINGS, resolveTransport } from './providers';
+import { toTypeable } from '../typing-engine';
 
 /**
  * True when a rejected request was cancelled by an AbortController rather than
@@ -47,8 +48,27 @@ export interface LlmRequestOptions {
 }
 
 /** True when a prompt is asking for JSON, so the transport can enforce it. */
-function looksLikeJsonRequest(systemPrompt: string, prompt: string): boolean {
-  return /json/i.test(systemPrompt) || /json/i.test(prompt);
+function looksLikeJsonRequest(systemPrompt: string): boolean {
+  // L15: Only infer JSON mode from the system prompt, not user messages
+  return /json/i.test(systemPrompt);
+}
+
+/** Creates an AbortSignal that aborts on either caller signal or timeout */
+function createRequestSignal(callerSignal?: AbortSignal, timeoutMs = 25000): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && 'any' in AbortSignal && 'timeout' in AbortSignal) {
+    return callerSignal
+      ? AbortSignal.any([callerSignal, AbortSignal.timeout(timeoutMs)])
+      : AbortSignal.timeout(timeoutMs);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('Request timed out')), timeoutMs);
+  if (callerSignal) {
+    callerSignal.addEventListener('abort', () => {
+      clearTimeout(timer);
+      controller.abort(callerSignal.reason);
+    });
+  }
+  return controller.signal;
 }
 
 /**
@@ -104,13 +124,14 @@ export function parseLlmJson<T>(raw: string): T | null {
  * their quotes and braces intact.
  */
 export function cleanTypingText(raw: string): string {
-  return (raw || '')
+  const stripped = (raw || '')
     .replace(/```[a-z]*/gi, '')
     .replace(/```/g, '')
     .replace(/[*_#`>]/g, '')
     .replace(/["“”]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+  return toTypeable(stripped);
 }
 
 /** Word count for generator output contracts. Shared by the task modules. */
@@ -150,14 +171,18 @@ export async function callChatLlm(
   const temperature = options.temperature ?? settings.temperature ?? 0.7;
   const maxTokens = options.maxTokens ?? 800;
   const jsonMode =
-    options.jsonMode ?? looksLikeJsonRequest(systemInstruction, turns.map((turn) => turn.content).join(' '));
+    options.jsonMode ?? looksLikeJsonRequest(systemInstruction);
+
+  const requestSignal = createRequestSignal(options.signal);
 
   if (transport === 'gemini') {
+    // H19: Only pass model to Gemini if it's explicitly an allowed Gemini model name
+    const geminiModel = settings.model?.startsWith('gemini-') ? settings.model : undefined;
     const res = await fetch('/api/gemini/coach', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: turns, systemInstruction, temperature, jsonMode, maxTokens, model: settings.model }),
-      signal: options.signal,
+      body: JSON.stringify({ messages: turns, systemInstruction, temperature, jsonMode, maxTokens, model: geminiModel }),
+      signal: requestSignal,
     });
     const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
     if (!res.ok) throw new Error(data.error || `Gemini coach request failed (HTTP ${res.status})`);
@@ -182,7 +207,7 @@ export async function callChatLlm(
         path: '/chat/completions',
         body,
       }),
-      signal: options.signal,
+      signal: requestSignal,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || `Proxy request failed (HTTP ${res.status})`);
@@ -197,7 +222,7 @@ export async function callChatLlm(
     method: 'POST',
     headers,
     body: JSON.stringify(body),
-    signal: options.signal,
+    signal: requestSignal,
   });
 
   if (!res.ok) {

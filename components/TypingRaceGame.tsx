@@ -149,6 +149,26 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
   const hasFinishedRef = useRef(false);
   const onFinishRef = useRef(onFinish);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const racersRef = useRef<Racer[]>([]);
+  const typedCharsRef = useRef(0);
+  const errorCountRef = useRef(0);
+  const playerWpmRef = useRef(0);
+
+  useEffect(() => {
+    racersRef.current = racers;
+  }, [racers]);
+
+  useEffect(() => {
+    typedCharsRef.current = typedChars;
+  }, [typedChars]);
+
+  useEffect(() => {
+    errorCountRef.current = errorCount;
+  }, [errorCount]);
+
+  useEffect(() => {
+    playerWpmRef.current = playerWpm;
+  }, [playerWpm]);
 
   // A countdown clears itself only when it reaches zero. Leaving the game mid-count
   // used to leave it running against a dead component, flipping state and stealing
@@ -167,8 +187,8 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
       if (!stored) return;
       const parsed = JSON.parse(stored);
       if (!parsed.cadenceMetronomeEnabled) return;
-      const targetWpm = parsed.cadenceTargetWpm || 60;
-      const intervalMs = (60 / (targetWpm * 5)) * 1000;
+      const targetWpm = Math.max(10, Math.min(250, parsed.cadenceTargetWpm || 60));
+      const intervalMs = Math.max(40, (60 / (targetWpm * 5)) * 1000);
       const vol = parsed.cadenceMetronomeVolume ?? 0.15;
       const timer = setInterval(() => {
         soundFx.playMetronomeTick(false, vol);
@@ -183,7 +203,9 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
 
   // Setup racers based on division
   const setupRacers = useCallback((div: RaceDivision) => {
-    setRacers(createInitialRacers(div));
+    const initial = createInitialRacers(div);
+    racersRef.current = initial;
+    setRacers(initial);
   }, []);
 
   // Reset / initialize race
@@ -237,10 +259,21 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
   // Calculate live rankings
   const updateRankings = (currentRacers: Racer[]): { sorted: Racer[]; playerRank: number } => {
     const sorted = [...currentRacers].sort((a, b) => {
+      const aDone = a.progress >= 100 || a.finishTime !== undefined;
+      const bDone = b.progress >= 100 || b.finishTime !== undefined;
+
+      // Finished racers rank first, ordered by finishTime (earliest timestamp wins)
+      if (aDone && bDone) {
+        return (a.finishTime ?? Infinity) - (b.finishTime ?? Infinity);
+      }
+      if (aDone) return -1;
+      if (bDone) return 1;
+
+      // In-flight racers rank by progress (highest first), then by speed
       if (b.progress !== a.progress) {
         return b.progress - a.progress;
       }
-      return (b.finishTime || Infinity) - (a.finishTime || Infinity);
+      return (b.currentWpm ?? 0) - (a.currentWpm ?? 0);
     });
 
     const playerIndex = sorted.findIndex((r) => r.isPlayer);
@@ -316,14 +349,17 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
           };
         });
 
+        racersRef.current = updated;
         const { playerRank } = updateRankings(updated);
         setTimeout(() => {
           setPlayerPlace(playerRank);
           if (playerFinished && !hasFinishedRef.current) {
-            const currentAcc = typedChars > 0 ? Math.max(0, Math.round(((typedChars - errorCount) / typedChars) * 100)) : 100;
-            completeRace(playerRank, playerWpm, currentAcc, {
-              correctKeys: Math.max(0, typedChars - errorCount),
-              totalKeys: typedChars,
+            const currentTyped = typedCharsRef.current;
+            const currentErr = errorCountRef.current;
+            const currentAcc = currentTyped > 0 ? Math.max(0, Math.round(((currentTyped - currentErr) / currentTyped) * 100)) : 100;
+            completeRace(playerRank, playerWpmRef.current, currentAcc, {
+              correctKeys: Math.max(0, currentTyped - currentErr),
+              totalKeys: currentTyped,
               elapsedSeconds: Math.max(0, (Date.now() - raceStartTimeRef.current) / 1000),
             });
           }
@@ -334,7 +370,7 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
     }, 120);
 
     return () => clearInterval(interval);
-  }, [gameState, words.length, typedChars, errorCount, playerWpm, completeRace]);
+  }, [gameState, words.length, completeRace]);
 
   // Handle Input Changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -347,7 +383,8 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
       const trimmed = value.trim();
       const isCorrect = trimmed === currentTarget;
 
-      setTypedChars((prev) => prev + currentTarget.length + 1);
+      const keysSoFar = typedChars + currentTarget.length + 1;
+      setTypedChars(keysSoFar);
 
       if (isCorrect) {
         soundFx.playKeyClick();
@@ -364,38 +401,38 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
           soundFx.playCombo();
         }
 
-        // Calculate player progress
+        // Calculate player progress and standard WPM
         const newProgress = Math.min(100, Math.round((nextIdx / words.length) * 100));
-        const elapsed = Math.max(1, (Date.now() - raceStartTimeRef.current) / 1000);
-        const wpm = Math.round((nextIdx / elapsed) * 60);
+        const elapsed = Math.max(0.5, (Date.now() - raceStartTimeRef.current) / 1000);
+        const wpm = Math.max(0, Math.round(((keysSoFar / 5) / (elapsed / 60))));
         setPlayerWpm(wpm);
 
-        const currentAcc = Math.max(0, Math.round(((typedChars - errorCount) / Math.max(1, typedChars)) * 100));
+        const currentAcc = Math.max(0, Math.round(((keysSoFar - errorCount) / keysSoFar) * 100));
         setAccuracy(currentAcc);
-        // `typedChars` has not committed yet for the word finished on this very
-        // keystroke, so count it explicitly rather than under-reporting.
-        const keysSoFar = typedChars + currentTarget.length + 1;
+
         const runMeasurement = {
           correctKeys: Math.max(0, keysSoFar - errorCount),
           totalKeys: keysSoFar,
-          elapsedSeconds: Math.max(0, (Date.now() - raceStartTimeRef.current) / 1000),
+          elapsedSeconds: elapsed,
         };
 
-        setRacers((prev) =>
-          prev.map((r) =>
-            r.isPlayer
-              ? {
-                  ...r,
-                  progress: newProgress,
-                  currentWpm: wpm,
-                  finishTime: newProgress >= 100 ? Date.now() : undefined,
-                }
-              : r
-          )
+        const now = Date.now();
+        const updatedRacers = racersRef.current.map((r) =>
+          r.isPlayer
+            ? {
+                ...r,
+                progress: newProgress,
+                currentWpm: wpm,
+                finishTime: newProgress >= 100 ? (r.finishTime || now) : undefined,
+              }
+            : r
         );
+        racersRef.current = updatedRacers;
+        setRacers(updatedRacers);
 
         if (nextIdx >= words.length) {
-          const { playerRank } = updateRankings(racers);
+          const { playerRank } = updateRankings(updatedRacers);
+          setPlayerPlace(playerRank);
           completeRace(playerRank, wpm, currentAcc, runMeasurement);
         }
       } else {
@@ -411,10 +448,13 @@ export const TypingRaceGame: React.FC<TypingRaceGameProps> = ({ onFinish, onExit
     // Typing in progress
     setInputVal(value);
     if (!currentTarget.startsWith(value)) {
-      soundFx.playError();
-      setErrorCount((prev) => prev + 1);
-      setStreak(0);
-      setSlipstreamActive(false);
+      // Only penalize if transitioning from correct to error
+      if (currentTarget.startsWith(inputVal)) {
+        soundFx.playError();
+        setErrorCount((prev) => prev + 1);
+        setStreak(0);
+        setSlipstreamActive(false);
+      }
     } else {
       soundFx.playKeyClick();
     }

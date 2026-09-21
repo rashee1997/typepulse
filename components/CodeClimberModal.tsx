@@ -85,7 +85,7 @@ export const CodeClimberModal: React.FC<CodeClimberModalProps> = ({
   );
 
   const activeSnippet =
-    CODE_CLIMBER_SNIPPETS.find((s) => s.id === activeSnippetId) || filteredSnippets[0];
+    filteredSnippets.find((s) => s.id === activeSnippetId) || filteredSnippets[0];
 
   const handleLaunch = () => {
     if (activeSnippet) {

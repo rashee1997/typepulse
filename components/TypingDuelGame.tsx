@@ -100,6 +100,14 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
   const hasFinishedRef = useRef(false);
   const playerWpmRef = useRef(0);
   const onFinishDuelRef = useRef(onFinishDuel);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clear countdown on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     onFinishDuelRef.current = onFinishDuel;
@@ -144,6 +152,7 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
 
   // Start Countdown Sequence
   const startDuelCountdown = () => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     hasFinishedRef.current = false;
     setGameState('countdown');
     setCountdown(3);
@@ -159,12 +168,14 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
         soundFx.playCombo();
       } else {
         clearInterval(countTimer);
+        countdownTimerRef.current = null;
         setGameState('dueling');
         const start = Date.now();
         raceStartTimeRef.current = start;
         setTimeout(() => inputRef.current?.focus(), 50);
       }
     }, 850);
+    countdownTimerRef.current = countTimer;
   };
 
   // Conclude the Duel
@@ -289,22 +300,23 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
       return;
     }
 
-    if (e.key.length !== 1) return;
+    if (e.repeat || e.key.length !== 1) return;
     e.preventDefault();
 
     const expectedChar = text[currentIndex];
     const isCorrect = e.key === expectedChar;
 
-    if (isCorrect) {
-      soundFx.playKeyClick();
-      const nextStreak = streak + 1;
-      setStreak(nextStreak);
-      if (nextStreak % 15 === 0) soundFx.playCombo();
-    } else {
+    if (!isCorrect) {
       soundFx.playError();
       setStreak(0);
       setErrorsCount((prev) => prev + 1);
+      return;
     }
+
+    soundFx.playKeyClick();
+    const nextStreak = streak + 1;
+    setStreak(nextStreak);
+    if (nextStreak % 15 === 0) soundFx.playCombo();
 
     const nextIdx = currentIndex + 1;
     const nextInput = [...inputChars, e.key];
@@ -315,18 +327,13 @@ export const TypingDuelGame: React.FC<TypingDuelGameProps> = ({
     const pProg = Math.min(100, (nextIdx / text.length) * 100);
     setPlayerProgress(pProg);
 
-    const elapsedMin = elapsedSeconds / 60;
-    if (elapsedMin > 0.04) {
-      const currentSpeed = Math.round((nextIdx / 5) / elapsedMin);
-      setPlayerWpm(currentSpeed);
-    }
+    const elapsed = Math.max(0.5, (Date.now() - raceStartTimeRef.current) / 1000);
+    const currentSpeed = Math.round((nextIdx / 5) / (elapsed / 60));
+    setPlayerWpm(currentSpeed);
 
     // Player finish check
     if (nextIdx >= text.length && !hasFinishedRef.current) {
-      const finalElapsed = Math.max(0.5, (Date.now() - raceStartTimeRef.current) / 1000);
-      // Measured, not floored at a flattering 20 WPM.
-      const finalSpeed = Math.round((text.length / 5) / (finalElapsed / 60));
-      concludeDuel('player', finalElapsed, finalSpeed);
+      concludeDuel('player', elapsed, currentSpeed);
     }
   };
 

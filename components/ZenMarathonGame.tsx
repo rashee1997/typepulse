@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UserProgress, TypingStats, CharState } from '@/types/typing';
 import { INSPIRATIONAL_QUOTES, COMMON_WORDS_200 } from '@/lib/word-banks';
-import { TypingEngine } from '@/lib/typing-engine';
+import { TypingEngine, toTypeable } from '@/lib/typing-engine';
 import { soundFx } from '@/lib/sound';
 import {
   Sparkles,
@@ -33,7 +33,7 @@ export const ZenMarathonGame: React.FC<ZenMarathonGameProps> = ({
   // Generate infinite stream of peaceful text
   const generateZenBatch = () => {
     const quotes = [...INSPIRATIONAL_QUOTES].sort(() => Math.random() - 0.5).slice(0, 3);
-    return quotes.join(' ');
+    return toTypeable(quotes.join(' '));
   };
 
   const [engine] = useState<TypingEngine>(() => new TypingEngine(generateZenBatch()));

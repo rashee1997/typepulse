@@ -44,6 +44,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     models?: string[];
   }>({ loading: false });
 
+  // C9: Always re-sync local form data with incoming props whenever the modal opens.
+  // This guarantees newly saved preferences or API keys are never overwritten by stale state.
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      setFormData({ ...aiSettings });
+      setPrefsData({ ...preferences });
+      setShowApiKey(false);
+      setImportInput('');
+      setImportResult(null);
+      setTestState({ loading: false });
+    }
+  }
+
   if (!isOpen) return null;
 
   const handleProviderSelect = (presetId: string) => {
@@ -197,7 +212,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="flex items-start gap-3 p-3.5 bg-success-subtle border border-success-border rounded-xl text-xs text-success">
                 <Shield className="w-4 h-4 mt-0.5 text-success shrink-0" />
                 <p>
-                  <strong className="font-semibold text-text-primary">Zero-Leak Local Storage:</strong> Your API keys and endpoint settings are stored exclusively inside your browser&apos;s <code className="bg-surface px-1 py-0.5 rounded border border-border">localStorage</code>. They are never transmitted to any database or analytics server.
+                  <strong className="font-semibold text-text-primary">Encrypted Local Storage:</strong> Your API keys and endpoint settings are stored inside your browser&apos;s <code className="bg-surface px-1 py-0.5 rounded border border-border">localStorage</code>. For direct browser calls, they never leave your device. When the optional Server Proxy is enabled to bypass browser CORS restrictions, requests are securely relayed via this deployment&apos;s ephemeral proxy route and never stored.
                 </p>
               </div>
 
@@ -329,7 +344,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <span>Use Server Proxy for Requests</span>
                     </div>
                     <p className="text-[11px] text-text-muted mt-0.5">
-                      Bypasses browser CORS errors when connecting to third-party endpoints or APIs that reject direct browser calls.
+                      Bypasses browser CORS errors when connecting to third-party endpoints or APIs that reject direct browser calls. Requests and authorization headers pass securely through this app&apos;s ephemeral proxy route.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">

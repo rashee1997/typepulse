@@ -1,6 +1,7 @@
 import { AISettings } from '@/types/typing';
 import { callLlm, canUseLlm } from './ai-service';
 import { DUEL_SYSTEM_PROMPT } from './ai-prompts';
+import { toTypeable } from './typing-engine';
 
 export type DuelDifficulty = 'novice' | 'adept' | 'master' | 'grandmaster';
 
@@ -147,7 +148,7 @@ Requirements:
         maxTokens: 500,
       });
 
-      const cleaned = aiText.replace(/["`]/g, '').trim();
+      const cleaned = toTypeable(aiText.replace(/["`]/g, '').trim());
       if (cleaned.length > 40 && cleaned.split(/\s+/).length >= 20) {
         return {
           id: `duel-${difficulty}-${Date.now()}`,

@@ -197,7 +197,7 @@ export function canUseLlm(settings?: AISettings | null): boolean {
  * provider selected. A key the user typed always wins.
  */
 export function withBuiltInCoach(settings: AISettings): AISettings {
-  if (settings.apiKey || settings.provider === 'gemini') return settings;
+  if (settings.apiKey || settings.provider === 'gemini' || settings.provider === 'offline') return settings;
   const preset = AI_PROVIDER_PRESETS.find((provider) => provider.id === 'gemini');
   return {
     ...settings,

@@ -121,6 +121,18 @@ export class TypingEngine {
     this.enforceIndexInvariants();
   }
 
+  public appendText(additionalText: string): void {
+    if (!additionalText) return;
+    this.text += additionalText;
+    const newChars: CharState[] = additionalText.split('').map((char) => ({
+      char,
+      status: 'pending' as const,
+      hadError: false,
+    }));
+    this.chars.push(...newChars);
+    this.enforceIndexInvariants();
+  }
+
   /**
    * Enforces strict invariants on character statuses relative to currentIndex:
    * 1. 0 <= currentIndex <= chars.length
@@ -808,10 +820,12 @@ export class TypingEngine {
     };
     try {
       const json = JSON.stringify(payload);
-      if (typeof window !== 'undefined') {
-        return btoa(encodeURIComponent(json));
-      }
-      return Buffer.from(encodeURIComponent(json)).toString('base64');
+      const rawBase64 =
+        typeof window !== 'undefined'
+          ? btoa(encodeURIComponent(json))
+          : Buffer.from(encodeURIComponent(json)).toString('base64');
+      // Produce URL-safe base64 (+ -> -, / -> _, strip =) so query params and links never corrupt
+      return rawBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     } catch {
       return '';
     }
@@ -837,8 +851,21 @@ export class TypingEngine {
   public static parseGhostPayload(raw: string): GhostDuelPayload | null {
     if (!raw) return null;
     try {
+      let cleaned = raw.trim();
+      // If a full or partial URL was passed, extract duel parameter
+      if (cleaned.includes('duel=')) {
+        const match = cleaned.match(/duel=([^&#\s]+)/);
+        if (match && match[1]) {
+          cleaned = decodeURIComponent(match[1]);
+        }
+      }
+      // Support URL-safe base64 and recover spaces introduced by URLSearchParams (+ turning to space)
+      cleaned = cleaned.replace(/-/g, '+').replace(/_/g, '/').replace(/ /g, '+');
+      while (cleaned.length % 4 !== 0) {
+        cleaned += '=';
+      }
       const decoded = decodeURIComponent(
-        typeof window !== 'undefined' ? atob(raw) : Buffer.from(raw, 'base64').toString('utf-8')
+        typeof window !== 'undefined' ? atob(cleaned) : Buffer.from(cleaned, 'base64').toString('utf-8')
       );
       const parsed = JSON.parse(decoded);
       if (
@@ -861,6 +888,24 @@ export class TypingEngine {
       return null;
     }
   }
+}
+
+/**
+ * Normalizes prose or generated text so it can be cleanly typed on any standard keyboard.
+ * Replaces typographic curly quotes/apostrophes, em/en dashes, horizontal ellipses,
+ * and non-breaking spaces with standard ASCII equivalents, stripping un-typeable symbols.
+ */
+export function toTypeable(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/[\u2018\u2019]/g, "'") // curly single quotes / apostrophes
+    .replace(/[\u201C\u201D]/g, '"') // curly double quotes
+    .replace(/[\u2014\u2013]/g, '-') // em and en dashes
+    .replace(/\u2026/g, '...') // horizontal ellipsis
+    .replace(/[\u00A0\u202F\u2007]/g, ' ') // non-breaking spaces
+    .replace(/[^\x20-\x7E\n\t]/g, '') // strip remaining non-ASCII characters
+    .replace(/[ \t]+/g, ' ') // collapse inline spacing
+    .trim();
 }
 
 export function parseGhostDuelPayload(raw: string): GhostDuelPayload | null {

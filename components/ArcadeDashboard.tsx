@@ -5,7 +5,7 @@ import { AISettings, UserProgress, TypingStats, ArcadeScores } from '@/types/typ
 import { buildArcadeTypingStats, recordArcadeGameResult } from '@/lib/progress-service';
 
 /** Raw measurements a game hands back when a run ends. */
-type ArcadeRun = { correctKeys: number; totalKeys: number; elapsedSeconds: number };
+type ArcadeRun = { correctKeys: number; totalKeys: number; elapsedSeconds: number; accuracy?: number };
 import { TypingRaceGame } from '@/components/TypingRaceGame';
 import { OrbitalDefenseGame } from '@/components/OrbitalDefenseGame';
 import { BombDefusalGame } from '@/components/BombDefusalGame';
@@ -85,6 +85,21 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   const [activeGame, setActiveGame] = useState<ActiveGame>('none');
   const [showSpecializedDrills, setShowSpecializedDrills] = useState(false);
 
+  const INITIAL_ARCADE_SCORES: ArcadeScores = {
+    raceWins: 0,
+    racePodiums: 0,
+    raceBestWpm: 0,
+    orbitalHighScore: 0,
+    orbitalWordsDestroyed: 0,
+    bombDefusalHighScore: 0,
+    bombsDefusedTotal: 0,
+    blitzHighScore: 0,
+    blitzMaxMultiplier: 1,
+    duelWins: 0,
+    duelBestWpm: 0,
+    totalGamesPlayed: 0,
+  };
+
   const scores = userProgress.arcadeStats || INITIAL_ARCADE_SCORES;
 
   // Grand Prix Race Finish
@@ -154,7 +169,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
       const res = recordArcadeGameResult('word-blitz', 'Word Blitz', {
         score,
         multiplier: maxMult,
-        accuracy: run.accuracy,
+        accuracy: run.accuracy ?? (run.totalKeys > 0 ? Math.round((run.correctKeys / run.totalKeys) * 1000) / 10 : 100),
         elapsedSeconds: run.elapsedSeconds,
       }, userProgress);
 
@@ -190,18 +205,23 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   // Generic Session Finish (for drills & gauntlets)
   const handleGenericSessionFinish = useCallback(
     (stats: TypingStats, mode: string) => {
-      const earnedXp = Math.max(35, Math.round(stats.wpm * (stats.accuracy / 100) * 1.5));
-      onUpdateXp(earnedXp);
+      const res = recordArcadeGameResult(mode, mode, {
+        score: Math.round(stats.wpm * 10),
+        wpm: stats.wpm,
+        accuracy: stats.accuracy,
+        elapsedSeconds: stats.elapsedSeconds,
+      }, userProgress);
+
+      if (onProgressUpdate) {
+        onProgressUpdate(res.updatedProgress);
+      } else {
+        onUpdateXp(res.xpEarned);
+      }
       if (onFinishSession) {
         onFinishSession(stats, mode);
       }
-      const newScores = {
-        ...scores,
-        totalGamesPlayed: scores.totalGamesPlayed + 1,
-      };
-      saveScores(newScores);
     },
-    [onUpdateXp, onFinishSession, scores]
+    [onProgressUpdate, onUpdateXp, onFinishSession, userProgress]
   );
 
   // Active Game Render Switches

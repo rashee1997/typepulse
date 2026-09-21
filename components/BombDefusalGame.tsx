@@ -60,6 +60,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
 
   // Sync refs
   const hasEndedRef = useRef(false);
+  const isTransitioningRef = useRef(false);
   const currentCodeRef = useRef(currentCode);
   const typedIndexRef = useRef(typedIndex);
   const scoreRef = useRef(score);
@@ -118,6 +119,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
     // Base 9 seconds, reduces slightly with rounds down to 5.5s minimum
     const calculatedTime = Math.max(5.5, 9.5 - Math.min(4.0, nextRound * 0.15));
 
+    isTransitioningRef.current = false;
     setCurrentCode(nextWord);
     setTypedIndex(0);
     setTimeLeft(calculatedTime);
@@ -148,7 +150,9 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
     if (gameState !== 'playing') return;
 
     const timer = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 0.1));
+      if (!isTransitioningRef.current) {
+        setTimeLeft((prev) => Math.max(0, prev - 0.1));
+      }
     }, 100);
 
     return () => clearInterval(timer);
@@ -157,10 +161,12 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
   useEffect(() => {
     if (gameState !== 'playing') return;
 
-    if (timeLeft <= 0.05) {
+    if (timeLeft <= 0.05 && !isTransitioningRef.current) {
+      isTransitioningRef.current = true;
       // Detonation!
       soundFx.playError();
-      const newLives = livesRef.current - 1;
+      livesRef.current -= 1;
+      const newLives = livesRef.current;
       setLives(newLives);
       setCombo(0);
 
@@ -176,6 +182,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
 
   const startGame = () => {
     hasEndedRef.current = false;
+    isTransitioningRef.current = false;
     totalKeysRef.current = 0;
     correctKeysRef.current = 0;
     startedAtRef.current = Date.now();
@@ -194,11 +201,13 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
   // Keyboard handler for cutting wires
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (gameState !== 'playing' || hasEndedRef.current) return;
+      if (gameState !== 'playing' || hasEndedRef.current || isTransitioningRef.current) return;
+      if (e.repeat) return;
 
       if (e.key.length !== 1 || !/^[a-zA-Z]$/.test(e.key)) {
         return;
       }
+      e.preventDefault();
 
       const pressedChar = e.key.toUpperCase();
       totalKeysRef.current += 1;
@@ -220,6 +229,7 @@ export const BombDefusalGame: React.FC<BombDefusalGameProps> = ({ onFinish, onEx
 
         if (nextIndex >= code.length) {
           // Bomb successfully disarmed!
+          isTransitioningRef.current = true;
           soundFx.playCombo();
           setJustDefused(true);
 

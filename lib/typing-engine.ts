@@ -16,7 +16,7 @@ export interface InputResult {
   targetChar: string;
   isCorrect: boolean;
   ignored?: boolean;
-  reason?: 'hardware_bounce' | 'unwanted_repeat' | 'composing' | 'out_of_bounds' | 'modifier';
+  reason?: 'hardware_bounce' | 'unwanted_repeat' | 'composing' | 'out_of_bounds' | 'modifier' | 'finished';
   sequenceId?: number;
 }
 
@@ -118,18 +118,6 @@ export class TypingEngine {
     this.hesitationSignals = [];
     this.remediatedHesitationCount = 0;
     this.activeGhostDuel = null;
-    this.enforceIndexInvariants();
-  }
-
-  public appendText(additionalText: string): void {
-    if (!additionalText) return;
-    this.text += additionalText;
-    const newChars: CharState[] = additionalText.split('').map((char) => ({
-      char,
-      status: 'pending' as const,
-      hadError: false,
-    }));
-    this.chars.push(...newChars);
     this.enforceIndexInvariants();
   }
 

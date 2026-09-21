@@ -139,7 +139,7 @@ export const BossGauntletGame: React.FC<BossGauntletGameProps> = ({
   // Handle Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // C10: Strictly lock typing when not in fighting state or when phrase is completed
-    if (roundState !== 'fighting' || !engine || engine.isFinished) return;
+    if (roundState !== 'fighting' || !engine || engine.isFinished()) return;
 
     if (e.key === 'Tab') {
       e.preventDefault();

@@ -538,7 +538,7 @@ export default function TypingStudio() {
     let duelShareUrl: string | undefined;
     if (typeof window !== 'undefined' && stats.replayEvents && stats.replayEvents.length > 5) {
       try {
-        const payload = engineRef.current.exportGhostPayload(userProgress.profile?.username || 'Challenger');
+        const payload = engineRef.current.exportGhostPayload('Challenger');
         duelShareUrl = `${window.location.origin}${window.location.pathname}?duel=${encodeURIComponent(payload)}`;
       } catch {}
     }

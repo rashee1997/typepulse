@@ -2,6 +2,7 @@ import { Achievement, ArcadeScores, GameMode, Lesson, MasteryTier, TypingSession
 import { INITIAL_ACHIEVEMENTS } from './achievements';
 import { evaluateSessionAchievements } from './achievement-engine';
 import { calculateKeyConfidence, checkAndUpdateKeybrProgression, INITIAL_KEYBR_PROGRESSION } from './adaptive-engine';
+import { LESSONS_CURRICULUM } from './curriculum';
 
 const PROGRESS_STORAGE_KEY = 'typepulse_user_progress';
 const LEGACY_ARCADE_STORAGE_KEY = 'typepulse_arcade_stats';
@@ -20,7 +21,69 @@ export const INITIAL_MASTERY_TIERS: MasteryTier[] = [
   { tier: 10, requiredXp: 14000, title: 'Grandmaster of the Keys', reward: 'Legendary Sovereign Title', unlocked: false, claimed: false, icon: 'Crown' },
 ];
 
-export function loadMasteryTiers(currentXp: number): MasteryTier[] {
+export function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getDayDifference(dateStr1: string, dateStr2: string): number {
+  if (!dateStr1 || !dateStr2) return 0;
+  const [y1, m1, d1] = dateStr1.split('-').map(Number);
+  const [y2, m2, d2] = dateStr2.split('-').map(Number);
+  const utc1 = Date.UTC(y1, m1 - 1, d1);
+  const utc2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((utc2 - utc1) / (1000 * 3600 * 24));
+}
+
+export function calculateTotalLifetimeXp(level: number, currentLevelXp: number): number {
+  let total = 0;
+  for (let i = 1; i < level; i++) {
+    total += getXpForNextLevel(i);
+  }
+  return total + Math.max(0, currentLevelXp);
+}
+
+export function applyXp(
+  progress: UserProgress,
+  amount: number
+): {
+  updatedProgress: UserProgress;
+  leveledUp: boolean;
+  newLevel: number;
+} {
+  const currentTotal = progress.totalXpEarned ?? calculateTotalLifetimeXp(progress.level, progress.xp);
+  let totalXp = progress.xp + amount;
+  let currentLevel = progress.level;
+  let leveledUp = false;
+
+  while (totalXp >= getXpForNextLevel(currentLevel)) {
+    totalXp -= getXpForNextLevel(currentLevel);
+    currentLevel += 1;
+    leveledUp = true;
+  }
+
+  const updatedProgress: UserProgress = {
+    ...progress,
+    xp: totalXp,
+    totalXpEarned: currentTotal + amount,
+    level: currentLevel,
+    title: getTitleForLevel(currentLevel),
+  };
+
+  return {
+    updatedProgress,
+    leveledUp,
+    newLevel: currentLevel,
+  };
+}
+
+export function loadMasteryTiers(currentOrProgress: UserProgress | number): MasteryTier[] {
+  const lifetimeXp = typeof currentOrProgress === 'number'
+    ? currentOrProgress
+    : (currentOrProgress.totalXpEarned ?? calculateTotalLifetimeXp(currentOrProgress.level, currentOrProgress.xp));
+
   let claimedTiers: number[] = [];
   if (typeof window !== 'undefined') {
     try {
@@ -33,14 +96,23 @@ export function loadMasteryTiers(currentXp: number): MasteryTier[] {
 
   return INITIAL_MASTERY_TIERS.map((tier) => ({
     ...tier,
-    unlocked: currentXp >= tier.requiredXp,
+    unlocked: lifetimeXp >= tier.requiredXp,
     claimed: claimedTiers.includes(tier.tier),
   }));
 }
 
-export function claimMasteryTier(tierNumber: number, currentXp: number): { success: boolean; reward?: string } {
+export function claimMasteryTier(
+  tierNumber: number,
+  currentOrProgress: UserProgress | number
+): { success: boolean; reward?: string } {
   const target = INITIAL_MASTERY_TIERS.find((t) => t.tier === tierNumber);
-  if (!target || currentXp < target.requiredXp) {
+  if (!target) return { success: false };
+
+  const lifetimeXp = typeof currentOrProgress === 'number'
+    ? currentOrProgress
+    : (currentOrProgress.totalXpEarned ?? calculateTotalLifetimeXp(currentOrProgress.level, currentOrProgress.xp));
+
+  if (lifetimeXp < target.requiredXp) {
     return { success: false };
   }
 
@@ -53,6 +125,18 @@ export function claimMasteryTier(tierNumber: number, currentXp: number): { succe
         claimedTiers.push(tierNumber);
         localStorage.setItem(MASTERY_PASS_STORAGE_KEY, JSON.stringify(claimedTiers));
       }
+
+      // Persist cosmetic reward to app preferences (H8)
+      try {
+        const rawPrefs = localStorage.getItem('typepulse_preferences');
+        const prefs = rawPrefs ? JSON.parse(rawPrefs) : {};
+        if (tierNumber === 2) prefs.theme = 'emerald-focus';
+        if (tierNumber === 3) prefs.switchSoundProfile = 'blue';
+        if (tierNumber === 5) prefs.switchSoundProfile = 'holy-panda';
+        if (tierNumber === 8) prefs.switchSoundProfile = 'red';
+        localStorage.setItem('typepulse_preferences', JSON.stringify(prefs));
+      } catch {}
+
       return { success: true, reward: target.reward };
     } catch {}
   }
@@ -100,10 +184,11 @@ export const INITIAL_ARCADE_SCORES: ArcadeScores = {
 
 export const INITIAL_USER_PROGRESS: UserProgress = {
   xp: 0,
+  totalXpEarned: 0,
   level: 1,
   title: 'Keyboard Novice',
   dailyStreak: 1,
-  lastActiveDate: new Date().toISOString().split('T')[0],
+  lastActiveDate: getLocalDateString(),
   history: [],
   completedLessonIds: [],
   lessonStars: {},
@@ -143,19 +228,32 @@ export function loadUserProgress(): UserProgress {
     }
     const parsed = JSON.parse(raw);
     const keyStats = { ...(parsed.keyStats || {}) };
+    // Repair keyStats invariants: typed >= errors (C3)
+    for (const [k, stat] of Object.entries(keyStats) as [string, { typed: number; errors: number }][]) {
+      if (stat && stat.errors > stat.typed) {
+        stat.typed = stat.errors;
+      }
+    }
+
     const patternStats = { ...(parsed.patternStats || {}) };
     const confidenceScores = parsed.confidenceScores || calculateKeyConfidence(keyStats, patternStats);
     const keybrProgression = parsed.keybrProgression || { ...INITIAL_KEYBR_PROGRESSION };
 
+    // Prefer parsed arcadeStats, only fallback to legacy if parsed had none
     const mergedArcadeStats: ArcadeScores = {
       ...INITIAL_ARCADE_SCORES,
       ...legacyArcade,
       ...(parsed.arcadeStats || {}),
     };
 
+    const totalXpEarned = typeof parsed.totalXpEarned === 'number'
+      ? parsed.totalXpEarned
+      : calculateTotalLifetimeXp(parsed.level || 1, parsed.xp || 0);
+
     return {
       ...INITIAL_USER_PROGRESS,
       ...parsed,
+      totalXpEarned,
       highScores: { ...INITIAL_USER_PROGRESS.highScores, ...(parsed.highScores || {}) },
       keyStats,
       patternStats,
@@ -202,47 +300,19 @@ export function calculateSessionXp(stats: TypingStats, mode: GameMode): number {
   } else if (mode === 'ai-mission') {
     xp = Math.round(xp * 1.3);
   } else if (mode === 'code-climber') {
-    // Source code demands shifted symbols and exact indentation that prose never
-    // asks for, so it pays at the challenge tier rather than plain practice.
     xp = Math.round(xp * 1.2);
   }
 
   return Math.max(10, xp);
 }
 
-/**
- * Real measurements an arcade mode is able to supply.
- *
- * Arcade modes used to hand `onFinishSession` a hand-written `TypingStats` built
- * from magic multipliers — `wpm: Math.round(wordsDestroyed * 4.2)`,
- * `accuracy: 97`, `elapsedSeconds: 45`, `consistency: 90`. Because
- * `processCompletedSession` does `bestWpm: Math.max(prev.bestWpm, stats.wpm)`,
- * a killed-enemy count became the user's "personal best" — and that personal best
- * is what the Ghost PB pacer races against. It also inflated
- * `totalTimePracticedSeconds` by a fabricated 40–45 seconds per run.
- *
- * Supply what the mode actually measured; everything derivable is derived here
- * with the same formula the typing engine uses (1 word = 5 characters), and
- * anything a mode cannot measure stays 0 rather than being invented.
- */
 export interface ArcadeMeasurement {
-  /** Characters the user typed correctly, as counted by the mode. */
   correctKeys: number;
-  /** Total characters attempted. `0` means the mode does not measure this. */
   totalKeys: number;
-  /** Measured wall-clock duration of the run, in seconds. */
   elapsedSeconds: number;
-  /** Only present when the mode tracks per-character errors. */
   errorsByChar?: Record<string, number>;
 }
 
-/**
- * Builds an honest `TypingStats` from a real measurement.
- *
- * `accuracy` and `consistency` are 0 when the mode did not measure them — 0 is
- * the "not measured" sentinel here, since the live engine never returns an
- * accuracy below 0 or a consistency below 10.
- */
 export function buildArcadeTypingStats(m: ArcadeMeasurement): TypingStats {
   const correctKeys = Math.max(0, Math.round(m.correctKeys));
   const totalKeys = Math.max(correctKeys, Math.round(m.totalKeys));
@@ -265,7 +335,6 @@ export function buildArcadeTypingStats(m: ArcadeMeasurement): TypingStats {
     elapsedSeconds: Math.round(m.elapsedSeconds * 10) / 10,
     combo: 0,
     maxCombo: 0,
-    // Not measured by the arcade modes: 0 reads as "unknown" in the UI.
     consistency: 0,
     errorsByChar,
     weakKeys: Object.entries(errorsByChar)
@@ -276,13 +345,9 @@ export function buildArcadeTypingStats(m: ArcadeMeasurement): TypingStats {
   };
 }
 
-/**
- * Computes an endurance ratio comparing the final third of a run to the first third.
- * Returns null when the run has too few timeline samples (<6) or duration <45s.
- */
 export function computeEnduranceRatio(stats: TypingStats): number | null {
-  const MIN_SAMPLES = 6;     // need enough timeline density
-  const MIN_DURATION_S = 45; // shorter runs don't show fatigue
+  const MIN_SAMPLES = 6;
+  const MIN_DURATION_S = 45;
   if (!stats.timeline || stats.timeline.length < MIN_SAMPLES || stats.elapsedSeconds < MIN_DURATION_S) return null;
   const third = Math.floor(stats.timeline.length / 3);
   if (third === 0) return null;
@@ -292,7 +357,7 @@ export function computeEnduranceRatio(stats: TypingStats): number | null {
   const firstAvg = avg(first);
   const lastAvg = avg(last);
   if (firstAvg <= 0) return null;
-  return Math.min(1, Math.max(0, lastAvg / firstAvg)); // cap at 1.0 — speeding up over a run isn't a stamina *problem*
+  return Math.min(1, Math.max(0, lastAvg / firstAvg));
 }
 
 // Update progress after completing a session
@@ -301,7 +366,8 @@ export function processCompletedSession(
   stats: TypingStats,
   mode: GameMode,
   modeTitle: string,
-  lessonId?: string
+  lessonId?: string,
+  lesson?: Lesson
 ): {
   updatedProgress: UserProgress;
   sessionSummary: TypingSessionSummary;
@@ -310,15 +376,12 @@ export function processCompletedSession(
   newLevel: number;
   newlyUnlockedKey?: string;
 } {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   let newStreak = prev.dailyStreak;
 
-  // Calculate streak based on last active date
+  // Calculate streak based on local calendar day difference (M8)
   if (prev.lastActiveDate !== today) {
-    const lastDate = new Date(prev.lastActiveDate);
-    const currentDate = new Date(today);
-    const diffDays = Math.round((currentDate.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
-
+    const diffDays = getDayDifference(prev.lastActiveDate, today);
     if (diffDays === 1) {
       newStreak += 1;
     } else if (diffDays > 1) {
@@ -327,26 +390,29 @@ export function processCompletedSession(
   }
 
   const xpEarned = calculateSessionXp(stats, mode);
-  let totalXp = prev.xp + xpEarned;
-  let currentLevel = prev.level;
-  let leveledUp = false;
 
-  // Check for level ups
-  while (totalXp >= getXpForNextLevel(currentLevel)) {
-    totalXp -= getXpForNextLevel(currentLevel);
-    currentLevel += 1;
-    leveledUp = true;
-  }
-
-  // Update cumulative key stats
+  // Update cumulative key stats (C3 & H11)
   const updatedKeyStats = { ...prev.keyStats };
-  Object.entries(stats.errorsByChar).forEach(([char, count]) => {
-    if (!updatedKeyStats[char]) {
-      updatedKeyStats[char] = { typed: count, errors: count };
-    } else {
-      updatedKeyStats[char].errors += count;
+  if (stats.typedByChar) {
+    for (const [char, count] of Object.entries(stats.typedByChar)) {
+      const errCount = stats.errorsByChar[char] || 0;
+      if (!updatedKeyStats[char]) {
+        updatedKeyStats[char] = { typed: count, errors: errCount };
+      } else {
+        updatedKeyStats[char].typed += count;
+        updatedKeyStats[char].errors += errCount;
+      }
     }
-  });
+  } else {
+    for (const [char, count] of Object.entries(stats.errorsByChar)) {
+      if (!updatedKeyStats[char]) {
+        updatedKeyStats[char] = { typed: count, errors: count };
+      } else {
+        updatedKeyStats[char].typed += count;
+        updatedKeyStats[char].errors += count;
+      }
+    }
+  }
 
   // Update cumulative n-gram pattern stats with EWMA (alpha = 0.25)
   const EWMA_ALPHA = 0.25;
@@ -393,15 +459,30 @@ export function processCompletedSession(
     totalSessions: prev.highScores.totalSessions + 1,
   };
 
-  // Completed lessons
+  // Completed lessons gating & star rating (H5)
   const completedLessonIds = [...prev.completedLessonIds];
   const lessonStars = { ...prev.lessonStars };
-  if (lessonId && !completedLessonIds.includes(lessonId)) {
-    completedLessonIds.push(lessonId);
+  const targetLesson = lesson || (lessonId ? LESSONS_CURRICULUM.find((l) => l.id === lessonId) : undefined);
+
+  if (targetLesson) {
+    const passed = stats.accuracy >= targetLesson.targetAccuracy && stats.wpm >= targetLesson.targetWpm;
+    if (passed) {
+      if (!completedLessonIds.includes(targetLesson.id)) {
+        completedLessonIds.push(targetLesson.id);
+      }
+      let stars = 1;
+      if (stats.wpm >= Math.round(targetLesson.targetWpm * 1.15) && stats.accuracy >= targetLesson.targetAccuracy + 1) {
+        stars = 2;
+      }
+      if (stats.wpm >= Math.round(targetLesson.targetWpm * 1.25) && stats.accuracy >= 98) {
+        stars = 3;
+      }
+      lessonStars[targetLesson.id] = Math.max(lessonStars[targetLesson.id] || 0, stars);
+    }
   }
 
   const sessionSummary: TypingSessionSummary = {
-    id: `session-${Date.now()}`,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? `session-${crypto.randomUUID()}` : `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     date: Date.now(),
     mode,
     modeTitle,
@@ -427,11 +508,13 @@ export function processCompletedSession(
     newStreak,
     completedLessonIds
   );
-  totalXp += bonusXp;
+
+  // Apply XP cleanly using single write path (H6, H7)
+  const { updatedProgress: progressWithXp, leveledUp, newLevel } = applyXp(prev, xpEarned + bonusXp);
 
   const confidenceScores = calculateKeyConfidence(updatedKeyStats, updatedPatternStats);
 
-  // Update Keybr adaptive character progression pipeline
+  // Update Keybr adaptive character progression pipeline (C4)
   const currentKeybr = prev.keybrProgression || { ...INITIAL_KEYBR_PROGRESSION };
   const { updated: updatedKeybr, newlyUnlockedKey } = checkAndUpdateKeybrProgression(
     currentKeybr,
@@ -440,9 +523,7 @@ export function processCompletedSession(
   );
 
   const updatedProgress: UserProgress = {
-    xp: totalXp,
-    level: currentLevel,
-    title: getTitleForLevel(currentLevel),
+    ...progressWithXp,
     dailyStreak: newStreak,
     lastActiveDate: today,
     history: [sessionSummary, ...prev.history.slice(0, 49)], // Keep last 50 sessions
@@ -464,7 +545,7 @@ export function processCompletedSession(
     sessionSummary,
     newAchievements,
     leveledUp,
-    newLevel: currentLevel,
+    newLevel,
     newlyUnlockedKey,
   };
 }
@@ -487,24 +568,24 @@ export function recordArcadeGameResult(
     bombsDefused?: number;
     multiplier?: number;
     errorsByChar?: Record<string, number>;
+    typedByChar?: Record<string, number>;
     patternStats?: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }>;
     consistency?: number;
     peakWpm?: number;
     enduranceRatio?: number | null;
-  }
+  },
+  currentProgress?: UserProgress
 ): {
   updatedProgress: UserProgress;
   leveledUp: boolean;
   xpEarned: number;
 } {
-  const current = loadUserProgress();
-  const today = new Date().toISOString().split('T')[0];
+  const current = currentProgress || loadUserProgress();
+  const today = getLocalDateString();
   let newStreak = current.dailyStreak;
 
   if (current.lastActiveDate !== today) {
-    const lastDate = new Date(current.lastActiveDate);
-    const currentDate = new Date(today);
-    const diffDays = Math.round((currentDate.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
+    const diffDays = getDayDifference(current.lastActiveDate, today);
     if (diffDays === 1) newStreak += 1;
     else if (diffDays > 1) newStreak = 1;
   }
@@ -513,15 +594,7 @@ export function recordArcadeGameResult(
   let xpEarned = Math.max(15, Math.round(gameStats.score / 10));
   if (gameStats.won) xpEarned += 50;
 
-  let totalXp = current.xp + xpEarned;
-  let currentLevel = current.level;
-  let leveledUp = false;
-
-  while (totalXp >= getXpForNextLevel(currentLevel)) {
-    totalXp -= getXpForNextLevel(currentLevel);
-    currentLevel += 1;
-    leveledUp = true;
-  }
+  const { updatedProgress: progressWithXp, leveledUp } = applyXp(current, xpEarned);
 
   const prevArcade = current.arcadeStats || { ...INITIAL_ARCADE_SCORES };
   const updatedArcade: ArcadeScores = {
@@ -553,13 +626,24 @@ export function recordArcadeGameResult(
     }
   }
 
-  // Update cumulative keyStats & patternStats if telemetry provided
+  // Update cumulative keyStats & patternStats if telemetry provided (C3)
   const updatedKeyStats = { ...current.keyStats };
-  if (gameStats.errorsByChar) {
+  if (gameStats.typedByChar) {
+    for (const [char, count] of Object.entries(gameStats.typedByChar)) {
+      const errCount = gameStats.errorsByChar?.[char] || 0;
+      if (!updatedKeyStats[char]) {
+        updatedKeyStats[char] = { typed: count, errors: errCount };
+      } else {
+        updatedKeyStats[char].typed += count;
+        updatedKeyStats[char].errors += errCount;
+      }
+    }
+  } else if (gameStats.errorsByChar) {
     Object.entries(gameStats.errorsByChar).forEach(([char, count]) => {
       if (!updatedKeyStats[char]) {
         updatedKeyStats[char] = { typed: count, errors: count };
       } else {
+        updatedKeyStats[char].typed += count;
         updatedKeyStats[char].errors += count;
       }
     });
@@ -595,14 +679,10 @@ export function recordArcadeGameResult(
   const confidenceScores = calculateKeyConfidence(updatedKeyStats, updatedPatternStats);
 
   const sessionSummary: TypingSessionSummary = {
-    id: `arcade-${Date.now()}`,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? `arcade-${crypto.randomUUID()}` : `arcade-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     date: Date.now(),
-    mode: 'word-rush' as GameMode,
+    mode: 'arcade' as GameMode,
     modeTitle: `Arcade: ${gameTitle}`,
-    // Record what the game actually reported. The previous fallbacks invented
-    // measurements: any arcade run without a duration was stored as a 60-second
-    // 30 WPM session at 95% accuracy, and every one of them added a fabricated
-    // minute to lifetime practice time. Unknown stays unknown.
     wpm: gameStats.wpm ?? 0,
     rawWpm: gameStats.wpm ?? 0,
     accuracy: gameStats.accuracy ?? 0,
@@ -618,10 +698,7 @@ export function recordArcadeGameResult(
   };
 
   const updatedProgress: UserProgress = {
-    ...current,
-    xp: totalXp,
-    level: currentLevel,
-    title: getTitleForLevel(currentLevel),
+    ...progressWithXp,
     dailyStreak: newStreak,
     lastActiveDate: today,
     history: [sessionSummary, ...current.history.slice(0, 49)],
@@ -637,13 +714,6 @@ export function recordArcadeGameResult(
   };
 
   saveUserProgress(updatedProgress);
-
-  // Keep legacy localStorage in sync for backwards compatibility
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(LEGACY_ARCADE_STORAGE_KEY, JSON.stringify(updatedArcade));
-    } catch {}
-  }
 
   return {
     updatedProgress,
@@ -662,45 +732,24 @@ export function getWeakestPatterns(
 ): string[] {
   const p = progress || (typeof window !== 'undefined' ? loadUserProgress() : null);
   if (!p || !p.patternStats || Object.keys(p.patternStats).length === 0) {
-    // If no pattern stats collected yet, extrapolate from keyStats or supply common high-frequency transition targets
-    if (p?.keyStats && Object.keys(p.keyStats).length > 0) {
-      const topKeys = Object.entries(p.keyStats)
-        .sort(([, a], [, b]) => (b.errors / Math.max(1, b.typed)) - (a.errors / Math.max(1, a.typed)))
-        .map(([k]) => k)
-        .filter((k) => k !== ' ');
-      if (topKeys.length > 0) {
-        if (type === 'bigram') {
-          return topKeys.slice(0, limit).map((k) => `${k}e`);
-        }
-        if (type === 'trigram') {
-          return topKeys.slice(0, limit).map((k) => `${k}in`);
-        }
-        return topKeys.slice(0, limit);
-      }
-    }
-    const defaults = type === 'bigram' 
-      ? ['th', 'er', 'in', 'on', 'at', 're'] 
-      : type === 'trigram' 
-      ? ['the', 'ing', 'and', 'ion', 'ent'] 
-      : ['th', 'er', 'the', 'ing', 'on'];
-    return defaults.slice(0, limit);
+    return [];
   }
 
-  const entries = Object.entries(p.patternStats).filter(([pattern]) => {
+  const entries = Object.entries(p.patternStats).filter(([pattern, stat]) => {
     const len = pattern.length;
     if (pattern.includes(' ')) return false;
+    if (!stat || stat.typed < 3) return false;
     if (type === 'bigram') return len === 2;
     if (type === 'trigram') return len === 3;
     return len >= 2 && len <= 3;
   });
 
   if (entries.length === 0) {
-    const defaults = type === 'bigram' ? ['th', 'er', 'in', 'on'] : ['the', 'ing', 'and'];
-    return defaults.slice(0, limit);
+    return [];
   }
 
   return entries
-    .sort(([, a], [, b]) => b.ewmaScore - a.ewmaScore)
+    .sort(([, a], [, b]) => (b.ewmaScore ?? 0) - (a.ewmaScore ?? 0))
     .slice(0, limit)
     .map(([pattern]) => pattern);
 }
@@ -762,7 +811,9 @@ export function importBackupPackage(rawJsonOrToken: string): {
     // Decode base64 token if not plain JSON
     if (!cleanJson.startsWith('{')) {
       try {
-        cleanJson = decodeURIComponent(atob(cleanJson));
+        cleanJson = decodeURIComponent(
+          typeof window !== 'undefined' ? atob(cleanJson) : Buffer.from(cleanJson, 'base64').toString('utf-8')
+        );
       } catch {
         return { success: false, message: 'Invalid or corrupted sync token format.' };
       }
@@ -779,15 +830,34 @@ export function importBackupPackage(rawJsonOrToken: string): {
     }
 
     const current = loadUserProgress();
+
+    // Deduplicate history by session ID
+    const historyMap = new Map<string, TypingSessionSummary>();
+    for (const s of current.history || []) {
+      if (s && s.id) historyMap.set(s.id, s);
+    }
+    for (const s of importedProgress.history || []) {
+      if (s && s.id) historyMap.set(s.id, s);
+    }
+    const mergedHistory = Array.from(historyMap.values())
+      .sort((a, b) => b.date - a.date)
+      .slice(0, 50);
+
     const merged: UserProgress = {
       ...current,
       ...importedProgress,
       xp: Math.max(current.xp, importedProgress.xp || 0),
+      totalXpEarned: Math.max(
+        current.totalXpEarned ?? calculateTotalLifetimeXp(current.level, current.xp),
+        importedProgress.totalXpEarned ?? calculateTotalLifetimeXp(importedProgress.level || 1, importedProgress.xp || 0)
+      ),
       level: Math.max(current.level, importedProgress.level || 1),
       dailyStreak: Math.max(current.dailyStreak, importedProgress.dailyStreak || 1),
+      history: mergedHistory,
       completedLessonIds: Array.from(
         new Set([...(current.completedLessonIds || []), ...(importedProgress.completedLessonIds || [])])
       ),
+      lessonStars: { ...(current.lessonStars || {}), ...(importedProgress.lessonStars || {}) },
       unlockedAchievements: Array.from(
         new Set([...(current.unlockedAchievements || []), ...(importedProgress.unlockedAchievements || [])])
       ),
@@ -795,10 +865,14 @@ export function importBackupPackage(rawJsonOrToken: string): {
         bestWpm: Math.max(current.highScores.bestWpm, importedProgress.highScores?.bestWpm || 0),
         bestAccuracy: Math.max(current.highScores.bestAccuracy, importedProgress.highScores?.bestAccuracy || 0),
         highestCombo: Math.max(current.highScores.highestCombo, importedProgress.highScores?.highestCombo || 0),
-        totalTimePracticedSeconds:
-          (current.highScores.totalTimePracticedSeconds || 0) +
-          (importedProgress.highScores?.totalTimePracticedSeconds || 0),
-        totalSessions: (current.highScores.totalSessions || 0) + (importedProgress.highScores?.totalSessions || 0),
+        totalTimePracticedSeconds: Math.max(
+          current.highScores.totalTimePracticedSeconds || 0,
+          importedProgress.highScores?.totalTimePracticedSeconds || 0
+        ),
+        totalSessions: Math.max(
+          current.highScores.totalSessions || 0,
+          importedProgress.highScores?.totalSessions || 0
+        ),
       },
       keyStats: { ...(current.keyStats || {}), ...(importedProgress.keyStats || {}) },
       confidenceScores: { ...(current.confidenceScores || {}), ...(importedProgress.confidenceScores || {}) },
@@ -829,4 +903,3 @@ export function importBackupPackage(rawJsonOrToken: string): {
     return { success: false, message: err?.message || 'Failed to import backup package.' };
   }
 }
-

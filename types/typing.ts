@@ -31,6 +31,7 @@ export interface CharState {
   status: CharacterStatus;
   userTyped?: string;
   timestamp?: number;
+  hadError?: boolean;
 }
 
 export interface WpmSample {
@@ -128,6 +129,7 @@ export interface TypingStats {
   maxCombo: number;
   consistency: number; // 0-100%
   errorsByChar: Record<string, number>;
+  typedByChar?: Record<string, number>;
   weakKeys: string[];
   timeline: WpmSample[];
   patternStats?: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }>;
@@ -297,6 +299,7 @@ export interface RunewrightBackupPackage {
 
 export interface UserProgress {
   xp: number;
+  totalXpEarned?: number;
   level: number;
   title: string;
   dailyStreak: number;

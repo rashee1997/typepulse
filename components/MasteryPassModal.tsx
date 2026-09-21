@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useModalFocus } from '@/hooks/use-modal-focus';
 import {
   Check,
@@ -38,15 +38,19 @@ export const MasteryPassModal: React.FC<MasteryPassModalProps> = ({
   onClaimReward,
 }) => {
   const dialogRef = useModalFocus<HTMLDivElement>(isOpen, onClose);
-  const [tiers, setTiers] = useState<MasteryTier[]>(() => loadMasteryTiers(userProgress.xp));
+  const [claimVersion, setClaimVersion] = useState(0);
+  const tiers = useMemo(() => {
+    void claimVersion;
+    return loadMasteryTiers(userProgress);
+  }, [userProgress, claimVersion]);
   const [claimedNotice, setClaimedNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleClaim = (tierNumber: number) => {
-    const res = claimMasteryTier(tierNumber, userProgress.xp);
+    const res = claimMasteryTier(tierNumber, userProgress);
     if (res.success && res.reward) {
-      setTiers(loadMasteryTiers(userProgress.xp));
+      setClaimVersion((v) => v + 1);
       setClaimedNotice(`Unlocked Reward: ${res.reward}!`);
       if (onRewardClaimed) onRewardClaimed(res.reward);
       if (onClaimReward) {
@@ -56,15 +60,18 @@ export const MasteryPassModal: React.FC<MasteryPassModalProps> = ({
         if (low.includes('topre')) {
           type = 'soundpack';
           value = 'topre';
-        } else if (low.includes('cherry')) {
+        } else if (low.includes('cherry') || low.includes('blue')) {
           type = 'soundpack';
           value = 'cherry-blue';
         } else if (low.includes('panda')) {
           type = 'soundpack';
           value = 'holy-panda';
-        } else if (low.includes('gateron')) {
+        } else if (low.includes('gateron') || low.includes('red')) {
           type = 'soundpack';
           value = 'gateron-red';
+        } else if (low.includes('emerald') || low.includes('matrix')) {
+          type = 'theme';
+          value = 'emerald-focus';
         }
         onClaimReward(tierNumber, { type, value, title: res.reward });
       }

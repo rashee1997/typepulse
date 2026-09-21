@@ -218,3 +218,18 @@ export function generateDeterministicLessonDrill(
   const generated = tokens.slice(0, wordCount).join(' ');
   return sanitizePatternToAllowedKeys(generated, allowedKeys);
 }
+
+export function isTierUnlocked(tier: number, completedLessonIds: string[]): boolean {
+  if (tier === 1) return true;
+  const prevTierLessons = LESSONS_CURRICULUM.filter((l) => l.tier === tier - 1);
+  const completedCount = prevTierLessons.filter((l) => completedLessonIds.includes(l.id)).length;
+  return completedCount >= Math.ceil(prevTierLessons.length * 0.75);
+}
+
+export function isLessonUnlocked(lesson: Lesson, completedLessonIds: string[]): boolean {
+  if (!isTierUnlocked(lesson.tier, completedLessonIds)) return false;
+  const tierLessons = LESSONS_CURRICULUM.filter((l) => l.tier === lesson.tier);
+  const idx = tierLessons.findIndex((l) => l.id === lesson.id);
+  if (idx <= 0) return true;
+  return completedLessonIds.includes(tierLessons[idx - 1].id);
+}

@@ -49,6 +49,7 @@ interface ArcadeDashboardProps {
   aiSettings: AISettings;
   onUpdateXp: (amount: number) => void;
   onFinishSession?: (stats: TypingStats, mode: string) => void;
+  onProgressUpdate?: (updated: UserProgress) => void;
   onBackToPractice: () => void;
   onOpenGhostDuel?: () => void;
   onOpenMasteryPass?: () => void;
@@ -75,6 +76,7 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   aiSettings,
   onUpdateXp,
   onFinishSession,
+  onProgressUpdate,
   onBackToPractice,
   onOpenGhostDuel,
   onOpenMasteryPass,
@@ -83,43 +85,11 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
   const [activeGame, setActiveGame] = useState<ActiveGame>('none');
   const [showSpecializedDrills, setShowSpecializedDrills] = useState(false);
 
-  const [scores, setScores] = useState<ArcadeScores>(() => {
-    if (userProgress.arcadeStats) return userProgress.arcadeStats;
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('typepulse_arcade_stats');
-        if (saved) return JSON.parse(saved);
-      } catch {}
-    }
-    return {
-      raceWins: 0,
-      racePodiums: 0,
-      raceBestWpm: 0,
-      orbitalHighScore: 0,
-      orbitalWordsDestroyed: 0,
-      bombDefusalHighScore: 0,
-      bombsDefusedTotal: 0,
-      blitzHighScore: 0,
-      blitzMaxMultiplier: 1,
-      duelWins: 0,
-      duelBestWpm: 0,
-      totalGamesPlayed: 0,
-    };
-  });
-
-  const saveScores = (newScores: ArcadeScores) => {
-    setScores(newScores);
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('typepulse_arcade_stats', JSON.stringify(newScores));
-      } catch {}
-    }
-  };
+  const scores = userProgress.arcadeStats || INITIAL_ARCADE_SCORES;
 
   // Grand Prix Race Finish
   const handleRaceFinish = useCallback(
     (totalXp: number, position: number, wpm: number, accuracy: number, run: ArcadeRun) => {
-      onUpdateXp(totalXp);
       const isWon = position === 1;
       const isPodium = position <= 3;
       const res = recordArcadeGameResult('nitro-racer', 'Nitro Racer GP', {
@@ -129,134 +99,92 @@ export const ArcadeDashboard: React.FC<ArcadeDashboardProps> = ({
         elapsedSeconds: run.elapsedSeconds,
         won: isWon,
         podium: isPodium,
-      });
-      setScores(res.updatedProgress.arcadeStats || {
-        ...scores,
-        raceWins: isWon ? (scores.raceWins || 0) + 1 : scores.raceWins || 0,
-        racePodiums: isPodium ? (scores.racePodiums || 0) + 1 : scores.racePodiums || 0,
-        raceBestWpm: Math.max(scores.raceBestWpm || 0, wpm),
-        totalGamesPlayed: scores.totalGamesPlayed + 1,
-      });
+      }, userProgress);
+
+      if (onProgressUpdate) {
+        onProgressUpdate(res.updatedProgress);
+      } else {
+        onUpdateXp(res.xpEarned);
+      }
     },
-    [onUpdateXp, scores]
+    [onProgressUpdate, onUpdateXp, userProgress]
   );
 
   // Orbital Laser Defense Finish
   const handleOrbitalFinish = useCallback(
     (score: number, wordsDestroyed: number, accuracy: number, run: ArcadeRun) => {
-      const xp = Math.max(120, Math.round(score / 8));
-      onUpdateXp(xp);
-
       const res = recordArcadeGameResult('orbital-defense', 'Orbital Defense', {
         score,
         wordsDestroyed,
         accuracy,
         elapsedSeconds: run.elapsedSeconds,
-      });
-      setScores(res.updatedProgress.arcadeStats || {
-        ...scores,
-        orbitalHighScore: Math.max(scores.orbitalHighScore || 0, score),
-        orbitalWordsDestroyed: (scores.orbitalWordsDestroyed || 0) + wordsDestroyed,
-        totalGamesPlayed: scores.totalGamesPlayed + 1,
-      });
+      }, userProgress);
 
-      if (onFinishSession) {
-        // Derived from the run's own keystroke counts and clock. The literals
-        // that used to sit here (wordsDestroyed * 4.2 WPM, a flat 45-second
-        // duration, 90% consistency) were persisted as a personal best.
-        onFinishSession(buildArcadeTypingStats(run), 'orbital-defense');
+      if (onProgressUpdate) {
+        onProgressUpdate(res.updatedProgress);
+      } else {
+        onUpdateXp(res.xpEarned);
       }
     },
-    [onUpdateXp, onFinishSession, scores]
+    [onProgressUpdate, onUpdateXp, userProgress]
   );
 
   // Bomb Defusal Finish
   const handleBombDefusalFinish = useCallback(
     (score: number, bombsDefused: number, accuracy: number, run: ArcadeRun) => {
-      const xp = Math.max(120, Math.round(score / 7));
-      onUpdateXp(xp);
-
       const res = recordArcadeGameResult('bomb-defusal', 'Bomb Defusal', {
         score,
         bombsDefused,
         accuracy,
         elapsedSeconds: run.elapsedSeconds,
-      });
-      setScores(res.updatedProgress.arcadeStats || {
-        ...scores,
-        bombDefusalHighScore: Math.max(scores.bombDefusalHighScore || 0, score),
-        bombsDefusedTotal: (scores.bombsDefusedTotal || 0) + bombsDefused,
-        totalGamesPlayed: scores.totalGamesPlayed + 1,
-      });
+      }, userProgress);
 
-      if (onFinishSession) {
-        // Same reasoning as Orbital Defense: real counts, real duration, and no
-        // invented consistency for a mode that never measures it.
-        onFinishSession(buildArcadeTypingStats(run), 'bomb-defusal');
+      if (onProgressUpdate) {
+        onProgressUpdate(res.updatedProgress);
+      } else {
+        onUpdateXp(res.xpEarned);
       }
     },
-    [onUpdateXp, onFinishSession, scores]
+    [onProgressUpdate, onUpdateXp, userProgress]
   );
 
   // Word Blitz Finish
   const handleBlitzFinish = useCallback(
     (score: number, words: number, maxMult: number, run: ArcadeRun) => {
-      const xp = Math.round(score / 15);
-      onUpdateXp(xp);
-      const newScores = {
-        ...scores,
-        blitzHighScore: Math.max(scores.blitzHighScore, score),
-        blitzMaxMultiplier: Math.max(scores.blitzMaxMultiplier, maxMult),
-        totalGamesPlayed: scores.totalGamesPlayed + 1,
-      };
-      saveScores(newScores);
-      if (onFinishSession) {
-        // The old figures assumed a 45-second round and asserted 97% accuracy
-        // no matter how the round actually went; the run now reports both.
-        onFinishSession(buildArcadeTypingStats(run), 'word-blitz');
+      const res = recordArcadeGameResult('word-blitz', 'Word Blitz', {
+        score,
+        multiplier: maxMult,
+        accuracy: run.accuracy,
+        elapsedSeconds: run.elapsedSeconds,
+      }, userProgress);
+
+      if (onProgressUpdate) {
+        onProgressUpdate(res.updatedProgress);
+      } else {
+        onUpdateXp(res.xpEarned);
       }
     },
-    [onUpdateXp, onFinishSession, scores]
+    [onProgressUpdate, onUpdateXp, userProgress]
   );
 
   // Typing Duel Finish
   const handleDuelFinish = useCallback(
     (totalXp: number, won: boolean, stats: DuelStats) => {
-      onUpdateXp(totalXp);
-      const newScores = {
-        ...scores,
-        duelWins: won ? (scores.duelWins || 0) + 1 : scores.duelWins || 0,
-        duelBestWpm: Math.max(scores.duelBestWpm || 0, stats.playerWpm),
-        totalGamesPlayed: scores.totalGamesPlayed + 1,
-      };
-      saveScores(newScores);
-      if (onFinishSession) {
-        const chars = Math.round(stats.playerWpm * 5 * (stats.elapsedSeconds / 60));
-        onFinishSession(
-          {
-            wpm: stats.playerWpm,
-            rawWpm: stats.playerWpm,
-            accuracy: stats.accuracy,
-            correctChars: chars,
-            incorrectChars: Math.round(chars * ((100 - stats.accuracy) / 100)),
-            correctedErrors: 0,
-            totalKeystrokes: chars,
-            elapsedSeconds: stats.elapsedSeconds,
-            // The duel does not track combo or rhythm consistency. These read
-            // 10 / 10 / 92% as if it did; the results modal now shows "not
-            // measured" for a zero consistency instead of a made-up figure.
-            combo: 0,
-            maxCombo: 0,
-            consistency: 0,
-            errorsByChar: {},
-            weakKeys: [],
-            timeline: [],
-          },
-          'typing-duel'
-        );
+      const res = recordArcadeGameResult('typing-duel', 'Typing Duel', {
+        score: Math.round(stats.playerWpm * 10),
+        wpm: stats.playerWpm,
+        accuracy: stats.accuracy,
+        elapsedSeconds: stats.elapsedSeconds,
+        won,
+      }, userProgress);
+
+      if (onProgressUpdate) {
+        onProgressUpdate(res.updatedProgress);
+      } else {
+        onUpdateXp(res.xpEarned);
       }
     },
-    [onUpdateXp, onFinishSession, scores]
+    [onProgressUpdate, onUpdateXp, userProgress]
   );
 
   // Generic Session Finish (for drills & gauntlets)

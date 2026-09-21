@@ -37,12 +37,14 @@ export function calculateKeyConfidence(
 ): Record<string, number> {
   const confidence: Record<string, number> = {};
 
-  // Standard QWERTY keys to evaluate
-  const allKeys = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  // Standard QWERTY keys to evaluate plus any extra keys present in keyStats
+  const baseKeys = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  const extraKeys = Object.keys(keyStats || {});
+  const allKeys = Array.from(new Set([...baseKeys, ...extraKeys]));
 
   allKeys.forEach((char) => {
-    const stat = keyStats[char];
-    const pat = patternStats ? patternStats[char] : undefined;
+    const stat = keyStats[char] || keyStats[char.toLowerCase()] || keyStats[char.toUpperCase()];
+    const pat = patternStats ? (patternStats[char] || patternStats[char.toLowerCase()]) : undefined;
 
     if (!stat || stat.typed < 3) {
       // Unproven key starts with baseline confidence

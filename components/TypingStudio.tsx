@@ -26,7 +26,7 @@ import {
   INSPIRATIONAL_QUOTES,
   TECH_CODE_SNIPPETS,
 } from '@/lib/word-banks';
-import { LESSONS_CURRICULUM } from '@/lib/curriculum';
+import { LESSONS_CURRICULUM, isLessonUnlocked } from '@/lib/curriculum';
 import {
   loadStoredAiSettings,
   saveStoredAiSettings,
@@ -225,12 +225,16 @@ export default function TypingStudio() {
   const [activeGhostDuel, setActiveGhostDuel] = useState<GhostDuelPayload | null>(null);
   const [currentTargetText, setCurrentTargetText] = useState<string>('');
 
-  // Auto-detect incoming Ghost Duel link from URL query params
+  // Auto-detect incoming Ghost Duel link from URL query params or hash
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const duelParam = urlParams.get('duel');
+      let duelParam = urlParams.get('duel');
+      if (!duelParam && window.location.hash.includes('duel=')) {
+        const hashMatch = window.location.hash.match(/duel=([^&]+)/);
+        if (hashMatch) duelParam = decodeURIComponent(hashMatch[1]);
+      }
       if (duelParam) {
         const payload = parseGhostDuelPayload(duelParam);
         if (payload) {
@@ -249,6 +253,7 @@ export default function TypingStudio() {
     leveledUp: boolean;
     newAchievements: ReturnType<typeof processCompletedSession>['newAchievements'];
     sessionSummary?: ReturnType<typeof processCompletedSession>['sessionSummary'];
+    duelShareUrl?: string;
   } | null>(null);
 
   // Core Engine & Input Refs
@@ -271,10 +276,11 @@ export default function TypingStudio() {
    * inactive instead of inventing one. An explicitly configured pace still wins.
    */
   const ghostTargetWpm = useMemo<number | null>(() => {
+    if (activeGhostDuel) return activeGhostDuel.wpm;
     const explicitPace = preferences.targetPacerWpm;
     if (typeof explicitPace === 'number' && explicitPace > 0) return explicitPace;
     return userProgress.highScores.bestWpm > 0 ? userProgress.highScores.bestWpm : null;
-  }, [preferences.targetPacerWpm, userProgress.highScores.bestWpm]);
+  }, [activeGhostDuel, preferences.targetPacerWpm, userProgress.highScores.bestWpm]);
 
   const [ghostIndexRaw, setGhostIndex] = useState<number>(0);
   /**
@@ -424,6 +430,8 @@ export default function TypingStudio() {
       engineRef.current.errorMode = preferencesRef.current.errorMode ?? 'standard';
       engineRef.current.quickWordSkip = preferencesRef.current.quickWordSkip ?? false;
       engineRef.current.codeAutoIndent = preferencesRef.current.codeAutoIndent !== false;
+      engineRef.current.setGhostDuel(null);
+      setActiveGhostDuel(null);
       engineRef.current.reset(targetText);
       setEngineChars(engineRef.current.getCharsSnapshot());
       setEngineIndex(0);
@@ -482,13 +490,29 @@ export default function TypingStudio() {
       setupNewTest('lesson', currentTargetTextRef.current || currentLesson.content, null, currentLesson);
     } else if (gameModeRef.current === 'ai-mission' && currentMission) {
       setupNewTest('ai-mission', currentTargetTextRef.current || currentMission.content, currentMission.durationSeconds || null, undefined, currentMission);
+    } else if (gameModeRef.current === 'certification-test') {
+      // M13: In certification mode, restart preserves the same passage and time limit.
+      // If abandoned while actively typing, record the attempt.
+      if (sessionState === 'playing') {
+        engineRef.current.finish();
+        const stats = engineRef.current.getStats();
+        const { updatedProgress } = processCompletedSession(
+          userProgress,
+          stats,
+          'certification-test',
+          'Certification Exam (Abandoned)'
+        );
+        setUserProgress(updatedProgress);
+      }
+      setupNewTest('certification-test', currentTargetTextRef.current, timeLimitRef.current);
     } else {
       setupNewTest('practice', currentTargetTextRef.current || undefined);
     }
-  }, [setupNewTest]);
+  }, [setupNewTest, sessionState, userProgress, timeLimitRef]);
 
   // Complete session & calculate progress
   const finalizeSession = useCallback(() => {
+    engineRef.current.finish();
     setSessionState('completed');
     const stats = engineRef.current.getStats();
     setLiveAnnouncement(`Test completed. ${stats.wpm} words per minute, ${stats.accuracy}% accuracy.`);
@@ -511,12 +535,21 @@ export default function TypingStudio() {
       soundFx.playLevelUp();
     }
 
+    let duelShareUrl: string | undefined;
+    if (typeof window !== 'undefined' && stats.replayEvents && stats.replayEvents.length > 5) {
+      try {
+        const payload = engineRef.current.exportGhostPayload(userProgress.profile?.username || 'Challenger');
+        duelShareUrl = `${window.location.origin}${window.location.pathname}?duel=${encodeURIComponent(payload)}`;
+      } catch {}
+    }
+
     setUserProgress(updatedProgress);
     setLastResults({
       stats,
       leveledUp,
       newAchievements,
       sessionSummary,
+      duelShareUrl,
     });
     setIsResultsOpen(true);
   }, [userProgress, gameMode, modeTitle, activeLesson?.id]);
@@ -561,14 +594,12 @@ export default function TypingStudio() {
     return () => clearTimeout(timeout);
   }, [sessionState, timeRemaining, finalizeSession]);
 
-  // Real-Time Ghost PB Pacer Effect (strictly practice mode only)
+  // Real-Time Ghost PB Pacer Effect (strictly practice mode or ghost duel)
   useEffect(() => {
     if (
       sessionState !== 'playing' ||
-      preferences.showGhostPacer === false ||
       gameMode !== 'practice' ||
-      // No recorded personal best (and no explicit pace) means there is nothing
-      // to race, so no timer is started at all.
+      (!preferences.showGhostPacer && !activeGhostDuel) ||
       ghostTargetWpm === null
     ) {
       return;
@@ -577,12 +608,17 @@ export default function TypingStudio() {
     const interval = setInterval(() => {
       const elapsed = engineRef.current.getElapsedSeconds();
       const total = engineRef.current.chars.length;
-      const idx = calculateGhostPacerIndex(elapsed, ghostTargetWpm, total);
+      let idx: number;
+      if (engineRef.current.activeGhostDuel) {
+        idx = engineRef.current.getGhostIndexAtTime(elapsed * 1000);
+      } else {
+        idx = calculateGhostPacerIndex(elapsed, ghostTargetWpm, total);
+      }
       setGhostIndex(idx);
     }, 120);
 
     return () => clearInterval(interval);
-  }, [sessionState, preferences.showGhostPacer, ghostTargetWpm, gameMode]);
+  }, [sessionState, preferences.showGhostPacer, activeGhostDuel, ghostTargetWpm, gameMode]);
 
   // Cadence Metronome Sound Tick & Rhythm Loop
   useEffect(() => {
@@ -820,6 +856,9 @@ export default function TypingStudio() {
 
   // Launch a Lesson
   const handleSelectLesson = (lesson: Lesson) => {
+    if (!isLessonUnlocked(lesson, userProgress.completedLessonIds)) {
+      return;
+    }
     activeLessonRef.current = lesson;
     activeMissionRef.current = null;
     gameModeRef.current = 'lesson';
@@ -935,6 +974,10 @@ export default function TypingStudio() {
     [userProgress]
   );
 
+  const handleArcadeProgressUpdate = useCallback((updated: UserProgress) => {
+    setUserProgress(updated);
+  }, []);
+
   // Launch Asynchronous Ghost Duel
   const handleStartGhostDuel = (duel: GhostDuelPayload) => {
     setIsGhostDuelOpen(false);
@@ -947,10 +990,12 @@ export default function TypingStudio() {
     setModeTitle(`Ghost Duel vs ${duel.author} (${duel.wpm} WPM)`);
     setCurrentView('typing');
 
+    setActiveGhostDuel(duel);
     setCurrentTargetText(duel.targetText);
+    currentTargetTextRef.current = duel.targetText;
     engineRef.current.reset(duel.targetText);
     engineRef.current.setGhostDuel(duel);
-    setEngineChars([...engineRef.current.chars]);
+    setEngineChars(engineRef.current.getCharsSnapshot());
     setEngineIndex(0);
     setGhostIndex(0);
     setLiveStats(engineRef.current.getStats());
@@ -1010,6 +1055,14 @@ export default function TypingStudio() {
       });
       soundFx.setProfile(nextProfile);
       soundFx.playKeyClick({ overrideProfile: nextProfile });
+    } else if (reward.type === 'theme') {
+      setPreferences((prev) => {
+        const updated = { ...prev, theme: reward.value as any };
+        try {
+          localStorage.setItem('typepulse_preferences', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
     }
   };
 
@@ -1598,6 +1651,7 @@ export default function TypingStudio() {
             aiSettings={aiSettings}
             onUpdateXp={handleUpdateArcadeXp}
             onFinishSession={handleArcadeSessionFinish}
+            onProgressUpdate={handleArcadeProgressUpdate}
             onBackToPractice={switchToPractice}
             onOpenGhostDuel={() => setIsGhostDuelOpen(true)}
             onOpenMasteryPass={() => setIsMasteryPassOpen(true)}
@@ -2393,6 +2447,7 @@ export default function TypingStudio() {
         initialDuel={activeGhostDuel}
         onStartDuel={handleStartGhostDuel}
         userProgress={userProgress}
+        currentShareUrl={lastResults?.duelShareUrl}
       />
 
       <MasteryPassModal

@@ -33,6 +33,7 @@ export class TypingEngine {
   public combo: number = 0;
   public maxCombo: number = 0;
   public errorsByChar: Record<string, number> = {};
+  public typedByChar: Record<string, number> = {};
   public timeline: WpmSample[] = [];
   public patternStats: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }> = {};
   public replayEvents: ReplayEvent[] = [];
@@ -44,6 +45,7 @@ export class TypingEngine {
   public hesitationSignals: LiveHesitationSignal[] = [];
   public remediatedHesitationCount: number = 0;
   public keystrokeSequence: number = 0;
+  public activeGhostDuel: GhostDuelPayload | null = null;
 
   private keyIntervals: number[] = [];
   private lastKeyTimestamp: number = 0;
@@ -51,8 +53,6 @@ export class TypingEngine {
   private twoKeysAgo: string | null = null;
   private lastProcessedKey: string | null = null;
   private lastProcessedKeyTimestamp: number = 0;
-  private isProcessingQueue: boolean = false;
-  private inputQueue: Array<{ key: string; options: InputOptions; resolve: (res: InputResult) => void }> = [];
   private static readonly MIN_REPEAT_THRESHOLD_MS: number = 25;
 
   /**
@@ -92,6 +92,7 @@ export class TypingEngine {
     this.chars = this.text.split('').map((char, index) => ({
       char,
       status: index === 0 ? 'current' : 'pending',
+      hadError: false,
     }));
     this.currentIndex = 0;
     this.startTime = null;
@@ -103,6 +104,7 @@ export class TypingEngine {
     this.combo = 0;
     this.maxCombo = 0;
     this.errorsByChar = {};
+    this.typedByChar = {};
     this.timeline = [];
     this.patternStats = {};
     this.replayEvents = [];
@@ -115,8 +117,7 @@ export class TypingEngine {
     this.keystrokeSequence = 0;
     this.hesitationSignals = [];
     this.remediatedHesitationCount = 0;
-    this.inputQueue = [];
-    this.isProcessingQueue = false;
+    this.activeGhostDuel = null;
     this.enforceIndexInvariants();
   }
 
@@ -124,7 +125,7 @@ export class TypingEngine {
    * Enforces strict invariants on character statuses relative to currentIndex:
    * 1. 0 <= currentIndex <= chars.length
    * 2. Characters before currentIndex cannot be 'pending' or 'current'
-   * 3. Character at currentIndex must be 'current' (if in bounds)
+   * 3. Character at currentIndex must be 'current' (if in bounds and not incorrect in stop-on-error)
    * 4. Characters after currentIndex must be 'pending' with userTyped cleared
    */
   public enforceIndexInvariants(): void {
@@ -133,12 +134,15 @@ export class TypingEngine {
     for (let i = 0; i < this.currentIndex; i++) {
       const ch = this.chars[i];
       if (ch.status === 'pending' || ch.status === 'current') {
-        ch.status = 'correct';
+        ch.status = ch.hadError ? 'corrected' : 'correct';
       }
     }
 
     if (this.currentIndex < this.chars.length) {
-      this.chars[this.currentIndex].status = 'current';
+      const current = this.chars[this.currentIndex];
+      if (current.status !== 'incorrect') {
+        current.status = 'current';
+      }
     }
 
     for (let i = this.currentIndex + 1; i < this.chars.length; i++) {
@@ -158,6 +162,7 @@ export class TypingEngine {
       status: c.status,
       userTyped: c.userTyped,
       timestamp: c.timestamp,
+      hadError: c.hadError,
     }));
   }
 
@@ -174,8 +179,8 @@ export class TypingEngine {
   }
 
   /**
-   * Public entrypoint for processing keystrokes with concurrency re-entrancy queue,
-   * hardware switch bounce protection, and OS repeat suppression.
+   * Public entrypoint for processing keystrokes with hardware switch bounce protection
+   * and OS repeat suppression.
    */
   public handleInput(
     key: string,
@@ -186,48 +191,24 @@ export class TypingEngine {
         ? { ctrlKey: ctrlKeyOrOptions }
         : ctrlKeyOrOptions || {};
 
-    // Re-entrancy guard: if an input is already actively being processed,
-    // queue the new input and drain in strict FIFO order
-    if (this.isProcessingQueue) {
-      let resolvedResult: InputResult | null = null;
-      this.inputQueue.push({
-        key,
-        options,
-        resolve: (r) => {
-          resolvedResult = r;
-        },
-      });
-      return (
-        resolvedResult || {
-          success: false,
-          isFinished: this.currentIndex >= this.chars.length,
-          charTyped: key,
-          targetChar: this.chars[this.currentIndex]?.char || '',
-          isCorrect: false,
-          ignored: true,
-        }
-      );
-    }
-
-    this.isProcessingQueue = true;
-    try {
-      const initialResult = this.processSingleInput(key, options);
-
-      while (this.inputQueue.length > 0) {
-        const next = this.inputQueue.shift()!;
-        const nextResult = this.processSingleInput(next.key, next.options);
-        next.resolve(nextResult);
-      }
-
-      return initialResult;
-    } finally {
-      this.isProcessingQueue = false;
-    }
+    return this.processSingleInput(key, options);
   }
 
   private processSingleInput(key: string, options: InputOptions): InputResult {
     const now = options.timestamp ?? this.now();
     let currentInterval = 180;
+
+    if (this.endTime !== null) {
+      return {
+        success: false,
+        isFinished: true,
+        charTyped: key,
+        targetChar: '',
+        isCorrect: false,
+        ignored: true,
+        reason: 'finished',
+      };
+    }
 
     // Reject unwanted OS auto-repeat for printable characters to prevent
     // accidental double-typing on consecutive identical letters (e.g. 'tt' in 'letter')
@@ -265,7 +246,7 @@ export class TypingEngine {
       }
     }
 
-    // Ignore modifier keys alone
+    // Ignore modifier and non-typing keys alone
     if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape'].includes(key)) {
       return {
         success: false,
@@ -276,19 +257,6 @@ export class TypingEngine {
         ignored: true,
         reason: 'modifier',
       };
-    }
-
-    // Start timer on first valid keystroke
-    if (this.startTime === null) {
-      this.startTime = now;
-      this.lastKeyTimestamp = now;
-    } else {
-      const interval = now - this.lastKeyTimestamp;
-      if (interval < 5000) {
-        this.keyIntervals.push(interval);
-        currentInterval = interval;
-      }
-      this.lastKeyTimestamp = now;
     }
 
     // Handle Backspace
@@ -310,9 +278,21 @@ export class TypingEngine {
       return backspaceResult;
     }
 
+    // Start timer on first valid printable keystroke (not Backspace or modifier)
+    if (this.startTime === null) {
+      this.startTime = now;
+      this.lastKeyTimestamp = now;
+    } else {
+      const interval = now - this.lastKeyTimestamp;
+      // Cap at 2000 ms to avoid huge pauses distorting cadence metrics (M5)
+      if (interval >= 20 && interval <= 2000) {
+        this.keyIntervals.push(interval);
+        currentInterval = interval;
+      }
+      this.lastKeyTimestamp = now;
+    }
+
     // Submit key maps to the newline character used by multi-line code targets.
-    // Prose targets never contain '\n', so in those modes Enter simply fails the
-    // comparison like any other wrong key rather than being rewritten here.
     const inputKey = key === 'Enter' ? '\n' : key;
 
     if (this.currentIndex >= this.chars.length) {
@@ -327,11 +307,17 @@ export class TypingEngine {
       };
     }
 
+    const currentCh = this.chars[this.currentIndex];
+
     // Stop-on-error mode constraint: if current character was already mistyped,
-    // block typing further characters until corrected via backspace
-    if (this.errorMode === 'stop-on-error') {
-      const currentCh = this.chars[this.currentIndex];
-      if (currentCh && currentCh.status === 'incorrect' && key !== currentCh.char) {
+    // require correction (Backspace or typing correct key) before advancing (C7)
+    if (this.errorMode === 'stop-on-error' && currentCh && currentCh.status === 'incorrect') {
+      if (inputKey !== currentCh.char) {
+        this.totalKeystrokes++;
+        this.incorrectKeystrokes++;
+        this.combo = 0;
+        this.typedByChar[currentCh.char] = (this.typedByChar[currentCh.char] || 0) + 1;
+        this.errorsByChar[currentCh.char] = (this.errorsByChar[currentCh.char] || 0) + 1;
         return {
           success: false,
           isFinished: false,
@@ -342,31 +328,39 @@ export class TypingEngine {
       }
     }
 
-    // Quick Word Skip on Space:
+    // Quick Word Skip on Space (M3):
     // If typist hits Space mid-word, skip remaining characters in the current word,
-    // mark them incorrect, and advance to next word boundary.
+    // mark them incorrect, reset combo to 0, count 1 keystroke for Space, and advance.
     if (this.quickWordSkip && inputKey === ' ' && this.chars[this.currentIndex]?.char !== ' ') {
       let spaceIdx = this.currentIndex;
       while (spaceIdx < this.chars.length && this.chars[spaceIdx].char !== ' ') {
         this.chars[spaceIdx].status = 'incorrect';
+        this.chars[spaceIdx].hadError = true;
         this.chars[spaceIdx].timestamp = now;
-        this.incorrectKeystrokes++;
-        this.totalKeystrokes++;
         spaceIdx++;
       }
       if (spaceIdx < this.chars.length && this.chars[spaceIdx].char === ' ') {
         this.chars[spaceIdx].status = 'correct';
         this.chars[spaceIdx].timestamp = now;
-        this.correctKeystrokes++;
-        this.totalKeystrokes++;
         spaceIdx++;
       }
       this.currentIndex = spaceIdx;
+      this.combo = 0; // Reset combo (M3)
+      this.totalKeystrokes++; // 1 keystroke for Space (M3)
+      this.keystrokeSequence++;
       this.enforceIndexInvariants();
 
       this.lastProcessedKey = ' ';
       this.lastProcessedKeyTimestamp = now;
-      this.keystrokeSequence++;
+
+      // Record skip replay event
+      const deltaMs = this.startTime !== null ? now - this.startTime : 0;
+      this.replayEvents.push({
+        deltaMs,
+        key: ' ',
+        isCorrect: false,
+        index: spaceIdx,
+      });
 
       const isFinished = this.currentIndex >= this.chars.length;
       if (isFinished) this.endTime = now;
@@ -387,25 +381,29 @@ export class TypingEngine {
     const target = this.chars[this.currentIndex];
     const isCorrect = inputKey === target.char;
 
+    // Track per-character typed occurrences (C3 & H11)
+    this.typedByChar[target.char] = (this.typedByChar[target.char] || 0) + 1;
+
     if (isCorrect) {
       this.correctKeystrokes++;
       this.combo++;
       if (this.combo > this.maxCombo) {
         this.maxCombo = this.combo;
       }
-      target.status = target.status === 'incorrect' ? 'corrected' : 'correct';
+      // If char was previously mistyped, mark it 'corrected' (L2)
+      target.status = target.hadError ? 'corrected' : 'correct';
       target.userTyped = inputKey;
       target.timestamp = now;
     } else {
       this.incorrectKeystrokes++;
       this.combo = 0;
       target.status = 'incorrect';
+      target.hadError = true;
       target.userTyped = inputKey;
       target.timestamp = now;
 
-      // Track weak key
-      const expectedChar = target.char.toLowerCase();
-      this.errorsByChar[expectedChar] = (this.errorsByChar[expectedChar] || 0) + 1;
+      // Track weak key using real target character (H11)
+      this.errorsByChar[target.char] = (this.errorsByChar[target.char] || 0) + 1;
     }
 
     this.lastProcessedKey = key;
@@ -421,8 +419,6 @@ export class TypingEngine {
     });
 
     // Record n-gram latency & accuracy patterns (unigram, bigram, trigram).
-    // Normalised from the mapped key so the newline transition itself is what is
-    // measured in code modes, not a five-letter "enter" token.
     const normKey = inputKey.toLowerCase();
     const patternsToTrack: string[] = [normKey];
     if (this.previousKey) {
@@ -482,16 +478,30 @@ export class TypingEngine {
     this.twoKeysAgo = this.previousKey;
     this.previousKey = normKey;
 
+    // C7: In stop-on-error mode, if typed incorrectly, DO NOT advance currentIndex!
+    if (this.errorMode === 'stop-on-error' && !isCorrect) {
+      this.recordSample();
+      return {
+        success: false,
+        isFinished: false,
+        charTyped: key,
+        targetChar: target.char,
+        isCorrect: false,
+        sequenceId: this.keystrokeSequence,
+      };
+    }
+
     this.currentIndex++;
 
-    // Code Auto-Indentation & Bracket Matching bypass
+    // Code Auto-Indentation & Bracket Matching bypass (M4):
+    // Advance index past indentation spaces without granting free keystrokes
     if (isCorrect && this.codeAutoIndent && (inputKey === '\n' || target.char === '\n')) {
       let indentIdx = this.currentIndex;
       while (indentIdx < this.chars.length && this.chars[indentIdx].char === ' ') {
         this.chars[indentIdx].status = 'correct';
+        this.chars[indentIdx].userTyped = undefined;
         this.chars[indentIdx].timestamp = now;
-        this.correctKeystrokes++;
-        this.totalKeystrokes++;
+        // Do NOT increment correctKeystrokes or totalKeystrokes
         indentIdx++;
       }
       this.currentIndex = indentIdx;
@@ -524,6 +534,24 @@ export class TypingEngine {
     targetChar: string;
     isCorrect: boolean;
   } {
+    // If stop-on-error mode and current character has error, clear it without stepping back
+    if (
+      this.errorMode === 'stop-on-error' &&
+      this.currentIndex < this.chars.length &&
+      this.chars[this.currentIndex]?.status === 'incorrect'
+    ) {
+      this.chars[this.currentIndex].status = 'current';
+      this.chars[this.currentIndex].userTyped = undefined;
+      this.correctedErrors++;
+      return {
+        success: true,
+        isFinished: false,
+        charTyped: 'Backspace',
+        targetChar: this.chars[this.currentIndex].char,
+        isCorrect: true,
+      };
+    }
+
     if (this.currentIndex <= 0) {
       return {
         success: false,
@@ -579,6 +607,20 @@ export class TypingEngine {
     return Math.max(0.1, (end - this.startTime) / 1000);
   }
 
+  /**
+   * Finalizes the test session clock (M2).
+   */
+  public finish(timestamp?: number): void {
+    if (this.endTime === null) {
+      this.endTime = timestamp ?? this.now();
+      this.recordSample();
+    }
+  }
+
+  public isFinished(): boolean {
+    return this.endTime !== null || this.currentIndex >= this.chars.length;
+  }
+
   public recordSample() {
     const elapsed = this.getElapsedSeconds();
     if (elapsed < 0.5) return;
@@ -590,7 +632,12 @@ export class TypingEngine {
     }
 
     const elapsedMinutes = elapsed / 60;
-    const wpm = Math.max(0, Math.round((this.correctKeystrokes / 5) / elapsedMinutes));
+    // Derive net correct characters from the text state (C8)
+    const netCorrect = this.chars
+      .slice(0, this.currentIndex)
+      .filter((c) => (c.status === 'correct' || c.status === 'corrected') && c.userTyped !== undefined).length;
+
+    const wpm = Math.max(0, Math.round((netCorrect / 5) / elapsedMinutes));
     const rawWpm = Math.max(0, Math.round((this.totalKeystrokes / 5) / elapsedMinutes));
 
     this.timeline.push({
@@ -609,6 +656,7 @@ export class TypingEngine {
     const newChars = extraText.split('').map((char, index) => ({
       char,
       status: (startIdx + index === this.currentIndex) ? ('current' as const) : ('pending' as const),
+      hadError: false,
     }));
     this.chars.push(...newChars);
   }
@@ -649,13 +697,13 @@ export class TypingEngine {
   }
 
   public getConsistency(): number {
-    if (this.keyIntervals.length < 5) return 90;
+    if (this.keyIntervals.length < 5) return 0; // M6: return 0 when insufficient data
     const mean = this.keyIntervals.reduce((a, b) => a + b, 0) / this.keyIntervals.length;
     const variance = this.keyIntervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / this.keyIntervals.length;
     const stdDev = Math.sqrt(variance);
     // Coefficient of variation (lower stdDev relative to mean = higher consistency)
     const cov = mean > 0 ? stdDev / mean : 1;
-    // Map cov of 0.2 to 100%, cov of 1.2 to 50%
+    // Map cov 0.2 -> 90%, 0.0 -> 100%
     const score = Math.max(10, Math.min(100, Math.round(100 - cov * 50)));
     return score;
   }
@@ -664,9 +712,14 @@ export class TypingEngine {
     const elapsed = this.getElapsedSeconds();
     const elapsedMinutes = elapsed / 60;
 
+    // C8: Derived net correct chars from current text state (excluding untyped auto-indents)
+    const netCorrectChars = this.chars
+      .slice(0, this.currentIndex)
+      .filter((c) => (c.status === 'correct' || c.status === 'corrected') && c.userTyped !== undefined).length;
+
     // Standard formula: 1 word = 5 characters
     const wpm = elapsedMinutes > 0
-      ? Math.max(0, Math.round((this.correctKeystrokes / 5) / elapsedMinutes))
+      ? Math.max(0, Math.round((netCorrectChars / 5) / elapsedMinutes))
       : 0;
 
     const rawWpm = elapsedMinutes > 0
@@ -684,14 +737,25 @@ export class TypingEngine {
       .slice(0, 5)
       .map(([char]) => char);
 
-    // Calculate Keybr confidence scores
+    // H12: Calculate Keybr confidence scores for all practiced keys
     const keyStatsForConfidence: Record<string, { typed: number; errors: number }> = {};
-    Object.keys(this.errorsByChar).forEach((ch) => {
-      keyStatsForConfidence[ch] = {
-        typed: (this.patternStats[ch]?.typed || 0) + this.errorsByChar[ch],
-        errors: this.errorsByChar[ch],
-      };
-    });
+    const allKeys = new Set([
+      ...Object.keys(this.typedByChar),
+      ...Object.keys(this.errorsByChar),
+      ...Object.keys(this.patternStats),
+    ]);
+
+    for (const ch of allKeys) {
+      const typed = this.typedByChar[ch] ?? (this.patternStats[ch]?.typed || 0);
+      const errors = this.errorsByChar[ch] ?? 0;
+      if (typed > 0 || errors > 0) {
+        keyStatsForConfidence[ch] = {
+          typed: Math.max(typed, errors),
+          errors,
+        };
+      }
+    }
+
     const confidenceScores = calculateKeyConfidence(keyStatsForConfidence, this.patternStats);
     const confValues = Object.values(confidenceScores);
     const confidenceScore = confValues.length > 0
@@ -702,7 +766,7 @@ export class TypingEngine {
       wpm,
       rawWpm,
       accuracy,
-      correctChars: this.correctKeystrokes,
+      correctChars: netCorrectChars,
       incorrectChars: this.incorrectKeystrokes,
       correctedErrors: this.correctedErrors,
       totalKeystrokes: this.totalKeystrokes,
@@ -711,6 +775,7 @@ export class TypingEngine {
       maxCombo: this.maxCombo,
       consistency: this.getConsistency(),
       errorsByChar: { ...this.errorsByChar },
+      typedByChar: { ...this.typedByChar },
       weakKeys,
       timeline: [...this.timeline],
       patternStats: { ...this.patternStats },
@@ -724,26 +789,33 @@ export class TypingEngine {
 
   public exportGhostPayload(author: string = 'Challenger'): string {
     const stats = this.getStats();
+    const firstDelta = this.replayEvents[0]?.deltaMs || 0;
+    const isAbsolute = firstDelta > 1000000;
+    const baseOffset = isAbsolute ? firstDelta : 0;
+
     const payload: GhostDuelPayload = {
       version: 1,
-      id: 'ghost_' + Math.random().toString(36).substring(2, 9),
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? `ghost_${crypto.randomUUID()}` : `ghost_${Math.random().toString(36).substring(2, 9)}`,
       targetText: this.text,
       wpm: stats.wpm,
       accuracy: stats.accuracy,
       author,
-      events: this.replayEvents.map((e) => [e.deltaMs, e.index, e.isCorrect]),
+      events: this.replayEvents.map((e) => [
+        Math.max(0, Math.round(e.deltaMs - baseOffset)),
+        e.index,
+        e.isCorrect,
+      ]),
     };
     try {
+      const json = JSON.stringify(payload);
       if (typeof window !== 'undefined') {
-        return btoa(encodeURIComponent(JSON.stringify(payload)));
+        return btoa(encodeURIComponent(json));
       }
-      return '';
+      return Buffer.from(encodeURIComponent(json)).toString('base64');
     } catch {
       return '';
     }
   }
-
-  public activeGhostDuel: GhostDuelPayload | null = null;
 
   public setGhostDuel(duel: GhostDuelPayload | null): void {
     this.activeGhostDuel = duel;
@@ -765,7 +837,9 @@ export class TypingEngine {
   public static parseGhostPayload(raw: string): GhostDuelPayload | null {
     if (!raw) return null;
     try {
-      const decoded = decodeURIComponent(atob(raw));
+      const decoded = decodeURIComponent(
+        typeof window !== 'undefined' ? atob(raw) : Buffer.from(raw, 'base64').toString('utf-8')
+      );
       const parsed = JSON.parse(decoded);
       if (
         parsed &&
@@ -773,7 +847,6 @@ export class TypingEngine {
         typeof parsed.targetText === 'string' &&
         Array.isArray(parsed.events)
       ) {
-        // Validate each event is [deltaMs, charIdx, isCorrect]
         const validEvents = parsed.events.every(
           (e: unknown) =>
             Array.isArray(e) &&

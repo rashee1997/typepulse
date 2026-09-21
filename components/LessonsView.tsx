@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Lesson } from '@/types/typing';
+import { isTierUnlocked, isLessonUnlocked } from '@/lib/curriculum';
 import { BookOpen, CheckCircle, ChevronRight, Lock, Sparkles, Star, Trophy, Zap } from 'lucide-react';
 
 interface LessonsViewProps {
@@ -23,13 +24,6 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
 }) => {
   const tiers = [1, 2, 3, 4, 5, 6, 7] as const;
   const getTierLessons = (tier: number) => lessons.filter((l) => l.tier === tier);
-
-  const isTierUnlocked = (tier: number) => {
-    if (tier === 1) return true;
-    const prevTierLessons = getTierLessons(tier - 1);
-    const completedCount = prevTierLessons.filter((l) => completedLessonIds.includes(l.id)).length;
-    return completedCount >= Math.ceil(prevTierLessons.length * 0.75);
-  };
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fadeIn" id="lessons-view-container">
@@ -57,7 +51,7 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
       <div className="space-y-8">
         {tiers.map((tier) => {
           const tierLessons = getTierLessons(tier);
-          const unlocked = isTierUnlocked(tier);
+          const unlocked = isTierUnlocked(tier, completedLessonIds);
           const completedInTier = tierLessons.filter((l) => completedLessonIds.includes(l.id)).length;
           const tierPercent = Math.round((completedInTier / tierLessons.length) * 100);
 
@@ -109,19 +103,16 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
 
               {/* Lesson Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {tierLessons.map((lesson, idx) => {
+                {tierLessons.map((lesson) => {
                   const isCompleted = completedLessonIds.includes(lesson.id);
                   const stars = lessonStars[lesson.id] || (isCompleted ? 3 : 0);
-
-                  // A lesson is unlocked if it's the first one in tier or previous lesson is completed
-                  const prevLesson = idx > 0 ? tierLessons[idx - 1] : null;
-                  const isLessonUnlocked = unlocked && (!prevLesson || completedLessonIds.includes(prevLesson.id));
+                  const isUnlocked = isLessonUnlocked(lesson, completedLessonIds);
 
                   return (
                     <div
                       key={lesson.id}
                       className={`p-4 rounded-xl border flex flex-col justify-between gap-3 transition-all ${
-                        isLessonUnlocked
+                        isUnlocked
                           ? 'bg-surface-muted border-border hover:border-border-hover hover:bg-surface-hover/80 shadow-sm'
                           : 'bg-surface-muted/30 border-border text-text-subtle'
                       }`}
@@ -178,10 +169,10 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
 
                           <button
                             type="button"
-                            disabled={!isLessonUnlocked}
+                            disabled={!isUnlocked}
                             onClick={() => onSelectLesson(lesson)}
                             className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1 transition-colors text-xs ${
-                              isLessonUnlocked
+                              isUnlocked
                                 ? isCompleted
                                   ? 'bg-surface hover:bg-surface-hover text-text-secondary border border-border'
                                   : 'bg-accent hover:bg-accent-hover text-accent-foreground shadow-glow-accent-sm'

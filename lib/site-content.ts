@@ -25,7 +25,7 @@ export const SITE = {
   repoLabel: 'rashee1997/typepulse',
   version: '0.1.0',
   license: 'MIT',
-  entryPath: '/app',
+  entryPath: '/',
   docsPath: '/docs',
 } as const;
 
@@ -355,7 +355,7 @@ GEMINI_API_KEY=your-key-here`,
     id: 'run',
     step: '03',
     title: 'Run',
-    code: `bun dev      # landing / · docs /docs · studio /app
+    code: `bun dev      # studio / · docs /docs
 bun run build && bun run start   # production`,
   },
 ];

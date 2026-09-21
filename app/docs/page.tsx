@@ -386,9 +386,6 @@ export default function DocumentationPage() {
             </p>
             <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <Link href="/" className="transition-colors hover:text-accent-text">
-                Home
-              </Link>
-              <Link href={SITE.entryPath} className="transition-colors hover:text-accent-text">
                 Studio
               </Link>
               <a href="/llms.txt" className="transition-colors hover:text-accent-text">

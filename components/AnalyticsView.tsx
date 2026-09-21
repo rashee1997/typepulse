@@ -26,6 +26,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { SpeedForecastCard } from '@/components/SpeedForecastCard';
+import { TypingDNAPanel } from '@/components/TypingDNAPanel';
 
 interface AnalyticsViewProps {
   userProgress: UserProgress;
@@ -252,6 +253,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 8-Dimension Typing DNA Performance Rubric */}
+      <TypingDNAPanel userProgress={userProgress} />
 
       {/* International Typing Certification Status */}
       <div className="p-6 bg-surface border border-border rounded-2xl shadow-card space-y-4">

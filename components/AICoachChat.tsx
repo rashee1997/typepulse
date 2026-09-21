@@ -6,7 +6,9 @@ import Markdown from 'react-markdown';
 import { AISettings, UserProgress } from '@/types/typing';
 import { askAiCoachQuestion, describeProvider, type ChatMessage } from '@/lib/ai-service';
 import { buildStarterBriefing, buildSuggestedQuestions, buildTypistProfile, summarizeProfile } from '@/lib/ai-prompts';
-import { Bot, MessageSquare, Send, Sparkles, X, User } from 'lucide-react';
+import { computeTypingDnaProfile } from '@/lib/typing-dna';
+import { TypingDNAPanel } from './TypingDNAPanel';
+import { Bot, MessageSquare, Send, Sparkles, X, User, Dna, ChevronDown } from 'lucide-react';
 
 interface AICoachChatProps {
   isOpen: boolean;
@@ -36,7 +38,8 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
   // The coach answers from measured data, so the whole panel is built from a
   // profile of the typist rather than a fixed greeting. `useMemo` keeps it in
   // sync when a session completes while the panel is open.
-  const profile = useMemo(() => buildTypistProfile(userProgress), [userProgress]);
+  const typingDna = useMemo(() => computeTypingDnaProfile(userProgress), [userProgress]);
+  const profile = useMemo(() => buildTypistProfile(userProgress, undefined, typingDna), [userProgress, typingDna]);
   const briefing = useMemo(() => buildStarterBriefing(profile), [profile]);
   const suggestions = useMemo(() => buildSuggestedQuestions(profile), [profile]);
   const contextSummary = useMemo(() => summarizeProfile(profile), [profile]);
@@ -47,6 +50,7 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDna, setShowDna] = useState(false);
 
   // Async safety: one AbortController per in-flight request, plus a monotonic
   // session token so out-of-order or post-unmount replies are discarded instead
@@ -204,6 +208,53 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
           >
             Reading: {contextSummary}
           </p>
+        </div>
+
+        {/* Typing DNA Rubric Bar & Drawer */}
+        <div id="ai-coach-dna-toggle-bar" className="border-b border-border bg-surface-muted/30">
+          <button
+            type="button"
+            onClick={() => setShowDna((prev) => !prev)}
+            className="w-full px-3 sm:px-4 py-2 flex items-center justify-between text-xs hover:bg-surface-muted/60 transition-colors text-left"
+            aria-expanded={showDna}
+            aria-controls="ai-coach-dna-drawer"
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Dna className="w-3.5 h-3.5 text-accent shrink-0" />
+              <span className="font-semibold text-text-primary truncate">
+                Typing DNA Rubric
+              </span>
+              {typingDna.weakestCategory && (
+                <span className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-danger-subtle text-danger font-mono text-[10px] border border-danger-border/40 truncate">
+                  Bottleneck: {typingDna.weakestCategory.title}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 text-text-muted">
+              <span className="text-[11px] font-mono">
+                {showDna ? 'Hide' : 'View'}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                  showDna ? 'rotate-180' : ''
+                }`}
+              />
+            </div>
+          </button>
+          {showDna && (
+            <div
+              id="ai-coach-dna-drawer"
+              className="p-3 border-t border-border max-h-72 overflow-y-auto bg-surface/50 scrollbar-thin"
+            >
+              <TypingDNAPanel
+                profile={typingDna}
+                compact={true}
+                onSelectCategory={(cat) => {
+                  setInput(`How can I improve my ${cat.title}?`);
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Messages Stream */}

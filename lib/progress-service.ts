@@ -276,6 +276,25 @@ export function buildArcadeTypingStats(m: ArcadeMeasurement): TypingStats {
   };
 }
 
+/**
+ * Computes an endurance ratio comparing the final third of a run to the first third.
+ * Returns null when the run has too few timeline samples (<6) or duration <45s.
+ */
+export function computeEnduranceRatio(stats: TypingStats): number | null {
+  const MIN_SAMPLES = 6;     // need enough timeline density
+  const MIN_DURATION_S = 45; // shorter runs don't show fatigue
+  if (!stats.timeline || stats.timeline.length < MIN_SAMPLES || stats.elapsedSeconds < MIN_DURATION_S) return null;
+  const third = Math.floor(stats.timeline.length / 3);
+  if (third === 0) return null;
+  const first = stats.timeline.slice(0, third);
+  const last = stats.timeline.slice(-third);
+  const avg = (xs: { wpm: number }[]) => xs.reduce((a, s) => a + s.wpm, 0) / xs.length;
+  const firstAvg = avg(first);
+  const lastAvg = avg(last);
+  if (firstAvg <= 0) return null;
+  return Math.min(1, Math.max(0, lastAvg / firstAvg)); // cap at 1.0 — speeding up over a run isn't a stamina *problem*
+}
+
 // Update progress after completing a session
 export function processCompletedSession(
   prev: UserProgress,
@@ -395,6 +414,9 @@ export function processCompletedSession(
     score: Math.round(stats.wpm * (stats.accuracy / 100) * 10 + stats.maxCombo * 2),
     xpEarned,
     weakKeys: stats.weakKeys,
+    consistency: stats.consistency,
+    peakWpm: stats.timeline?.length ? Math.max(...stats.timeline.map((s) => s.wpm)) : stats.wpm,
+    enduranceRatio: computeEnduranceRatio(stats),
   };
 
   // Check for new achievements via isolated engine
@@ -466,6 +488,9 @@ export function recordArcadeGameResult(
     multiplier?: number;
     errorsByChar?: Record<string, number>;
     patternStats?: Record<string, { typed: number; errors: number; totalLatencyMs: number; avgLatencyMs: number }>;
+    consistency?: number;
+    peakWpm?: number;
+    enduranceRatio?: number | null;
   }
 ): {
   updatedProgress: UserProgress;
@@ -587,6 +612,9 @@ export function recordArcadeGameResult(
     score: gameStats.score,
     xpEarned,
     weakKeys: [],
+    consistency: gameStats.consistency ?? 0,
+    peakWpm: gameStats.peakWpm ?? (gameStats.wpm ?? 0),
+    enduranceRatio: gameStats.enduranceRatio ?? null,
   };
 
   const updatedProgress: UserProgress = {

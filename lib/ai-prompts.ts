@@ -23,7 +23,7 @@
  * not better.
  */
 
-import { AISettings, Lesson, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
+import { AISettings, Lesson, TypingDnaProfile, TypingSessionSummary, TypingStats, UserProgress } from '@/types/typing';
 import { LESSONS_CURRICULUM } from './curriculum';
 
 /** One key the typist actually mistypes, with the evidence behind it. */
@@ -87,6 +87,7 @@ export interface TypistProfile {
   keybrFocusKey: string | null;
   keybrUnlockedCount: number | null;
   arcadeSummary: string | null;
+  typingDna?: TypingDnaProfile | null;
   current: {
     modeTitle: string | null;
     lessonTitle: string | null;
@@ -134,7 +135,11 @@ function average(values: number[]): number | null {
  *
  * Pure and synchronous, so callers can build it during render.
  */
-export function buildTypistProfile(progress: UserProgress | null | undefined, context?: StudioContext): TypistProfile {
+export function buildTypistProfile(
+  progress: UserProgress | null | undefined,
+  context?: StudioContext,
+  typingDna?: TypingDnaProfile | null
+): TypistProfile {
   const empty: TypistProfile = {
     hasData: false,
     level: progress?.level ?? 1,
@@ -157,6 +162,7 @@ export function buildTypistProfile(progress: UserProgress | null | undefined, co
     keybrFocusKey: null,
     keybrUnlockedCount: null,
     arcadeSummary: null,
+    typingDna: typingDna ?? null,
     current: null,
     lastRun: null,
   };
@@ -353,6 +359,12 @@ export function formatTypistProfile(profile: TypistProfile): string {
     );
   }
 
+  if (profile.typingDna?.weakestCategory && profile.typingDna.sessionsAnalyzed >= 5) {
+    lines.push(
+      `Typing DNA primary bottleneck: ${profile.typingDna.weakestCategory.title} (${profile.typingDna.weakestCategory.score}/100)`
+    );
+  }
+
   return lines.join('\n');
 }
 
@@ -423,6 +435,12 @@ export function buildStarterBriefing(profile: TypistProfile): string {
       profile.nextLessonTitle ? ` (next: ${profile.nextLessonTitle})` : ''
     }${profile.dailyStreak > 0 ? ` · ${profile.dailyStreak}-day streak` : ''}`
   );
+
+  if (profile.typingDna?.weakestCategory && profile.typingDna.sessionsAnalyzed >= 5) {
+    lines.push(
+      `- **DNA Rubric:** your primary bottleneck is **${profile.typingDna.weakestCategory.title}** (${profile.typingDna.weakestCategory.score}/100)`
+    );
+  }
 
   if (profile.current?.modeTitle) {
     lines.push('', `You are in **${profile.current.modeTitle}** right now.`);

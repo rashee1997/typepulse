@@ -46,8 +46,7 @@ ${bullets([
   `Stack: Next.js 15 (App Router, standalone output), React 19.2, TypeScript 5.9, Tailwind CSS 4.1, @google/genai 2.x, motion 12, canvas-confetti 1.9`,
   `Runtime requirement: Node.js 20+. No database, object storage, or queue.`,
   `Documentation entry point: ${SITE_URL}${SITE.docsPath}`,
-  `Interactive studio: ${SITE_URL}${SITE.entryPath}`,
-  `Landing page: ${SITE_URL}/ (hero only)`,
+  `Interactive studio: ${SITE_URL}/ (direct-to-app, zero friction)`,
   `Long-form machine-readable docs: ${SITE_URL}/llms-full.txt`,
 ])}
 
@@ -103,7 +102,7 @@ ${bullets(CODE_SAMPLES.map((sample) => `${sample.label}: see ${SITE_URL}${SITE.d
 git clone ${SITE.repoUrl} runewright
 cd runewright
 bun install
-bun dev   # landing / · docs /docs · studio /app
+bun dev   # studio / · docs /docs
 \`\`\`
 
 Optional runtime secret: \`GEMINI_API_KEY\`, read server-side only by
@@ -118,8 +117,8 @@ ${FAQ.map((entry) => `### ${entry.question}\n\n${faqAnswerText(entry)}`).join('\
 
 ## Documentation index
 
+- [Interactive studio](${SITE_URL}/): the application itself (direct-to-app, zero landing friction)
 - [${SITE.name} documentation](${SITE_URL}${SITE.docsPath}): architecture, engine API, HTTP API, quickstart, FAQ
-- [Interactive studio](${SITE_URL}${SITE.entryPath}): the application itself
 - [Full machine-readable documentation](${SITE_URL}/llms-full.txt): this document expanded with complete code samples and parameter tables
 - [Source repository](${SITE.repoUrl})
 `;

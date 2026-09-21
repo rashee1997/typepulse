@@ -224,6 +224,37 @@ export interface TypingSessionSummary {
   score: number;
   xpEarned: number;
   weakKeys: string[];
+  consistency?: number;        // 0-100, copy of TypingStats.consistency at save time
+  peakWpm?: number;            // max WpmSample.wpm seen in this run's timeline
+  enduranceRatio?: number | null; // null when the run was too short to measure (<45s or <6 samples)
+}
+
+export type TypingDnaCategoryId =
+  | 'speed'
+  | 'accuracy'
+  | 'consistency'
+  | 'transitions'
+  | 'punctuation'
+  | 'numbers'
+  | 'capitalization'
+  | 'endurance';
+
+export type TypingDnaLabel = 'strong' | 'average' | 'weak' | 'insufficient-data';
+
+export interface TypingDnaCategoryScore {
+  id: TypingDnaCategoryId;
+  title: string;          // display name, e.g. "Key Transitions"
+  score: number | null;   // 0-100, null when insufficient-data
+  label: TypingDnaLabel;
+  sampleSize: number;      // sessions or chars/bigrams the score is based on
+  detail: string;          // one short sentence, e.g. "based on 23 sessions"
+}
+
+export interface TypingDnaProfile {
+  categories: TypingDnaCategoryScore[];
+  weakestCategory: TypingDnaCategoryScore | null; // lowest scored, excluding insufficient-data
+  sessionsAnalyzed: number; // how many of history were actually used (<= 40)
+  generatedAt: number;
 }
 
 export interface KeybrProgressionState {

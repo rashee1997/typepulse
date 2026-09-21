@@ -151,7 +151,7 @@ export const StoryStreamGame: React.FC<StoryStreamGameProps> = ({
     if (!res.success) return;
 
     if (res.isCorrect) {
-      soundFx.playKeyClick();
+      soundFx.playKeyClick({ key: e.key });
     } else {
       soundFx.playError();
     }
@@ -187,6 +187,11 @@ export const StoryStreamGame: React.FC<StoryStreamGameProps> = ({
     }
   };
 
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isLoading || isBranching) return;
+    soundFx.playKeyRelease(e.key);
+  };
+
   const handleSelectBranch = (branchPrompt: string) => {
     setChapterIndex((c) => c + 1);
     loadChapter(selectedGenre, branchPrompt);
@@ -214,6 +219,7 @@ export const StoryStreamGame: React.FC<StoryStreamGameProps> = ({
         type="text"
         className="sr-only"
         onKeyDown={handleKeyDown}
+        onKeyUp={handleKeyUp}
         value=""
         onChange={() => {}}
         autoFocus

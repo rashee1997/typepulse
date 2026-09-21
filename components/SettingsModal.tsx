@@ -559,7 +559,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               onClick={() => {
                                 setPrefsData((prev) => ({ ...prev, switchSoundProfile: sw.id }));
                                 soundFx.setProfile(sw.id);
-                                soundFx.playKeyClick(sw.id);
+                                soundFx.playKeyClick({ overrideProfile: sw.id });
                               }}
                               className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                                 isSelected
@@ -573,7 +573,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    soundFx.playKeyClick(sw.id);
+                                    soundFx.playKeyClick({ overrideProfile: sw.id });
                                   }}
                                   className="p-1 rounded bg-surface border border-border text-accent hover:opacity-80"
                                   title="Test switch audio"
